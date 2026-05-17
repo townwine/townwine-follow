@@ -99,45 +99,9 @@ function renderQuotePage() {
       }
 
       .quote-shell {
-        max-width: 1440px;
-        margin: 0 auto;
-        padding: 28px 48px 48px;
-      }
-
-      .quote-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 24px;
-        margin-bottom: 18px;
-      }
-
-      .quote-kicker {
-        font-size: 12px;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin-bottom: 10px;
-      }
-
-      .quote-title {
+        width: 100%;
         margin: 0;
-        font-size: clamp(34px, 4vw, 56px);
-        line-height: 1.02;
-        letter-spacing: -0.05em;
-      }
-
-      .quote-sub {
-        margin: 10px 0 0;
-        font-size: 16px;
-        line-height: 1.7;
-        color: var(--muted);
-      }
-
-      .quote-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+        padding: 0;
       }
 
       .btn {
@@ -159,17 +123,18 @@ function renderQuotePage() {
       }
 
       .frame-wrap {
-        border: 1px solid var(--line);
+        border: 0;
+        border-top: 1px solid var(--line);
         background: #fff;
-        min-height: calc(100vh - 250px);
+        min-height: calc(100vh - 98px);
         overflow: hidden;
       }
 
       iframe {
         display: block;
         width: 100%;
-        height: calc(100vh - 250px);
-        min-height: 720px;
+        height: calc(100vh - 98px);
+        min-height: 760px;
         border: 0;
         background: #fff;
       }
@@ -192,11 +157,7 @@ function renderQuotePage() {
         }
 
         .quote-shell {
-          padding: 22px 20px 28px;
-        }
-
-        .quote-head {
-          flex-direction: column;
+          padding: 0;
         }
       }
 
@@ -209,18 +170,9 @@ function renderQuotePage() {
           font-size: 15px;
           gap: 16px;
         }
-
-        .quote-title {
-          font-size: 34px;
-        }
-
-        .quote-sub {
-          font-size: 15px;
-        }
-
         iframe {
           min-height: 640px;
-          height: calc(100vh - 220px);
+          height: calc(100vh - 90px);
         }
       }
     </style>
@@ -251,17 +203,6 @@ function renderQuotePage() {
     </header>
 
     <main class="quote-shell">
-      <div class="quote-head">
-        <div>
-          <div class="quote-kicker">Country Quote</div>
-          <h1 class="quote-title">국가별 와인 견적</h1>
-          <p class="quote-sub">메뉴바는 그대로 유지하고, 이 페이지 아래에서 바로 견적 계산기를 확인할 수 있도록 연결했습니다.</p>
-        </div>
-        <div class="quote-actions">
-          <a class="btn btn--dark" href="${QUOTE_URL}" target="_blank" rel="noopener noreferrer">새 창으로 열기</a>
-        </div>
-      </div>
-
       <section class="frame-wrap" aria-label="국가별 와인 견적 계산기">
         <iframe
           src="${QUOTE_URL}"
