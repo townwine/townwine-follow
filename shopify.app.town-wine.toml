@@ -2,7 +2,7 @@
 
 client_id = "e30f4038a4f3eff23acd3e83d56c3f1e"
 name = "townwine-follow"
-application_url = "https://bb3b4ab8db58e8.lhr.life"
+application_url = "https://townwine-follow.onrender.com"
 embedded = true
 
 [build]
@@ -33,7 +33,7 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://bb3b4ab8db58e8.lhr.life/auth/callback" ]
+redirect_urls = [ "https://townwine-follow.onrender.com/auth/callback" ]
 
 [app_proxy]
 url = "/apps/townwine-follow"

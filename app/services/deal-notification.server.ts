@@ -16,6 +16,8 @@ export async function processDealNotification(params: {
   admin: { graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response> };
   shop: string;
   productId: string;
+  resolvedInfluencerHandle?: string;
+  resolvedInfluencerName?: string;
 }) {
   function formatOpenAtLabel(value: string) {
     const parsedDate = new Date(value);
@@ -68,12 +70,14 @@ export async function processDealNotification(params: {
   }
 
   const scheduledOpenAt = product.openAtKst?.value ? Date.parse(product.openAtKst.value) : NaN;
-  const influencerHandle = resolveProductInfluencerHandle({
-    influencerHandle: product.metafield?.value,
-    hostHandle: product.hostHandle?.value,
-    hostName: product.hostName?.value,
-    tags: Array.isArray(product.tags) ? product.tags : [],
-  });
+  const influencerHandle =
+    String(params.resolvedInfluencerHandle || "").trim() ||
+    resolveProductInfluencerHandle({
+      influencerHandle: product.metafield?.value,
+      hostHandle: product.hostHandle?.value,
+      hostName: product.hostName?.value,
+      tags: Array.isArray(product.tags) ? product.tags : [],
+    });
   if (!influencerHandle) {
     return { ok: true, skipped: "NO_INFLUENCER_HANDLE" };
   }
@@ -123,7 +127,11 @@ export async function processDealNotification(params: {
     await sendNewDealEmail({
       to: customer.email,
       customerFirstName: customer.firstName || "",
-      influencerName: follower.influencerName || influencerHandle,
+      influencerName:
+        follower.influencerName ||
+        String(params.resolvedInfluencerName || "").trim() ||
+        product.hostName?.value ||
+        influencerHandle,
       productTitle: product.title,
       productUrl,
       openAtLabel,

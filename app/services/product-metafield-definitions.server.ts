@@ -10,6 +10,7 @@ type ProductMetafieldDefinition = {
   name: string;
   description: string;
   type: string;
+  shouldPin?: boolean;
 };
 
 type DefinitionLookupResponse = {
@@ -17,6 +18,7 @@ type DefinitionLookupResponse = {
     id: string;
     name: string;
     description: string | null;
+    pinnedPosition: number | null;
     access: {
       storefront: string;
     };
@@ -41,22 +43,31 @@ const METAFIELD_NAMESPACE = "custom";
 
 const PRODUCT_METAFIELD_DEFINITIONS: ProductMetafieldDefinition[] = [
   {
+    key: "collector_tag",
+    name: "컬렉터 태그",
+    description:
+      "상품에 연결할 컬렉터 닉네임 또는 핸들을 입력합니다. 예: 윤지, @yunji.wine, yunji. 저장 시 앱이 실제 컬렉터 정보로 자동 연결합니다.",
+    type: "single_line_text_field",
+    shouldPin: true,
+  },
+  {
     key: "host_name",
-    name: "추천 컬렉터 이름",
-    description: "상품에 연결된 추천 컬렉터 이름입니다. 예: 소믈리에 윤지",
+    name: "추천 컬렉터 이름 (자동)",
+    description: "컬렉터 태그를 기준으로 앱이 자동으로 채우는 표시용 컬렉터 이름입니다.",
     type: "single_line_text_field",
   },
   {
     key: "host_handle",
-    name: "추천 컬렉터 공개 핸들",
-    description: "상품에 연결된 추천 컬렉터 공개 핸들입니다. 예: @yunji.wine",
+    name: "추천 컬렉터 공개 핸들 (자동)",
+    description:
+      "컬렉터 태그를 기준으로 앱이 자동으로 채우는 표시용 공개 핸들입니다. 예: @yunji.wine",
     type: "single_line_text_field",
   },
   {
     key: "influencer_handle",
-    name: "추천 컬렉터 내부 핸들",
+    name: "추천 컬렉터 내부 핸들 (자동)",
     description:
-      "팔로우, 컬렉터 통계, 메일 알림 연동에 사용하는 내부 핸들입니다. 예: yunji 또는 yunji.wine",
+      "팔로우, 컬렉터 통계, 메일 알림 연동에 사용하는 내부 핸들입니다. 수동 입력 대신 컬렉터 태그를 사용하세요.",
     type: "single_line_text_field",
   },
   {
@@ -232,6 +243,7 @@ async function findDefinition(
           id
           name
           description
+          pinnedPosition
           access {
             storefront
           }
@@ -339,11 +351,59 @@ async function updateDefinition(
   return payload.updatedDefinition?.id || "";
 }
 
+async function pinDefinition(
+  admin: AdminGraphqlClient,
+  definition: ProductMetafieldDefinition,
+) {
+  const data = await runAdminQuery<{
+    metafieldDefinitionPin: {
+      pinnedDefinition: {
+        id: string;
+      } | null;
+      userErrors: Array<{
+        field?: string[];
+        message?: string;
+      }>;
+    };
+  }>(
+    admin,
+    `#graphql
+      mutation PinProductMetafieldDefinition($identifier: MetafieldDefinitionIdentifierInput!) {
+        metafieldDefinitionPin(identifier: $identifier) {
+          pinnedDefinition {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      identifier: {
+        ownerType: PRODUCT_OWNER_TYPE,
+        namespace: METAFIELD_NAMESPACE,
+        key: definition.key,
+      },
+    },
+  );
+
+  const payload = data.metafieldDefinitionPin;
+
+  if (payload.userErrors.length) {
+    throw new Error(createUserErrorMessage(definition.key, payload.userErrors));
+  }
+
+  return payload.pinnedDefinition?.id || "";
+}
+
 export async function ensureProductMetafieldDefinitions(
   admin: AdminGraphqlClient,
 ) {
   const createdKeys: string[] = [];
   const updatedKeys: string[] = [];
+  const pinnedKeys: string[] = [];
 
   for (const definition of PRODUCT_METAFIELD_DEFINITIONS) {
     const existingDefinition = await findDefinition(admin, definition.key);
@@ -351,6 +411,11 @@ export async function ensureProductMetafieldDefinitions(
     if (!existingDefinition) {
       await createDefinition(admin, definition);
       createdKeys.push(definition.key);
+
+      if (definition.shouldPin) {
+        await pinDefinition(admin, definition);
+        pinnedKeys.push(definition.key);
+      }
       continue;
     }
 
@@ -360,16 +425,26 @@ export async function ensureProductMetafieldDefinitions(
       existingDefinition.access.storefront !== "PUBLIC_READ";
 
     if (!needsUpdate) {
+      if (definition.shouldPin && existingDefinition.pinnedPosition == null) {
+        await pinDefinition(admin, definition);
+        pinnedKeys.push(definition.key);
+      }
       continue;
     }
 
     await updateDefinition(admin, definition);
     updatedKeys.push(definition.key);
+
+    if (definition.shouldPin && existingDefinition.pinnedPosition == null) {
+      await pinDefinition(admin, definition);
+      pinnedKeys.push(definition.key);
+    }
   }
 
   return {
     createdKeys,
     updatedKeys,
+    pinnedKeys,
     totalDefinitions: PRODUCT_METAFIELD_DEFINITIONS.length,
   };
 }
