@@ -5,12 +5,33 @@ import {
   getFollowingHandles,
   normalizeInfluencerHandle,
 } from "../services/follow.server";
+import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
 
   try {
-    await authenticate.public.appProxy(request);
+    const { admin } = await authenticate.public.appProxy(request);
+    const shouldEnsureMetafields = url.searchParams.get("ensureMetafields") === "1";
+    let bootstrap:
+      | {
+          ok: true;
+          createdKeys: string[];
+          updatedKeys: string[];
+          totalDefinitions: number;
+        }
+      | undefined;
+
+    if (admin && shouldEnsureMetafields) {
+      const ensured = await ensureProductMetafieldDefinitions(admin);
+
+      bootstrap = {
+        ok: true,
+        createdKeys: ensured.createdKeys,
+        updatedKeys: ensured.updatedKeys,
+        totalDefinitions: ensured.totalDefinitions,
+      };
+    }
 
     const shop = url.searchParams.get("shop");
     const customerId = url.searchParams.get("logged_in_customer_id");
@@ -18,7 +39,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const handles = payload.handles;
 
     if (!shop || !handles.length) {
-      return Response.json({ following: [], loggedIn: Boolean(customerId) });
+      return Response.json({ following: [], loggedIn: Boolean(customerId), bootstrap });
     }
 
     if (!customerId) {
@@ -28,7 +49,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         query: url.search,
       });
 
-      return Response.json({ following: [], loggedIn: false });
+      return Response.json({ following: [], loggedIn: false, bootstrap });
     }
 
     const following = await getFollowingHandles({
@@ -45,7 +66,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       following,
     });
 
-    return Response.json({ following, loggedIn: true });
+    return Response.json({ following, loggedIn: true, bootstrap });
   } catch (error) {
     console.error("[follow] status request failed", {
       method: request.method,
