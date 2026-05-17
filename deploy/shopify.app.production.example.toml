@@ -1,0 +1,44 @@
+# Copy this file into your production app config workflow.
+# Do not reuse the existing shopify.app.toml as-is, because it is linked to the current development app.
+
+client_id = "REPLACE_WITH_NEW_APP_CLIENT_ID"
+name = "townwine-follow-production"
+application_url = "https://replace-with-your-host.example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/create"
+  topics = [ "products/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/update"
+  topics = [ "products/update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+[access_scopes]
+scopes = "read_content,read_customers,read_metaobject_definitions,read_metaobjects,read_orders,read_products,write_app_proxy,write_content,write_metaobject_definitions,write_metaobjects,write_products"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://replace-with-your-host.example.com/auth/callback",
+]
+
+[app_proxy]
+url = "/apps/townwine-follow"
+subpath = "townwine-follow"
+prefix = "apps"

@@ -1,0 +1,68 @@
+import type { LoaderFunctionArgs } from "react-router";
+import { authenticate } from "../shopify.server";
+import { getCollectorStatsSnapshots } from "../services/collector-stats.server";
+import { readCollectorStatsRequest } from "../services/follow-request.server";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const url = new URL(request.url);
+
+  try {
+    const { admin } = await authenticate.public.appProxy(request);
+    const shop = url.searchParams.get("shop");
+    const payload = await readCollectorStatsRequest(request);
+
+    if (
+      !admin ||
+      !shop ||
+      (!payload.productIds.length && !payload.handles.length)
+    ) {
+      return Response.json({ snapshots: {} });
+    }
+
+    const snapshots = await getCollectorStatsSnapshots({
+      admin,
+      shop,
+      productIds: payload.productIds,
+      handles: payload.handles,
+    });
+
+    const snapshotMap = snapshots.reduce<Record<string, typeof snapshots[number]>>(
+      (result, snapshot) => {
+        if (snapshot.productId) {
+          result[snapshot.productId] = snapshot;
+        }
+
+        if (snapshot.legacyProductId) {
+          result[snapshot.legacyProductId] = snapshot;
+        }
+
+        if (snapshot.handleKey) {
+          result[snapshot.handleKey] = snapshot;
+        }
+
+        return result;
+      },
+      {},
+    );
+
+    return Response.json({
+      snapshots: snapshotMap,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[collector-stats] request failed", {
+      method: request.method,
+      url: request.url,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    return Response.json(
+      {
+        snapshots: {},
+        error: "COLLECTOR_STATS_FAILED",
+      },
+      { status: 500 },
+    );
+  }
+}
