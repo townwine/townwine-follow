@@ -6,6 +6,7 @@ application_url = "https://townwine-follow.onrender.com"
 embedded = true
 
 [build]
+include_config_on_deploy = true
 automatically_update_urls_on_dev = true
 
 [webhooks]

@@ -1,0 +1,11 @@
+api_version = "2025-07"
+
+[[extensions]]
+name = "Collector Tag"
+handle = "collector-tag-admin"
+uid = "7ec7c8ba-5627-4151-b83f-620ed6c8ad19"
+type = "ui_extension"
+
+[[extensions.targeting]]
+module = "./src/BlockExtension.jsx"
+target = "admin.product-details.block.render"

@@ -1,0 +1,12 @@
+{
+  "name": "collector-tag-admin",
+  "private": true,
+  "version": "1.0.0",
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@shopify/ui-extensions": "2025.7.4",
+    "@shopify/ui-extensions-react": "2025.7.4",
+    "react": "18.3.1"
+  }
+}
