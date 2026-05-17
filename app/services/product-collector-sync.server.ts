@@ -170,6 +170,14 @@ function findExactCollectorProfile(
     return matchedProfiles[0];
   }
 
+  const activeMatchedProfiles = matchedProfiles.filter(
+    (profile) => profile.status === "ACTIVE",
+  );
+
+  if (activeMatchedProfiles.length === 1) {
+    return activeMatchedProfiles[0];
+  }
+
   return null;
 }
 
@@ -185,17 +193,31 @@ async function findCollectorProfileByAlias(
 
   const profiles = await listCollectorProfiles(admin);
 
-  const handleOrPublicHandleMatch = findExactCollectorProfile(profiles, normalizedAlias, [
+  const handleMatch = findExactCollectorProfile(profiles, normalizedAlias, [
     (profile) => profile.handle,
+  ]);
+
+  if (handleMatch) {
+    return handleMatch;
+  }
+
+  const publicHandleMatch = findExactCollectorProfile(profiles, normalizedAlias, [
     (profile) => profile.fields.publicHandle,
   ]);
 
-  if (handleOrPublicHandleMatch) {
-    return handleOrPublicHandleMatch;
+  if (publicHandleMatch) {
+    return publicHandleMatch;
+  }
+
+  const displayNameMatch = findExactCollectorProfile(profiles, normalizedAlias, [
+    (profile) => profile.fields.displayName,
+  ]);
+
+  if (displayNameMatch) {
+    return displayNameMatch;
   }
 
   return findExactCollectorProfile(profiles, normalizedAlias, [
-    (profile) => profile.fields.displayName,
     (profile) => profile.fields.customerName,
   ]);
 }
