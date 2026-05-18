@@ -1,8 +1,9 @@
 import {
-  getFollowersForInfluencer,
+  getFollowersForInfluencerAliases,
   normalizeInfluencerHandle,
 } from "./follow.server";
 import {
+  collectProductInfluencerAliases,
   productMatchesInfluencerHandle,
   resolveProductInfluencerHandle,
 } from "./product-collector.server";
@@ -22,6 +23,7 @@ type ProductNode = {
   id: string;
   vendor: string | null;
   tags: string[];
+  collectorTag: ProductMetafieldValue;
   hostName: ProductMetafieldValue;
   hostHandle: ProductMetafieldValue;
   influencerHandle: ProductMetafieldValue;
@@ -34,6 +36,7 @@ type ProductContext = {
   legacyId: string;
   vendor: string;
   tags: string[];
+  collectorTag: string;
   hostName: string;
   hostHandle: string;
   influencerHandle: string;
@@ -158,6 +161,7 @@ function mapProductContext(node: ProductNode): ProductContext | null {
     legacyId: toLegacyProductId(node.id),
     vendor: String(node.vendor || "").trim(),
     tags: Array.isArray(node.tags) ? node.tags : [],
+    collectorTag: String(node.collectorTag?.value || "").trim(),
     hostName: String(node.hostName?.value || "").trim(),
     hostHandle: String(node.hostHandle?.value || "").trim(),
     influencerHandle: String(node.influencerHandle?.value || "").trim(),
@@ -191,6 +195,9 @@ async function fetchCollectorTargets(
             id
             vendor
             tags
+            collectorTag: metafield(namespace: "custom", key: "collector_tag") {
+              value
+            }
             hostName: metafield(namespace: "custom", key: "host_name") {
               value
             }
@@ -235,6 +242,9 @@ async function fetchAllCollectorProducts(admin: AdminGraphqlClient) {
               id
               vendor
               tags
+              collectorTag: metafield(namespace: "custom", key: "collector_tag") {
+                value
+              }
               hostName: metafield(namespace: "custom", key: "host_name") {
                 value
               }
@@ -272,6 +282,10 @@ async function fetchAllCollectorProducts(admin: AdminGraphqlClient) {
 
 function getPrimaryInfluencerHandle(product: ProductContext) {
   return resolveProductInfluencerHandle(product, { includeNameFallback: true });
+}
+
+function getCollectorAliasKeys(product: ProductContext) {
+  return collectProductInfluencerAliases(product, { includeNameFallback: true });
 }
 
 function getMatchingProducts(
@@ -314,11 +328,27 @@ function getMatchingDealCount(
 ) {
   return getMatchingProducts(
     {
-      handle: target.influencerHandle || target.hostHandle,
-      name: target.hostName || target.vendor,
+      handle: target.influencerHandle || target.hostHandle || target.collectorTag,
+      name: target.collectorTag || target.hostName || target.vendor,
     },
     catalog,
   ).length;
+}
+
+function getFollowerAliasKeys(
+  primaryAlias: string,
+  matchedProducts: ProductContext[],
+) {
+  return Array.from(
+    new Set(
+      [primaryAlias]
+        .concat(
+          matchedProducts.flatMap((product) => getCollectorAliasKeys(product)),
+        )
+        .map((value) => normalizeInfluencerHandle(value))
+        .filter(Boolean),
+    ),
+  );
 }
 
 function pickAdjustment(
@@ -356,15 +386,26 @@ export async function getCollectorStatsSnapshots(params: {
   const targetSnapshots = await Promise.all(
     targets.map(async (target): Promise<CollectorStatsSnapshot> => {
       const influencerHandle = getPrimaryInfluencerHandle(target);
+      const actualDealCount = getMatchingDealCount(target, catalog);
+      const matchedProducts = getMatchingProducts(
+        {
+          handle:
+            influencerHandle ||
+            target.influencerHandle ||
+            target.hostHandle ||
+            target.collectorTag,
+          name: target.collectorTag || target.hostName || target.vendor,
+        },
+        catalog,
+      );
       const actualFollowerCount = influencerHandle
         ? (
-            await getFollowersForInfluencer({
+            await getFollowersForInfluencerAliases({
               shop: params.shop,
-              influencerHandle,
+              aliases: getFollowerAliasKeys(influencerHandle, matchedProducts),
             })
           ).length
         : 0;
-      const actualDealCount = getMatchingDealCount(target, catalog);
       const followerCount = Math.max(
         0,
         actualFollowerCount + target.followersAdjustment,
@@ -394,9 +435,9 @@ export async function getCollectorStatsSnapshots(params: {
     requestedHandles.map(async (handleKey): Promise<CollectorStatsSnapshot> => {
       const matchedProducts = getMatchingProducts({ handle: handleKey }, catalog);
       const actualFollowerCount = (
-        await getFollowersForInfluencer({
+        await getFollowersForInfluencerAliases({
           shop: params.shop,
-          influencerHandle: handleKey,
+          aliases: getFollowerAliasKeys(handleKey, matchedProducts),
         })
       ).length;
       const actualDealCount = matchedProducts.length;
