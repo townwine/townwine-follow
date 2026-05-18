@@ -276,11 +276,20 @@ export async function getFollowersForInfluencer(params: {
 }) {
   const shop = normalizeShop(params.shop);
   const influencerHandle = normalizeInfluencerHandle(params.influencerHandle);
-  const records = await prisma.followSubscription.findMany({
+  const scopedRecords = await prisma.followSubscription.findMany({
     where: { shop },
   });
+  const scopedMatches = scopedRecords.filter((record) => {
+    return normalizeInfluencerHandle(record.influencerHandle) === influencerHandle;
+  });
 
-  return records.filter((record) => {
+  if (scopedMatches.length > 0 || !shop) {
+    return scopedMatches;
+  }
+
+  const fallbackRecords = await prisma.followSubscription.findMany();
+
+  return fallbackRecords.filter((record) => {
     return normalizeInfluencerHandle(record.influencerHandle) === influencerHandle;
   });
 }
@@ -307,6 +316,8 @@ export async function getFollowersForInfluencerAliases(params: {
     customerFirstName: string | null;
     influencerHandle: string;
     influencerName: string | null;
+    createdAt: Date;
+    updatedAt: Date;
   }>) => {
     return records.filter((record, index, items) => {
       const influencerHandle = normalizeInfluencerHandle(record.influencerHandle);
@@ -370,6 +381,7 @@ export async function wasNotificationSent(params: {
   customerId: string;
   productId: string;
   notificationType: NotificationType;
+  invalidateBefore?: Date | string | null;
 }) {
   const record = await prisma.notificationLog.findUnique({
     where: {
@@ -382,5 +394,23 @@ export async function wasNotificationSent(params: {
     },
   });
 
-  return Boolean(record);
+  if (!record) {
+    return false;
+  }
+
+  if (params.invalidateBefore) {
+    const invalidateDate =
+      params.invalidateBefore instanceof Date
+        ? params.invalidateBefore
+        : new Date(params.invalidateBefore);
+
+    if (
+      !Number.isNaN(invalidateDate.getTime()) &&
+      record.sentAt.getTime() < invalidateDate.getTime()
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }

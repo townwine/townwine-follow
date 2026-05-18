@@ -128,10 +128,9 @@ export function productMatchesInfluencerHandle(
     return false;
   }
 
-  const productHandles = new Set([
-    ...getExplicitHandleCandidates(source),
-    ...extractTaggedInfluencerHandles(source.tags),
-  ]);
+  const productHandles = new Set(
+    collectProductInfluencerAliases(source, { includeNameFallback: true }),
+  );
 
   return productHandles.has(normalizedTargetHandle);
 }

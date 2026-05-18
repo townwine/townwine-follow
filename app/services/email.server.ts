@@ -181,7 +181,12 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
       openAtLabel: params.openAtLabel,
       isUpcoming,
     });
-    return { ok: true, mode: "log-only" as const };
+    return {
+      ok: true,
+      mode: "log-only" as const,
+      isTestOverride: Boolean(testOverride),
+      deliveredTo: to,
+    };
   }
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -207,7 +212,12 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
 
   const result = await response.json();
   console.log("Resend email sent", result);
-  return { ok: true, mode: "resend" as const };
+  return {
+    ok: true,
+    mode: "resend" as const,
+    isTestOverride: Boolean(testOverride),
+    deliveredTo: to,
+  };
 }
 
 export async function sendUpcomingOpenAlertEmail(
@@ -267,7 +277,12 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
       openAtLabel: params.openAtLabel,
       hostName: params.hostName,
     });
-    return { ok: true, mode: "log-only" as const };
+    return {
+      ok: true,
+      mode: "log-only" as const,
+      isTestOverride: Boolean(testOverride),
+      deliveredTo: to,
+    };
   }
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -293,5 +308,10 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
 
   const result = await response.json();
   console.log("Resend upcoming open alert sent", result);
-  return { ok: true, mode: "resend" as const };
+  return {
+    ok: true,
+    mode: "resend" as const,
+    isTestOverride: Boolean(testOverride),
+    deliveredTo: to,
+  };
 }

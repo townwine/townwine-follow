@@ -6,6 +6,7 @@ import {
   followInfluencer,
   normalizeInfluencerHandle,
 } from "../services/follow.server";
+import { processFollowNotificationCatchup } from "../services/deal-notification.server";
 
 function getSafeReturnTo(value: string) {
   const returnTo = value.trim();
@@ -27,7 +28,7 @@ async function handleFollowRequest(request: Request) {
   const url = new URL(request.url);
 
   try {
-    await authenticate.public.appProxy(request);
+    const { admin } = await authenticate.public.appProxy(request);
     const payload = await readFollowMutationRequest(request);
     const shop = payload.requestParams.get("shop") || "";
     const customerId = payload.requestParams.get("logged_in_customer_id") || "";
@@ -69,6 +70,24 @@ async function handleFollowRequest(request: Request) {
       influencerHandle,
       influencerName,
     });
+
+    if (admin) {
+      try {
+        await processFollowNotificationCatchup({
+          admin,
+          shop,
+          handles: [influencerHandle, influencerName],
+        });
+      } catch (error) {
+        console.error("[follow] failed to run notification catchup after follow", {
+          shop,
+          customerId,
+          influencerHandle,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      }
+    }
 
     console.info("[follow] saved follow subscription", {
       shop,

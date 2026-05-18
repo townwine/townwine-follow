@@ -1,6 +1,7 @@
 import {
   getFollowersForInfluencerAliases,
   markNotificationSent,
+  normalizeInfluencerHandle,
   wasNotificationSent,
 } from "./follow.server";
 import { sendNewDealEmail } from "./email.server";
@@ -148,6 +149,7 @@ export async function processDealNotification(params: {
         customerId: follower.customerId,
         productId: params.productId,
         notificationType: "FOLLOW_NEW_DEAL",
+        invalidateBefore: follower.updatedAt,
       });
 
       if (alreadySent) {
@@ -201,7 +203,7 @@ export async function processDealNotification(params: {
         templateSettings: templateConfig.settings,
       });
 
-      if (emailResult.mode === "resend") {
+      if (emailResult.mode === "resend" && !emailResult.isTestOverride) {
         await markNotificationSent({
           shop: params.shop,
           customerId: follower.customerId,
@@ -236,5 +238,151 @@ export async function processDealNotification(params: {
     logOnlyCount,
     skippedCount,
     failedCount,
+  };
+}
+
+type ActiveFollowNotificationProductNode = {
+  id: string;
+  status: string;
+  vendor: string | null;
+  tags: string[];
+  collectorTag: { value: string | null } | null;
+  influencerHandle: { value: string | null } | null;
+  hostHandle: { value: string | null } | null;
+  hostName: { value: string | null } | null;
+} | null;
+
+type ActiveFollowNotificationProductsQueryResponse = {
+  products: {
+    pageInfo: {
+      hasNextPage: boolean;
+      endCursor: string | null;
+    };
+    nodes: ActiveFollowNotificationProductNode[];
+  };
+};
+
+async function fetchActiveFollowNotificationProducts(params: {
+  admin: { graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response> };
+}) {
+  const products: Array<Exclude<ActiveFollowNotificationProductNode, null>> = [];
+  let cursor: string | null = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const response = await params.admin.graphql(
+      `#graphql
+        query ActiveFollowNotificationProducts($cursor: String) {
+          products(first: 250, after: $cursor, query: "status:active") {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+              status
+              vendor
+              tags
+              collectorTag: metafield(namespace: "custom", key: "collector_tag") {
+                value
+              }
+              influencerHandle: metafield(namespace: "custom", key: "influencer_handle") {
+                value
+              }
+              hostHandle: metafield(namespace: "custom", key: "host_handle") {
+                value
+              }
+              hostName: metafield(namespace: "custom", key: "host_name") {
+                value
+              }
+            }
+          }
+        }
+      `,
+      { variables: { cursor } },
+    );
+
+    const result = await response.json();
+    const connection = result.data?.products;
+
+    if (!connection) {
+      break;
+    }
+
+    products.push(
+      ...connection.nodes.filter(
+        (node: ActiveFollowNotificationProductNode): node is Exclude<ActiveFollowNotificationProductNode, null> =>
+          Boolean(node?.id && node.status === "ACTIVE"),
+      ),
+    );
+
+    hasNextPage = Boolean(connection.pageInfo?.hasNextPage);
+    cursor = connection.pageInfo?.endCursor || null;
+  }
+
+  return products;
+}
+
+export async function processFollowNotificationCatchup(params: {
+  admin: { graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response> };
+  shop: string;
+  handles: string[];
+}) {
+  const requestedAliases = Array.from(
+    new Set(
+      params.handles
+        .map((handle) => normalizeInfluencerHandle(String(handle || "")))
+        .filter(Boolean),
+    ),
+  );
+
+  if (!requestedAliases.length) {
+    return {
+      ok: true,
+      processedProductCount: 0,
+      matchedProductCount: 0,
+      sentCount: 0,
+    };
+  }
+
+  const aliasSet = new Set(requestedAliases);
+  const products = await fetchActiveFollowNotificationProducts({
+    admin: params.admin,
+  });
+  const matchedProducts = products.filter((product) => {
+    const aliases = collectProductInfluencerAliases(
+      {
+        collectorTag: product.collectorTag?.value,
+        influencerHandle: product.influencerHandle?.value,
+        hostHandle: product.hostHandle?.value,
+        hostName: product.hostName?.value,
+        vendor: product.vendor,
+        tags: Array.isArray(product.tags) ? product.tags : [],
+      },
+      { includeNameFallback: true },
+    );
+
+    return aliases.some((alias) => aliasSet.has(normalizeInfluencerHandle(String(alias || ""))));
+  });
+
+  let sentCount = 0;
+
+  for (const product of matchedProducts) {
+    const notification = await processDealNotification({
+      admin: params.admin,
+      shop: params.shop,
+      productId: product.id,
+      resolvedInfluencerHandle: product.influencerHandle?.value || "",
+      resolvedInfluencerName: product.hostName?.value || "",
+    });
+
+    sentCount += Number(notification && "sentCount" in notification ? notification.sentCount || 0 : 0);
+  }
+
+  return {
+    ok: true,
+    processedProductCount: products.length,
+    matchedProductCount: matchedProducts.length,
+    sentCount,
   };
 }

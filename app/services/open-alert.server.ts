@@ -563,6 +563,7 @@ export async function processDueOpenAlerts(params: {
           customerId: subscription.customerId,
           productId: product.id,
           notificationType: "UPCOMING_OPEN_ALERT",
+          invalidateBefore: subscription.updatedAt,
         });
 
         if (alreadySent) {
@@ -591,7 +592,7 @@ export async function processDueOpenAlerts(params: {
           templateSettings: templateConfig.settings,
         });
 
-        if (emailResult.mode === "resend") {
+        if (emailResult.mode === "resend" && !emailResult.isTestOverride) {
           await markNotificationSent({
             shop,
             customerId: subscription.customerId,
