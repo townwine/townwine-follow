@@ -686,6 +686,10 @@ export default function EmailTemplatesRoute() {
                 <strong>EMAIL_TO_OVERRIDE</strong>
                 <span>{data.runtimeStatus.overrideEmail || "비활성"}</span>
               </div>
+              <div className="email-template-runtime-item">
+                <strong>Override 적용 여부</strong>
+                <span>{data.runtimeStatus.canUseOverride ? "적용됨" : "운영에서는 무시됨"}</span>
+              </div>
             </div>
 
             <Form method="post" className="email-template-diagnostics-form">

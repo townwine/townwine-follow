@@ -34,6 +34,8 @@ export type EmailDeliveryRuntimeStatus = {
   from: string;
   replyTo: string;
   overrideEmail: string;
+  canUseOverride: boolean;
+  nodeEnv: string;
 };
 
 function escapeHtml(value: string) {
@@ -127,13 +129,17 @@ export function getEmailDeliveryRuntimeStatus(): EmailDeliveryRuntimeStatus {
   const from = String(process.env.EMAIL_FROM || "").trim();
   const replyTo = String(process.env.EMAIL_REPLY_TO || "").trim();
   const overrideEmail = String(process.env.EMAIL_TO_OVERRIDE || "").trim();
+  const nodeEnv = String(process.env.NODE_ENV || "").trim() || "development";
+  const canUseOverride =
+    nodeEnv !== "production" ||
+    String(process.env.ALLOW_EMAIL_OVERRIDE_IN_PRODUCTION || "").trim() === "1";
   const hasResendApiKey = Boolean(resendApiKey);
   const hasEmailFrom = Boolean(from);
 
   return {
     mode:
       hasResendApiKey && hasEmailFrom
-        ? overrideEmail
+        ? overrideEmail && canUseOverride
           ? "test-override"
           : "live"
         : "log-only",
@@ -142,6 +148,20 @@ export function getEmailDeliveryRuntimeStatus(): EmailDeliveryRuntimeStatus {
     from,
     replyTo,
     overrideEmail,
+    canUseOverride,
+    nodeEnv,
+  };
+}
+
+function resolveEmailDeliveryTarget(to: string) {
+  const runtimeStatus = getEmailDeliveryRuntimeStatus();
+
+  return {
+    to:
+      runtimeStatus.overrideEmail && runtimeStatus.canUseOverride
+        ? runtimeStatus.overrideEmail
+        : to,
+    runtimeStatus,
   };
 }
 
@@ -149,9 +169,7 @@ export async function sendNewDealEmail(params: NewDealEmailParams) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   const replyTo = process.env.EMAIL_REPLY_TO;
-  const testOverride = process.env.EMAIL_TO_OVERRIDE;
-
-  const to = testOverride || params.to;
+  const { to, runtimeStatus } = resolveEmailDeliveryTarget(params.to);
   const isUpcoming = Boolean(params.isUpcoming);
   const templateSettings = normalizeTemplateSettings(params.templateSettings);
   const context = buildTemplateContext({
@@ -216,7 +234,7 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
     return {
       ok: true,
       mode: "log-only" as const,
-      isTestOverride: Boolean(testOverride),
+      isTestOverride: runtimeStatus.mode === "test-override",
       deliveredTo: to,
     };
   }
@@ -247,7 +265,7 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
   return {
     ok: true,
     mode: "resend" as const,
-    isTestOverride: Boolean(testOverride),
+    isTestOverride: runtimeStatus.mode === "test-override",
     deliveredTo: to,
   };
 }
@@ -258,9 +276,7 @@ export async function sendUpcomingOpenAlertEmail(
   const resendApiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   const replyTo = process.env.EMAIL_REPLY_TO;
-  const testOverride = process.env.EMAIL_TO_OVERRIDE;
-
-  const to = testOverride || params.to;
+  const { to, runtimeStatus } = resolveEmailDeliveryTarget(params.to);
   const templateSettings = normalizeTemplateSettings(params.templateSettings);
   const context = buildTemplateContext({
     customerFirstName: params.customerFirstName,
@@ -312,7 +328,7 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
     return {
       ok: true,
       mode: "log-only" as const,
-      isTestOverride: Boolean(testOverride),
+      isTestOverride: runtimeStatus.mode === "test-override",
       deliveredTo: to,
     };
   }
@@ -343,7 +359,7 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
   return {
     ok: true,
     mode: "resend" as const,
-    isTestOverride: Boolean(testOverride),
+    isTestOverride: runtimeStatus.mode === "test-override",
     deliveredTo: to,
   };
 }
