@@ -1,23 +1,29 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
 import { readOpenAlertStatusRequest } from "../services/follow-request.server";
 import {
   getSubscribedUpcomingProductIds,
   processDueOpenAlerts,
 } from "../services/open-alert.server";
+import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
 
   try {
-    const { admin } = await authenticate.public.appProxy(request);
-    const shop = url.searchParams.get("shop");
+    const requestedShop = url.searchParams.get("shop") || "";
     const customerId = url.searchParams.get("logged_in_customer_id");
     const payload = await readOpenAlertStatusRequest(request);
+    const adminContext = await resolveStorefrontAdmin({
+      request,
+      shop: requestedShop,
+      required: false,
+      logPrefix: "[open-alert]",
+    });
+    const shop = adminContext.resolvedShop || adminContext.requestedShop;
 
-    if (admin && shop) {
+    if (adminContext.admin && shop) {
       await processDueOpenAlerts({
-        admin,
+        admin: adminContext.admin,
         shop,
       });
     }

@@ -1,18 +1,31 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
 import { readOrderStatusRequest } from "../services/follow-request.server";
 import { getOrderStatusSnapshots } from "../services/order-status.server";
+import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
 
   try {
-    const { admin } = await authenticate.public.appProxy(request);
-    const shop = url.searchParams.get("shop");
+    const requestedShop = url.searchParams.get("shop") || "";
     const customerId = url.searchParams.get("logged_in_customer_id") || "";
     const payload = await readOrderStatusRequest(request);
 
-    if (!admin || !shop || !payload.orderIds.length) {
+    if (!payload.orderIds.length) {
+      return Response.json({
+        statuses: {},
+        loggedIn: Boolean(customerId),
+      });
+    }
+
+    const adminContext = await resolveStorefrontAdmin({
+      request,
+      shop: requestedShop,
+      required: false,
+      logPrefix: "[order-status]",
+    });
+
+    if (!adminContext.admin) {
       return Response.json({
         statuses: {},
         loggedIn: Boolean(customerId),
@@ -27,7 +40,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
 
     const snapshots = await getOrderStatusSnapshots({
-      admin,
+      admin: adminContext.admin,
       orderIds: payload.orderIds,
       customerId,
     });

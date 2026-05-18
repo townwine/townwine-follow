@@ -1,22 +1,32 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
 import { readInventoryRequest } from "../services/follow-request.server";
 import { getInventorySnapshots } from "../services/inventory.server";
+import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
 
   try {
-    const { admin } = await authenticate.public.appProxy(request);
-    const shop = url.searchParams.get("shop");
+    const requestedShop = url.searchParams.get("shop") || "";
     const payload = await readInventoryRequest(request);
 
-    if (!admin || !shop || !payload.variantIds.length) {
+    if (!payload.variantIds.length) {
+      return Response.json({ snapshots: {} });
+    }
+
+    const adminContext = await resolveStorefrontAdmin({
+      request,
+      shop: requestedShop,
+      required: false,
+      logPrefix: "[inventory]",
+    });
+
+    if (!adminContext.admin) {
       return Response.json({ snapshots: {} });
     }
 
     const snapshots = await getInventorySnapshots({
-      admin,
+      admin: adminContext.admin,
       variantIds: payload.variantIds,
     });
 

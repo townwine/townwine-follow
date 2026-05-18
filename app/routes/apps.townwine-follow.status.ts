@@ -1,5 +1,4 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
 import { readFollowStatusRequest } from "../services/follow-request.server";
 import {
   getAllFollowingHandles,
@@ -9,15 +8,23 @@ import {
 } from "../services/follow.server";
 import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
 import { processFollowNotificationCatchup } from "../services/deal-notification.server";
+import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
 
 async function handleStatusRequest(request: Request) {
   const url = new URL(request.url);
   const payload = await readFollowStatusRequest(request);
-  const shop = payload.requestParams.get("shop") || "";
+  const requestedShop = payload.requestParams.get("shop") || "";
   const customerId = payload.requestParams.get("logged_in_customer_id") || "";
 
   try {
-    const { admin } = await authenticate.public.appProxy(request);
+    const adminContext = await resolveStorefrontAdmin({
+      request,
+      shop: requestedShop,
+      required: false,
+      logPrefix: "[follow] status",
+    });
+    const admin = adminContext.admin;
+    const shop = adminContext.resolvedShop || adminContext.requestedShop;
     const shouldEnsureMetafields = url.searchParams.get("ensureMetafields") === "1";
     let bootstrap:
       | {
