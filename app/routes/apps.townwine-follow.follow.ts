@@ -43,6 +43,8 @@ async function handleFollowRequest(request: Request) {
     const rawInfluencerHandle = String(payload.influencerHandle || "").trim();
     const influencerHandle = normalizeInfluencerHandle(rawInfluencerHandle);
     const influencerName = String(payload.influencerName || "").trim();
+    const customerEmail = String(payload.customerEmail || "").trim();
+    const customerFirstName = String(payload.customerFirstName || "").trim();
     const returnTo = getSafeReturnTo(
       String(payload.requestParams.get("returnTo") || "/"),
     );
@@ -62,6 +64,8 @@ async function handleFollowRequest(request: Request) {
     const record = await followInfluencer({
       shop,
       customerId,
+      customerEmail,
+      customerFirstName,
       influencerHandle,
       influencerName,
     });

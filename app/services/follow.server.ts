@@ -99,11 +99,15 @@ async function findMatchingSubscriptions(params: {
 export async function followInfluencer(params: {
   shop: string;
   customerId: string;
+  customerEmail?: string;
+  customerFirstName?: string;
   influencerHandle: string;
   influencerName?: string;
 }) {
   const shop = normalizeShop(params.shop);
   const customerId = normalizeCustomerId(params.customerId);
+  const customerEmail = params.customerEmail?.trim() || undefined;
+  const customerFirstName = params.customerFirstName?.trim() || undefined;
   const influencerHandle = normalizeInfluencerHandle(params.influencerHandle);
   const influencerName = params.influencerName?.trim() || undefined;
 
@@ -117,6 +121,8 @@ export async function followInfluencer(params: {
     const updated = await prisma.followSubscription.update({
       where: { id: matches[0].id },
       data: {
+        customerEmail,
+        customerFirstName,
         influencerHandle,
         influencerName,
       },
@@ -139,10 +145,62 @@ export async function followInfluencer(params: {
     data: {
       shop,
       customerId,
+      customerEmail,
+      customerFirstName,
       influencerHandle,
       influencerName,
     },
   });
+}
+
+export async function syncFollowSubscriptionContact(params: {
+  shop: string;
+  customerId: string;
+  customerEmail?: string;
+  customerFirstName?: string;
+}) {
+  const shop = normalizeShop(params.shop);
+  const customerId = normalizeCustomerId(params.customerId);
+  const customerEmail = params.customerEmail?.trim() || "";
+  const customerFirstName = params.customerFirstName?.trim() || "";
+
+  if (!customerId || (!customerEmail && !customerFirstName)) {
+    return { count: 0, fallback: false };
+  }
+
+  const data: {
+    customerEmail?: string;
+    customerFirstName?: string;
+  } = {};
+
+  if (customerEmail) {
+    data.customerEmail = customerEmail;
+  }
+
+  if (customerFirstName) {
+    data.customerFirstName = customerFirstName;
+  }
+
+  const scopedResult = await prisma.followSubscription.updateMany({
+    where: {
+      shop,
+      customerId,
+    },
+    data,
+  });
+
+  if (scopedResult.count > 0 || !shop) {
+    return { count: scopedResult.count, fallback: false };
+  }
+
+  const fallbackResult = await prisma.followSubscription.updateMany({
+    where: {
+      customerId,
+    },
+    data,
+  });
+
+  return { count: fallbackResult.count, fallback: fallbackResult.count > 0 };
 }
 
 export async function unfollowInfluencer(params: {
@@ -245,6 +303,8 @@ export async function getFollowersForInfluencerAliases(params: {
     id: string;
     shop: string;
     customerId: string;
+    customerEmail: string | null;
+    customerFirstName: string | null;
     influencerHandle: string;
     influencerName: string | null;
   }>) => {

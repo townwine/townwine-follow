@@ -5,6 +5,7 @@ import {
   getAllFollowingHandles,
   getFollowingHandles,
   normalizeInfluencerHandle,
+  syncFollowSubscriptionContact,
 } from "../services/follow.server";
 import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
 
@@ -52,6 +53,13 @@ async function handleStatusRequest(request: Request) {
 
       return Response.json({ following: [], loggedIn: false, bootstrap });
     }
+
+    await syncFollowSubscriptionContact({
+      shop,
+      customerId,
+      customerEmail: payload.customerEmail,
+      customerFirstName: payload.customerFirstName,
+    });
 
     if (!handles.length) {
       const following = await getAllFollowingHandles({

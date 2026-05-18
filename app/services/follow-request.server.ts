@@ -129,6 +129,17 @@ export async function readFollowMutationRequest(request: Request) {
       "name",
       "influencer_name",
     ]),
+    customerEmail: readFirst(params, [
+      "customerEmail",
+      "customer_email",
+      "email",
+    ]),
+    customerFirstName: readFirst(params, [
+      "customerFirstName",
+      "customer_first_name",
+      "firstName",
+      "first_name",
+    ]),
     requestParams: params,
   };
 }
@@ -138,6 +149,17 @@ export async function readFollowStatusRequest(request: Request) {
 
   return {
     handles: readMany(params, ["handles", "handle", "influencerHandle"]),
+    customerEmail: readFirst(params, [
+      "customerEmail",
+      "customer_email",
+      "email",
+    ]),
+    customerFirstName: readFirst(params, [
+      "customerFirstName",
+      "customer_first_name",
+      "firstName",
+      "first_name",
+    ]),
     requestParams: params,
   };
 }

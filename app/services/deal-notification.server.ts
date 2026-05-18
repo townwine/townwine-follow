@@ -155,30 +155,38 @@ export async function processDealNotification(params: {
         continue;
       }
 
-      const customerResponse = await params.admin.graphql(
-        `#graphql
-          query FollowNotificationCustomer($id: ID!) {
-            customer(id: $id) {
-              id
-              firstName
-              email
+      let customerEmail = String(follower.customerEmail || "").trim();
+      let customerFirstName = String(follower.customerFirstName || "").trim();
+
+      if (!customerEmail) {
+        const customerResponse = await params.admin.graphql(
+          `#graphql
+            query FollowNotificationCustomer($id: ID!) {
+              customer(id: $id) {
+                id
+                firstName
+                email
+              }
             }
-          }
-        `,
-        { variables: { id: toCustomerGid(follower.customerId) } },
-      );
+          `,
+          { variables: { id: toCustomerGid(follower.customerId) } },
+        );
 
-      const customerResult = await customerResponse.json();
-      const customer = customerResult.data?.customer;
+        const customerResult = await customerResponse.json();
+        const customer = customerResult.data?.customer;
+        customerEmail = String(customer?.email || "").trim();
+        customerFirstName =
+          customerFirstName || String(customer?.firstName || "").trim();
+      }
 
-      if (!customer?.email) {
+      if (!customerEmail) {
         skippedCount += 1;
         continue;
       }
 
       const emailResult = await sendNewDealEmail({
-        to: customer.email,
-        customerFirstName: customer.firstName || "",
+        to: customerEmail,
+        customerFirstName,
         influencerName:
           follower.influencerName ||
           String(params.resolvedInfluencerName || "").trim() ||

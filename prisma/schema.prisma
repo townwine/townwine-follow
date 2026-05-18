@@ -37,6 +37,8 @@ model FollowSubscription {
   id               String   @id @default(cuid())
   shop             String
   customerId       String
+  customerEmail    String?
+  customerFirstName String?
   influencerHandle String
   influencerName   String?
   createdAt        DateTime @default(now())
