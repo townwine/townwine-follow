@@ -1,22 +1,40 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
+import { authenticate, unauthenticated } from "../shopify.server";
 import { getCollectorStatsSnapshots } from "../services/collector-stats.server";
 import { readCollectorStatsRequest } from "../services/follow-request.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
+  const payload = await readCollectorStatsRequest(request);
+  const shop =
+    payload.requestParams.get("shop") ||
+    url.searchParams.get("shop") ||
+    "";
 
   try {
-    const { admin } = await authenticate.public.appProxy(request);
-    const shop = url.searchParams.get("shop");
-    const payload = await readCollectorStatsRequest(request);
-
-    if (
-      !admin ||
-      !shop ||
-      (!payload.productIds.length && !payload.handles.length)
-    ) {
+    if (!shop || (!payload.productIds.length && !payload.handles.length)) {
       return Response.json({ snapshots: {} });
+    }
+
+    let admin:
+      | Awaited<ReturnType<typeof unauthenticated.admin>>["admin"]
+      | null = null;
+
+    try {
+      const authenticatedContext = await authenticate.public.appProxy(request);
+      admin = authenticatedContext.admin ?? null;
+    } catch (error) {
+      console.warn("[collector-stats] app proxy auth failed, using offline admin", {
+        shop,
+        method: request.method,
+        url: request.url,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (!admin) {
+      const offlineContext = await unauthenticated.admin(shop);
+      admin = offlineContext.admin;
     }
 
     const snapshots = await getCollectorStatsSnapshots({
