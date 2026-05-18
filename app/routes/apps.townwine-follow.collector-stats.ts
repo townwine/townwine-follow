@@ -68,10 +68,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
+    const debug = url.searchParams.get("debug") === "1";
+    const message = error instanceof Error ? error.message : String(error);
+
     console.error("[collector-stats] request failed", {
       method: request.method,
       url: request.url,
-      message: error instanceof Error ? error.message : String(error),
+      message,
       stack: error instanceof Error ? error.stack : undefined,
     });
 
@@ -79,6 +82,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       {
         snapshots: {},
         error: "COLLECTOR_STATS_FAILED",
+        ...(debug ? { details: message } : {}),
       },
       { status: 500 },
     );
