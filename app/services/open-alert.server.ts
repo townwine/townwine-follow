@@ -592,7 +592,7 @@ export async function processDueOpenAlerts(params: {
           templateSettings: templateConfig.settings,
         });
 
-        if (emailResult.mode === "resend" && !emailResult.isTestOverride) {
+        if (emailResult.mode !== "log-only" && !emailResult.isTestOverride) {
           await markNotificationSent({
             shop,
             customerId: subscription.customerId,

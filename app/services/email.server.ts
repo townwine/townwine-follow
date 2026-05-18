@@ -3,6 +3,7 @@ import {
   applyFollowEmailTemplateVariables,
   type FollowEmailTemplateSettings,
 } from "./follow-email-template.shared";
+import nodemailer from "nodemailer";
 
 type NewDealEmailParams = {
   to: string;
@@ -29,13 +30,34 @@ type UpcomingOpenAlertEmailParams = {
 
 export type EmailDeliveryRuntimeStatus = {
   mode: "live" | "test-override" | "log-only";
+  provider: "smtp" | "resend" | "none";
   hasResendApiKey: boolean;
+  hasSmtpHost: boolean;
+  hasSmtpAuth: boolean;
+  smtpHost: string;
+  smtpPort: string;
   hasEmailFrom: boolean;
   from: string;
   replyTo: string;
   overrideEmail: string;
   canUseOverride: boolean;
   nodeEnv: string;
+};
+
+type EmailSendResult = {
+  ok: true;
+  mode: "smtp" | "resend" | "log-only";
+  isTestOverride: boolean;
+  deliveredTo: string;
+};
+
+type DeliverEmailMessageParams = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  logLabel: string;
+  logContext: Record<string, unknown>;
 };
 
 function escapeHtml(value: string) {
@@ -126,6 +148,10 @@ function buildEmailShell(params: {
 
 export function getEmailDeliveryRuntimeStatus(): EmailDeliveryRuntimeStatus {
   const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
+  const smtpHost = String(process.env.SMTP_HOST || "").trim();
+  const smtpPort = String(process.env.SMTP_PORT || "").trim();
+  const smtpUser = String(process.env.SMTP_USER || "").trim();
+  const smtpPass = String(process.env.SMTP_PASS || "").trim();
   const from = String(process.env.EMAIL_FROM || "").trim();
   const replyTo = String(process.env.EMAIL_REPLY_TO || "").trim();
   const overrideEmail = String(process.env.EMAIL_TO_OVERRIDE || "").trim();
@@ -134,16 +160,29 @@ export function getEmailDeliveryRuntimeStatus(): EmailDeliveryRuntimeStatus {
     nodeEnv !== "production" ||
     String(process.env.ALLOW_EMAIL_OVERRIDE_IN_PRODUCTION || "").trim() === "1";
   const hasResendApiKey = Boolean(resendApiKey);
+  const hasSmtpHost = Boolean(smtpHost);
+  const hasSmtpAuth = Boolean(smtpUser && smtpPass);
   const hasEmailFrom = Boolean(from);
+  const provider =
+    hasSmtpHost && hasEmailFrom
+      ? ("smtp" as const)
+      : hasResendApiKey && hasEmailFrom
+        ? ("resend" as const)
+        : ("none" as const);
 
   return {
     mode:
-      hasResendApiKey && hasEmailFrom
+      provider !== "none"
         ? overrideEmail && canUseOverride
           ? "test-override"
           : "live"
         : "log-only",
+    provider,
     hasResendApiKey,
+    hasSmtpHost,
+    hasSmtpAuth,
+    smtpHost,
+    smtpPort,
     hasEmailFrom,
     from,
     replyTo,
@@ -165,11 +204,153 @@ function resolveEmailDeliveryTarget(to: string) {
   };
 }
 
-export async function sendNewDealEmail(params: NewDealEmailParams) {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  const replyTo = process.env.EMAIL_REPLY_TO;
+function parseBooleanEnv(value: string | undefined, fallback: boolean) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) return fallback;
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return fallback;
+}
+
+async function sendViaSmtp(params: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  from: string;
+  replyTo?: string;
+}) {
+  const smtpHost = String(process.env.SMTP_HOST || "").trim();
+  const smtpPort = Number(String(process.env.SMTP_PORT || "").trim() || "587");
+  const smtpUser = String(process.env.SMTP_USER || "").trim();
+  const smtpPass = String(process.env.SMTP_PASS || "").trim();
+  const smtpSecure = parseBooleanEnv(
+    process.env.SMTP_SECURE,
+    smtpPort === 465,
+  );
+  const smtpRequireTls = parseBooleanEnv(
+    process.env.SMTP_REQUIRE_TLS,
+    !smtpSecure,
+  );
+
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    requireTLS: smtpRequireTls,
+    auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+  });
+
+  const info = await transporter.sendMail({
+    from: params.from,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+    ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+  });
+
+  console.log("SMTP email sent", {
+    to: params.to,
+    messageId: info.messageId,
+    accepted: info.accepted,
+    rejected: info.rejected,
+    response: info.response,
+  });
+}
+
+async function sendViaResend(params: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  from: string;
+  replyTo?: string;
+}) {
+  const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: params.from,
+      to: [params.to],
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+      ...(params.replyTo ? { reply_to: params.replyTo } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Resend send failed: ${response.status} ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log("Resend email sent", result);
+}
+
+async function deliverEmailMessage(
+  params: DeliverEmailMessageParams,
+): Promise<EmailSendResult> {
+  const from = String(process.env.EMAIL_FROM || "").trim();
+  const replyTo = String(process.env.EMAIL_REPLY_TO || "").trim();
   const { to, runtimeStatus } = resolveEmailDeliveryTarget(params.to);
+
+  if (runtimeStatus.provider === "none" || !from) {
+    console.log(`${params.logLabel} delivery skipped (missing email config)`, {
+      provider: runtimeStatus.provider,
+      to,
+      ...params.logContext,
+    });
+    return {
+      ok: true,
+      mode: "log-only",
+      isTestOverride: runtimeStatus.mode === "test-override",
+      deliveredTo: to,
+    };
+  }
+
+  if (runtimeStatus.provider === "smtp") {
+    await sendViaSmtp({
+      to,
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+      from,
+      replyTo,
+    });
+    return {
+      ok: true,
+      mode: "smtp",
+      isTestOverride: runtimeStatus.mode === "test-override",
+      deliveredTo: to,
+    };
+  }
+
+  await sendViaResend({
+    to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+    from,
+    replyTo,
+  });
+  return {
+    ok: true,
+    mode: "resend",
+    isTestOverride: runtimeStatus.mode === "test-override",
+    deliveredTo: to,
+  };
+}
+
+export async function sendNewDealEmail(params: NewDealEmailParams) {
   const isUpcoming = Boolean(params.isUpcoming);
   const templateSettings = normalizeTemplateSettings(params.templateSettings);
   const context = buildTemplateContext({
@@ -220,63 +401,26 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
     footerText,
     detailLines,
   });
-
-  if (!resendApiKey || !from) {
-    console.log("Email delivery skipped (missing Resend config)", {
-      to,
+  return deliverEmailMessage({
+    to: params.to,
+    subject,
+    html,
+    text,
+    logLabel: "New deal email",
+    logContext: {
       customerFirstName: params.customerFirstName,
       influencerName: params.influencerName,
       productTitle: params.productTitle,
       productUrl: params.productUrl,
       openAtLabel: params.openAtLabel,
       isUpcoming,
-    });
-    return {
-      ok: true,
-      mode: "log-only" as const,
-      isTestOverride: runtimeStatus.mode === "test-override",
-      deliveredTo: to,
-    };
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html,
-      text,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-    }),
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Resend send failed: ${response.status} ${errorText}`);
-  }
-
-  const result = await response.json();
-  console.log("Resend email sent", result);
-  return {
-    ok: true,
-    mode: "resend" as const,
-    isTestOverride: runtimeStatus.mode === "test-override",
-    deliveredTo: to,
-  };
 }
 
 export async function sendUpcomingOpenAlertEmail(
   params: UpcomingOpenAlertEmailParams,
 ) {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  const replyTo = process.env.EMAIL_REPLY_TO;
-  const { to, runtimeStatus } = resolveEmailDeliveryTarget(params.to);
   const templateSettings = normalizeTemplateSettings(params.templateSettings);
   const context = buildTemplateContext({
     customerFirstName: params.customerFirstName,
@@ -315,51 +459,18 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
     footerText,
     detailLines,
   });
-
-  if (!resendApiKey || !from) {
-    console.log("Upcoming open alert delivery skipped (missing Resend config)", {
-      to,
+  return deliverEmailMessage({
+    to: params.to,
+    subject,
+    html,
+    text,
+    logLabel: "Upcoming open alert email",
+    logContext: {
       customerFirstName: params.customerFirstName,
       productTitle: params.productTitle,
       productUrl: params.productUrl,
       openAtLabel: params.openAtLabel,
       hostName: params.hostName,
-    });
-    return {
-      ok: true,
-      mode: "log-only" as const,
-      isTestOverride: runtimeStatus.mode === "test-override",
-      deliveredTo: to,
-    };
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html,
-      text,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-    }),
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Resend send failed: ${response.status} ${errorText}`);
-  }
-
-  const result = await response.json();
-  console.log("Resend upcoming open alert sent", result);
-  return {
-    ok: true,
-    mode: "resend" as const,
-    isTestOverride: runtimeStatus.mode === "test-override",
-    deliveredTo: to,
-  };
 }

@@ -38,7 +38,7 @@ type ActionData =
       values?: FollowEmailTemplateFormValues;
       testResult?: {
         deliveredTo: string;
-        mode: "resend" | "log-only";
+        mode: "smtp" | "resend" | "log-only";
         isTestOverride: boolean;
       };
       catchupResult?: {
@@ -101,12 +101,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         templateSettings: config.settings,
       });
 
+      const providerLabel =
+        result.mode === "smtp"
+          ? "SMTP"
+          : result.mode === "resend"
+            ? "Resend"
+            : "로그 전용";
       const message =
-        result.mode === "resend"
-          ? result.isTestOverride
-            ? `테스트 메일을 ${result.deliveredTo} 주소로 발송했습니다. 현재 EMAIL_TO_OVERRIDE가 켜져 있어 실제 팔로워 메일 대신 이 주소로만 나갑니다.`
-            : `테스트 메일을 ${result.deliveredTo} 주소로 발송했습니다.`
-          : "현재 운영 환경에 Resend 설정이 없어 실제 발송 대신 서버 로그만 남겼습니다.";
+        result.mode === "log-only"
+          ? "현재 운영 환경에 메일 발송 설정이 없어 실제 발송 대신 서버 로그만 남겼습니다."
+          : result.isTestOverride
+            ? `테스트 메일을 ${result.deliveredTo} 주소로 발송했습니다. 현재 EMAIL_TO_OVERRIDE가 켜져 있어 실제 팔로워 메일 대신 이 주소로만 나갑니다. (${providerLabel})`
+            : `테스트 메일을 ${result.deliveredTo} 주소로 발송했습니다. (${providerLabel})`;
 
       return {
         ok: true,
@@ -648,7 +654,7 @@ export default function EmailTemplatesRoute() {
           <div className="email-template-panel">
             <h3>운영 발송 점검</h3>
             <p className="email-template-muted">
-              현재 운영 서버 기준 메일 발송 모드와 override 상태를 확인하고, 템플릿 테스트 메일이나
+              현재 운영 서버 기준 메일 발송 모드와 공급자 상태를 확인하고, 템플릿 테스트 메일이나
               특정 컬렉터 닉네임의 팔로워 재발송 점검을 바로 실행할 수 있습니다.
             </p>
             <div className="email-template-runtime-list">
@@ -669,6 +675,28 @@ export default function EmailTemplatesRoute() {
                       ? "Override"
                       : "로그 전용"}
                 </span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>현재 공급자</strong>
+                <span>
+                  {data.runtimeStatus.provider === "smtp"
+                    ? "SMTP"
+                    : data.runtimeStatus.provider === "resend"
+                      ? "Resend"
+                      : "미설정"}
+                </span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>SMTP_HOST</strong>
+                <span>{data.runtimeStatus.smtpHost || "비어 있음"}</span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>SMTP_PORT</strong>
+                <span>{data.runtimeStatus.smtpPort || "비어 있음"}</span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>SMTP 인증</strong>
+                <span>{data.runtimeStatus.hasSmtpAuth ? "설정됨" : "없음"}</span>
               </div>
               <div className="email-template-runtime-item">
                 <strong>Resend API Key</strong>
@@ -749,10 +777,14 @@ export default function EmailTemplatesRoute() {
                 <br />
                 발송 방식:{" "}
                 <strong>
-                  {actionData.testResult.mode === "resend"
+                  {actionData.testResult.mode === "smtp"
                     ? actionData.testResult.isTestOverride
-                      ? "Resend + Override"
-                      : "Resend 실발송"
+                      ? "SMTP + Override"
+                      : "SMTP 실발송"
+                    : actionData.testResult.mode === "resend"
+                      ? actionData.testResult.isTestOverride
+                        ? "Resend + Override"
+                        : "Resend 실발송"
                     : "로그 전용"}
                 </strong>
               </div>
