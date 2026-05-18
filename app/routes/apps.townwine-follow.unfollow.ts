@@ -28,9 +28,9 @@ async function handleUnfollowRequest(request: Request) {
 
   try {
     await authenticate.public.appProxy(request);
-
-    const shop = url.searchParams.get("shop");
-    const customerId = url.searchParams.get("logged_in_customer_id");
+    const payload = await readFollowMutationRequest(request);
+    const shop = payload.requestParams.get("shop") || "";
+    const customerId = payload.requestParams.get("logged_in_customer_id") || "";
 
     if (!shop || !customerId) {
       console.info("[follow] unfollow request missing logged_in_customer_id", {
@@ -40,7 +40,6 @@ async function handleUnfollowRequest(request: Request) {
       return Response.json({ ok: false, message: "LOGIN_REQUIRED" }, { status: 401 });
     }
 
-    const payload = await readFollowMutationRequest(request);
     const rawInfluencerHandle = String(payload.influencerHandle || "").trim();
     const influencerHandle = normalizeInfluencerHandle(rawInfluencerHandle);
     const returnTo = getSafeReturnTo(

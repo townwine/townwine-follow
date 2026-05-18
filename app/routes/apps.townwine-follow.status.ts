@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { readFollowStatusRequest } from "../services/follow-request.server";
 import {
+  getAllFollowingHandles,
   getFollowingHandles,
   normalizeInfluencerHandle,
 } from "../services/follow.server";
@@ -9,6 +10,9 @@ import { ensureProductMetafieldDefinitions } from "../services/product-metafield
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
+  const payload = await readFollowStatusRequest(request);
+  const shop = payload.requestParams.get("shop") || "";
+  const customerId = payload.requestParams.get("logged_in_customer_id") || "";
 
   try {
     const { admin } = await authenticate.public.appProxy(request);
@@ -33,12 +37,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
       };
     }
 
-    const shop = url.searchParams.get("shop");
-    const customerId = url.searchParams.get("logged_in_customer_id");
-    const payload = await readFollowStatusRequest(request);
     const handles = payload.handles;
 
-    if (!shop || !handles.length) {
+    if (!shop) {
       return Response.json({ following: [], loggedIn: Boolean(customerId), bootstrap });
     }
 
@@ -50,6 +51,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       });
 
       return Response.json({ following: [], loggedIn: false, bootstrap });
+    }
+
+    if (!handles.length) {
+      const following = await getAllFollowingHandles({
+        shop,
+        customerId,
+      });
+
+      return Response.json({ following, loggedIn: true, bootstrap });
     }
 
     const following = await getFollowingHandles({
