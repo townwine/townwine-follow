@@ -69,6 +69,16 @@ type CollectorStatsProductsQueryResponse = {
   };
 };
 
+type CollectorCatalogCacheEntry = {
+  value: ProductContext[];
+  expiresAt: number;
+  promise: Promise<ProductContext[]> | null;
+};
+
+const COLLECTOR_CATALOG_CACHE_TTL_MS = 30_000;
+const COLLECTOR_CATALOG_STALE_TTL_MS = 5_000;
+const collectorCatalogCache = new Map<string, CollectorCatalogCacheEntry>();
+
 function toProductGid(value: string) {
   const trimmedValue = String(value || "").trim();
 
@@ -280,6 +290,60 @@ async function fetchAllCollectorProducts(admin: AdminGraphqlClient) {
   return products;
 }
 
+function getCollectorCatalogCacheKey(shop: string) {
+  return String(shop || "").trim().toLowerCase();
+}
+
+async function fetchCachedCollectorProducts(
+  admin: AdminGraphqlClient,
+  shop: string,
+) {
+  const cacheKey = getCollectorCatalogCacheKey(shop);
+  const now = Date.now();
+  const cachedEntry = collectorCatalogCache.get(cacheKey);
+
+  if (cachedEntry?.value.length && cachedEntry.expiresAt > now) {
+    return cachedEntry.value;
+  }
+
+  if (cachedEntry?.promise) {
+    return cachedEntry.promise;
+  }
+
+  const refreshPromise = fetchAllCollectorProducts(admin);
+
+  collectorCatalogCache.set(cacheKey, {
+    value: cachedEntry?.value ?? [],
+    expiresAt: cachedEntry?.expiresAt ?? 0,
+    promise: refreshPromise,
+  });
+
+  try {
+    const products = await refreshPromise;
+
+    collectorCatalogCache.set(cacheKey, {
+      value: products,
+      expiresAt: Date.now() + COLLECTOR_CATALOG_CACHE_TTL_MS,
+      promise: null,
+    });
+
+    return products;
+  } catch (error) {
+    if (cachedEntry?.value.length) {
+      collectorCatalogCache.set(cacheKey, {
+        value: cachedEntry.value,
+        expiresAt: Date.now() + COLLECTOR_CATALOG_STALE_TTL_MS,
+        promise: null,
+      });
+
+      return cachedEntry.value;
+    }
+
+    collectorCatalogCache.delete(cacheKey);
+    throw error;
+  }
+}
+
 function getPrimaryInfluencerHandle(product: ProductContext) {
   return resolveProductInfluencerHandle(product, { includeNameFallback: true });
 }
@@ -380,7 +444,7 @@ export async function getCollectorStatsSnapshots(params: {
   const targets = params.productIds.length
     ? await fetchCollectorTargets(params.admin, params.productIds)
     : [];
-  const catalog = await fetchAllCollectorProducts(params.admin);
+  const catalog = await fetchCachedCollectorProducts(params.admin, params.shop);
   const snapshots: CollectorStatsSnapshot[] = [];
 
   const targetSnapshots = await Promise.all(
