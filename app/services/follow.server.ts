@@ -49,6 +49,20 @@ export function normalizeInfluencerHandle(value: string) {
   return handle;
 }
 
+function getFollowSubscriptionAliases(record: {
+  influencerHandle: string;
+  influencerName: string | null;
+}) {
+  return Array.from(
+    new Set(
+      [
+        normalizeInfluencerHandle(record.influencerHandle),
+        normalizeInfluencerHandle(record.influencerName || ""),
+      ].filter(Boolean),
+    ),
+  );
+}
+
 async function getSubscriptionsForCustomer(params: {
   shop: string;
   customerId: string;
@@ -92,7 +106,7 @@ async function findMatchingSubscriptions(params: {
   });
 
   return records.filter((record) => {
-    return normalizeInfluencerHandle(record.influencerHandle) === influencerHandle;
+    return getFollowSubscriptionAliases(record).includes(influencerHandle);
   });
 }
 
@@ -237,7 +251,7 @@ export async function getFollowingHandles(params: {
   const records = await getSubscriptionsForCustomer(params);
 
   const followingSet = new Set(
-    records.map((record) => normalizeInfluencerHandle(record.influencerHandle)),
+    records.flatMap((record) => getFollowSubscriptionAliases(record)),
   );
 
   return requestedHandles.filter((handle, index, items) => {
@@ -264,7 +278,7 @@ export async function getAllFollowingHandles(params: {
   return Array.from(
     new Set(
       records
-        .map((record) => normalizeInfluencerHandle(record.influencerHandle))
+        .flatMap((record) => getFollowSubscriptionAliases(record))
         .filter(Boolean),
     ),
   );
