@@ -116,6 +116,26 @@ export async function loadFollowEmailTemplateConfig(admin: AdminGraphqlClient) {
   return fetchTemplateConfig(admin);
 }
 
+export async function loadFollowEmailTemplateConfigSafe(
+  admin: AdminGraphqlClient,
+  fallbackShopName?: string,
+) {
+  try {
+    return await fetchTemplateConfig(admin);
+  } catch (error) {
+    console.error("[follow-email-template] failed to load config, using defaults", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    return {
+      appInstallationId: "",
+      shopName: String(fallbackShopName || "TownWine").trim() || "TownWine",
+      settings: DEFAULT_FOLLOW_EMAIL_TEMPLATE_SETTINGS,
+    };
+  }
+}
+
 export async function saveFollowEmailTemplateSettings(
   admin: AdminGraphqlClient,
   settings: FollowEmailTemplateSettings,

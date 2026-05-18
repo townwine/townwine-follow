@@ -5,7 +5,7 @@ import {
   wasNotificationSent,
 } from "./follow.server";
 import { sendUpcomingOpenAlertEmail } from "./email.server";
-import { loadFollowEmailTemplateConfig } from "./follow-email-template.server";
+import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
 import { resolveProductInfluencerHandle } from "./product-collector.server";
 
 type AdminGraphqlClient = {
@@ -516,7 +516,10 @@ export async function processDueOpenAlerts(params: {
     };
   }
 
-  const templateConfig = await loadFollowEmailTemplateConfig(params.admin);
+  const templateConfig = await loadFollowEmailTemplateConfigSafe(
+    params.admin,
+    shop,
+  );
 
   const products = await fetchProductsByIds(
     params.admin,

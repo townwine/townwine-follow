@@ -241,23 +241,50 @@ export async function getFollowersForInfluencerAliases(params: {
   }
 
   const aliasSet = new Set(aliases);
-  const records = await prisma.followSubscription.findMany({
+  const filterRecords = (records: Array<{
+    id: string;
+    shop: string;
+    customerId: string;
+    influencerHandle: string;
+    influencerName: string | null;
+  }>) => {
+    return records.filter((record, index, items) => {
+      const influencerHandle = normalizeInfluencerHandle(record.influencerHandle);
+      const influencerName = normalizeInfluencerHandle(record.influencerName || "");
+      const isMatched =
+        aliasSet.has(influencerHandle) ||
+        (influencerName ? aliasSet.has(influencerName) : false);
+
+      if (!isMatched) {
+        return false;
+      }
+
+      return items.findIndex((item) => item.customerId === record.customerId) === index;
+    });
+  };
+
+  const scopedRecords = await prisma.followSubscription.findMany({
     where: { shop },
   });
+  const scopedMatches = filterRecords(scopedRecords);
 
-  return records.filter((record, index, items) => {
-    const influencerHandle = normalizeInfluencerHandle(record.influencerHandle);
-    const influencerName = normalizeInfluencerHandle(record.influencerName || "");
-    const isMatched =
-      aliasSet.has(influencerHandle) ||
-      (influencerName ? aliasSet.has(influencerName) : false);
+  if (scopedMatches.length > 0 || !shop) {
+    return scopedMatches;
+  }
 
-    if (!isMatched) {
-      return false;
-    }
+  const fallbackRecords = await prisma.followSubscription.findMany();
+  const fallbackMatches = filterRecords(fallbackRecords);
 
-    return items.findIndex((item) => item.customerId === record.customerId) === index;
-  });
+  if (fallbackMatches.length) {
+    console.info("[follow] using cross-shop follower fallback", {
+      requestedShop: shop,
+      aliases,
+      matchedCount: fallbackMatches.length,
+      matchedShops: Array.from(new Set(fallbackMatches.map((record) => record.shop))),
+    });
+  }
+
+  return fallbackMatches;
 }
 
 export async function markNotificationSent(params: {
