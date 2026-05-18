@@ -151,6 +151,15 @@ export async function readInventoryRequest(request: Request) {
   };
 }
 
+export async function readOrderStatusRequest(request: Request) {
+  const params = await readRequestParams(request);
+
+  return {
+    orderIds: readMany(params, ["orderIds", "orderId", "id"]),
+    requestParams: params,
+  };
+}
+
 export async function readCollectorStatsRequest(request: Request) {
   const params = await readRequestParams(request);
 
