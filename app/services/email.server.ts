@@ -27,6 +27,15 @@ type UpcomingOpenAlertEmailParams = {
   templateSettings?: FollowEmailTemplateSettings;
 };
 
+export type EmailDeliveryRuntimeStatus = {
+  mode: "live" | "test-override" | "log-only";
+  hasResendApiKey: boolean;
+  hasEmailFrom: boolean;
+  from: string;
+  replyTo: string;
+  overrideEmail: string;
+};
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -111,6 +120,29 @@ function buildEmailShell(params: {
       </div>
     </div>
   `;
+}
+
+export function getEmailDeliveryRuntimeStatus(): EmailDeliveryRuntimeStatus {
+  const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
+  const from = String(process.env.EMAIL_FROM || "").trim();
+  const replyTo = String(process.env.EMAIL_REPLY_TO || "").trim();
+  const overrideEmail = String(process.env.EMAIL_TO_OVERRIDE || "").trim();
+  const hasResendApiKey = Boolean(resendApiKey);
+  const hasEmailFrom = Boolean(from);
+
+  return {
+    mode:
+      hasResendApiKey && hasEmailFrom
+        ? overrideEmail
+          ? "test-override"
+          : "live"
+        : "log-only",
+    hasResendApiKey,
+    hasEmailFrom,
+    from,
+    replyTo,
+    overrideEmail,
+  };
 }
 
 export async function sendNewDealEmail(params: NewDealEmailParams) {

@@ -366,6 +366,10 @@ export async function processFollowNotificationCatchup(params: {
   });
 
   let sentCount = 0;
+  let logOnlyCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+  let followerCount = 0;
 
   for (const product of matchedProducts) {
     const notification = await processDealNotification({
@@ -377,12 +381,20 @@ export async function processFollowNotificationCatchup(params: {
     });
 
     sentCount += Number(notification && "sentCount" in notification ? notification.sentCount || 0 : 0);
+    logOnlyCount += Number(notification && "logOnlyCount" in notification ? notification.logOnlyCount || 0 : 0);
+    skippedCount += Number(notification && "skippedCount" in notification ? notification.skippedCount || 0 : 0);
+    failedCount += Number(notification && "failedCount" in notification ? notification.failedCount || 0 : 0);
+    followerCount += Number(notification && "followerCount" in notification ? notification.followerCount || 0 : 0);
   }
 
   return {
     ok: true,
     processedProductCount: products.length,
     matchedProductCount: matchedProducts.length,
+    followerCount,
     sentCount,
+    logOnlyCount,
+    skippedCount,
+    failedCount,
   };
 }

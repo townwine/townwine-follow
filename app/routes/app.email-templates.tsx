@@ -22,12 +22,35 @@ import {
   saveFollowEmailTemplateSettings,
   validateFollowEmailTemplateFormValues,
 } from "../services/follow-email-template.server";
+import {
+  getEmailDeliveryRuntimeStatus,
+  sendNewDealEmail,
+} from "../services/email.server";
+import { processFollowNotificationCatchup } from "../services/deal-notification.server";
+import { getFollowersForInfluencerAliases } from "../services/follow.server";
 
 type ActionData =
   | {
-      ok: false;
-      error: string;
-      values: FollowEmailTemplateFormValues;
+      ok: boolean;
+      operation: "save" | "send-test-mail" | "run-follow-catchup";
+      error?: string;
+      message?: string;
+      values?: FollowEmailTemplateFormValues;
+      testResult?: {
+        deliveredTo: string;
+        mode: "resend" | "log-only";
+        isTestOverride: boolean;
+      };
+      catchupResult?: {
+        handle: string;
+        followerCount: number;
+        processedProductCount: number;
+        matchedProductCount: number;
+        sentCount: number;
+        logOnlyCount: number;
+        skippedCount: number;
+        failedCount: number;
+      };
     }
   | undefined;
 
@@ -38,11 +61,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return {
     shopName: config.shopName,
     formValues: toFollowEmailTemplateFormValues(config.settings),
+    runtimeStatus: getEmailDeliveryRuntimeStatus(),
   };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "save");
 
@@ -51,12 +75,131 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return redirect("/app/email-templates?reset=1");
   }
 
+  if (intent === "send-test-mail") {
+    const testEmail = String(formData.get("testEmail") || "").trim();
+    const testHandle = String(formData.get("testHandle") || "").trim() || "Townie";
+    const testProductTitle =
+      String(formData.get("testProductTitle") || "").trim() || "운영 확인용 테스트 공구";
+
+    if (!testEmail) {
+      return {
+        ok: false,
+        operation: "send-test-mail",
+        error: "테스트 수신 이메일을 입력해 주세요.",
+      } satisfies ActionData;
+    }
+
+    try {
+      const config = await loadFollowEmailTemplateConfig(admin);
+      const result = await sendNewDealEmail({
+        to: testEmail,
+        customerFirstName: "운영",
+        influencerName: testHandle,
+        productTitle: testProductTitle,
+        productUrl: `https://${session.shop}/products`,
+        shopName: config.shopName,
+        templateSettings: config.settings,
+      });
+
+      const message =
+        result.mode === "resend"
+          ? result.isTestOverride
+            ? `테스트 메일을 ${result.deliveredTo} 주소로 발송했습니다. 현재 EMAIL_TO_OVERRIDE가 켜져 있어 실제 팔로워 메일 대신 이 주소로만 나갑니다.`
+            : `테스트 메일을 ${result.deliveredTo} 주소로 발송했습니다.`
+          : "현재 운영 환경에 Resend 설정이 없어 실제 발송 대신 서버 로그만 남겼습니다.";
+
+      return {
+        ok: true,
+        operation: "send-test-mail",
+        message,
+        testResult: {
+          deliveredTo: result.deliveredTo,
+          mode: result.mode,
+          isTestOverride: result.isTestOverride,
+        },
+      } satisfies ActionData;
+    } catch (error) {
+      return {
+        ok: false,
+        operation: "send-test-mail",
+        error:
+          error instanceof Error
+            ? error.message
+            : "테스트 메일 발송 중 오류가 발생했습니다.",
+      } satisfies ActionData;
+    }
+  }
+
+  if (intent === "run-follow-catchup") {
+    const handle = String(formData.get("testHandle") || "").trim();
+
+    if (!handle) {
+      return {
+        ok: false,
+        operation: "run-follow-catchup",
+        error: "재발송할 컬렉터 닉네임을 입력해 주세요.",
+      } satisfies ActionData;
+    }
+
+    try {
+      const followers = await getFollowersForInfluencerAliases({
+        shop: session.shop,
+        aliases: [handle],
+      });
+      const result = await processFollowNotificationCatchup({
+        admin,
+        shop: session.shop,
+        handles: [handle],
+      });
+
+      const messageParts = [
+        `${handle} 팔로워 메일 재점검을 실행했습니다.`,
+        `팔로워 ${followers.length}명`,
+        `매칭 상품 ${result.matchedProductCount}개`,
+        `실제 발송 ${result.sentCount}건`,
+      ];
+
+      if (result.logOnlyCount) {
+        messageParts.push(`로그 전용 ${result.logOnlyCount}건`);
+      }
+      if (result.failedCount) {
+        messageParts.push(`실패 ${result.failedCount}건`);
+      }
+
+      return {
+        ok: true,
+        operation: "run-follow-catchup",
+        message: messageParts.join(" · "),
+        catchupResult: {
+          handle,
+          followerCount: followers.length,
+          processedProductCount: result.processedProductCount,
+          matchedProductCount: result.matchedProductCount,
+          sentCount: result.sentCount,
+          logOnlyCount: result.logOnlyCount || 0,
+          skippedCount: result.skippedCount || 0,
+          failedCount: result.failedCount || 0,
+        },
+      } satisfies ActionData;
+    } catch (error) {
+      return {
+        ok: false,
+        operation: "run-follow-catchup",
+        error:
+          error instanceof Error
+            ? error.message
+            : "팔로워 메일 재발송 점검 중 오류가 발생했습니다.",
+      } satisfies ActionData;
+    }
+  }
+
   const values = readFollowEmailTemplateFormValues(formData);
   const validationError = validateFollowEmailTemplateFormValues(values);
 
   if (validationError) {
     return {
       ok: false,
+      operation: "save",
       error: validationError,
       values,
     } satisfies ActionData;
@@ -71,6 +214,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (error) {
     return {
       ok: false,
+      operation: "save",
       error:
         error instanceof Error
           ? error.message
@@ -116,7 +260,11 @@ export default function EmailTemplatesRoute() {
   const navigation = useNavigation();
   const [searchParams] = useSearchParams();
   const values = actionData?.values || data.formValues || DEFAULT_FOLLOW_EMAIL_TEMPLATE_FORM_VALUES;
-  const isSubmitting = navigation.state === "submitting";
+  const activeIntent = String(navigation.formData?.get("intent") || "");
+  const isSaving = navigation.state === "submitting" && activeIntent === "save";
+  const isSendingTest = navigation.state === "submitting" && activeIntent === "send-test-mail";
+  const isRunningCatchup =
+    navigation.state === "submitting" && activeIntent === "run-follow-catchup";
   const saved = searchParams.get("saved") === "1";
   const reset = searchParams.get("reset") === "1";
 
@@ -268,6 +416,63 @@ export default function EmailTemplatesRoute() {
           padding-top: 16px;
           border-top: 1px solid #ebe8df;
         }
+        .email-template-runtime-list {
+          display: grid;
+          gap: 10px;
+          margin-top: 16px;
+        }
+        .email-template-runtime-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px 14px;
+          border: 1px solid #ebe8df;
+          border-radius: 14px;
+          background: #faf8f3;
+          font-size: 14px;
+        }
+        .email-template-runtime-item code {
+          font-size: 13px;
+        }
+        .email-template-chip {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 78px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+        }
+        .email-template-chip.is-live {
+          background: #edf9ef;
+          color: #1f6b34;
+        }
+        .email-template-chip.is-warning {
+          background: #fff5e8;
+          color: #935d07;
+        }
+        .email-template-chip.is-muted {
+          background: #f1efea;
+          color: #5f5b53;
+        }
+        .email-template-diagnostics-form {
+          display: grid;
+          gap: 14px;
+          margin-top: 18px;
+        }
+        .email-template-result {
+          margin-top: 14px;
+          padding: 14px 16px;
+          border-radius: 14px;
+          border: 1px solid #ebe8df;
+          background: #faf8f3;
+          font-size: 14px;
+          line-height: 1.7;
+          color: #2f2c28;
+        }
       `}</style>
       <div className="email-template-layout">
         <div className="email-template-panel">
@@ -283,6 +488,9 @@ export default function EmailTemplatesRoute() {
           ) : null}
           {actionData?.error ? (
             <div className="email-template-banner is-error">{actionData.error}</div>
+          ) : null}
+          {actionData?.message ? (
+            <div className="email-template-banner is-success">{actionData.message}</div>
           ) : null}
 
           <h2>팔로우 메일 공통 템플릿</h2>
@@ -383,16 +591,16 @@ export default function EmailTemplatesRoute() {
                 name="intent"
                 type="submit"
                 value="save"
-                disabled={isSubmitting}
+                disabled={isSaving}
               >
-                {isSubmitting ? "저장 중..." : "템플릿 저장"}
+                {isSaving ? "저장 중..." : "템플릿 저장"}
               </button>
               <button
                 className="is-secondary"
                 name="intent"
                 type="submit"
                 value="reset"
-                disabled={isSubmitting}
+                disabled={isSaving}
               >
                 기본값으로 되돌리기
               </button>
@@ -435,6 +643,128 @@ export default function EmailTemplatesRoute() {
                 2. 신청한 예약 공구 오픈 알림
               </p>
             </div>
+          </div>
+
+          <div className="email-template-panel">
+            <h3>운영 발송 점검</h3>
+            <p className="email-template-muted">
+              현재 운영 서버 기준 메일 발송 모드와 override 상태를 확인하고, 템플릿 테스트 메일이나
+              특정 컬렉터 닉네임의 팔로워 재발송 점검을 바로 실행할 수 있습니다.
+            </p>
+            <div className="email-template-runtime-list">
+              <div className="email-template-runtime-item">
+                <strong>현재 발송 모드</strong>
+                <span
+                  className={`email-template-chip ${
+                    data.runtimeStatus.mode === "live"
+                      ? "is-live"
+                      : data.runtimeStatus.mode === "test-override"
+                        ? "is-warning"
+                        : "is-muted"
+                  }`}
+                >
+                  {data.runtimeStatus.mode === "live"
+                    ? "실발송"
+                    : data.runtimeStatus.mode === "test-override"
+                      ? "Override"
+                      : "로그 전용"}
+                </span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>Resend API Key</strong>
+                <span>{data.runtimeStatus.hasResendApiKey ? "설정됨" : "없음"}</span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>EMAIL_FROM</strong>
+                <span>{data.runtimeStatus.from || "비어 있음"}</span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>EMAIL_REPLY_TO</strong>
+                <span>{data.runtimeStatus.replyTo || "비어 있음"}</span>
+              </div>
+              <div className="email-template-runtime-item">
+                <strong>EMAIL_TO_OVERRIDE</strong>
+                <span>{data.runtimeStatus.overrideEmail || "비활성"}</span>
+              </div>
+            </div>
+
+            <Form method="post" className="email-template-diagnostics-form">
+              <label className="email-template-field">
+                <span>테스트 수신 이메일</span>
+                <input
+                  name="testEmail"
+                  defaultValue={actionData?.testResult?.deliveredTo || ""}
+                  type="email"
+                />
+                <small>현재 템플릿으로 즉시 테스트 메일 1건을 보냅니다.</small>
+              </label>
+              <label className="email-template-field">
+                <span>컬렉터 닉네임</span>
+                <input
+                  name="testHandle"
+                  defaultValue={actionData?.catchupResult?.handle || "Townie"}
+                  type="text"
+                />
+                <small>
+                  예: <code>Townie</code>. 이 닉네임을 팔로우한 고객들을 기준으로 재발송 점검을 실행합니다.
+                </small>
+              </label>
+              <label className="email-template-field">
+                <span>테스트 상품명</span>
+                <input
+                  name="testProductTitle"
+                  defaultValue="운영 확인용 테스트 공구"
+                  type="text"
+                />
+              </label>
+              <div className="email-template-actions">
+                <button
+                  className="is-primary"
+                  name="intent"
+                  type="submit"
+                  value="send-test-mail"
+                  disabled={isSendingTest}
+                >
+                  {isSendingTest ? "테스트 발송 중..." : "테스트 메일 발송"}
+                </button>
+                <button
+                  className="is-secondary"
+                  name="intent"
+                  type="submit"
+                  value="run-follow-catchup"
+                  disabled={isRunningCatchup}
+                >
+                  {isRunningCatchup ? "재발송 점검 중..." : "팔로워 메일 재점검"}
+                </button>
+              </div>
+            </Form>
+
+            {actionData?.testResult ? (
+              <div className="email-template-result">
+                최종 테스트 대상: <strong>{actionData.testResult.deliveredTo}</strong>
+                <br />
+                발송 방식:{" "}
+                <strong>
+                  {actionData.testResult.mode === "resend"
+                    ? actionData.testResult.isTestOverride
+                      ? "Resend + Override"
+                      : "Resend 실발송"
+                    : "로그 전용"}
+                </strong>
+              </div>
+            ) : null}
+
+            {actionData?.catchupResult ? (
+              <div className="email-template-result">
+                닉네임 <strong>{actionData.catchupResult.handle}</strong> 기준
+                <br />
+                팔로워 {actionData.catchupResult.followerCount}명 · 매칭 상품 {actionData.catchupResult.matchedProductCount}개
+                <br />
+                실제 발송 {actionData.catchupResult.sentCount}건 · 로그 전용 {actionData.catchupResult.logOnlyCount}건
+                <br />
+                건너뜀 {actionData.catchupResult.skippedCount}건 · 실패 {actionData.catchupResult.failedCount}건
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
