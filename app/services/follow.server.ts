@@ -176,6 +176,30 @@ export async function getFollowingHandles(params: {
   });
 }
 
+export async function getAllFollowingHandles(params: {
+  shop: string;
+  customerId: string;
+}) {
+  const shop = normalizeShop(params.shop);
+  const customerId = normalizeCustomerId(params.customerId);
+
+  const records = await prisma.followSubscription.findMany({
+    where: {
+      shop,
+      customerId,
+    },
+    select: { influencerHandle: true },
+  });
+
+  return Array.from(
+    new Set(
+      records
+        .map((record) => normalizeInfluencerHandle(record.influencerHandle))
+        .filter(Boolean),
+    ),
+  );
+}
+
 export async function getFollowersForInfluencer(params: {
   shop: string;
   influencerHandle: string;
