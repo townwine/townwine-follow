@@ -77,6 +77,7 @@ type CollectorCatalogCacheEntry = {
 
 const COLLECTOR_CATALOG_CACHE_TTL_MS = 30_000;
 const COLLECTOR_CATALOG_STALE_TTL_MS = 5_000;
+const ADMIN_QUERY_MAX_ATTEMPTS = 3;
 const collectorCatalogCache = new Map<string, CollectorCatalogCacheEntry>();
 
 function toProductGid(value: string) {
@@ -138,27 +139,54 @@ function formatFollowerCount(value: number) {
   return `${formatNumber(safeValue)} 팔로워`;
 }
 
+function isThrottleMessage(value: string) {
+  return /throttled/i.test(String(value || ""));
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 async function runAdminQuery<TData>(
   admin: AdminGraphqlClient,
   query: string,
   variables?: Record<string, unknown>,
 ) {
-  const response = await admin.graphql(query, variables ? { variables } : undefined);
-  const result = (await response.json()) as {
-    data?: TData;
-    errors?: Array<{ message?: string }>;
-  };
+  for (let attempt = 1; attempt <= ADMIN_QUERY_MAX_ATTEMPTS; attempt += 1) {
+    const response = await admin.graphql(
+      query,
+      variables ? { variables } : undefined,
+    );
+    const result = (await response.json()) as {
+      data?: TData;
+      errors?: Array<{ message?: string }>;
+    };
+    const messages =
+      result.errors
+        ?.map((error) => error.message)
+        .filter((message): message is string => Boolean(message)) || [];
+    const failed = !response.ok || messages.length > 0 || !result.data;
+    const throttled =
+      response.status === 429 ||
+      messages.some((message) => isThrottleMessage(message));
 
-  if (!response.ok || result.errors?.length || !result.data) {
-    const messages = result.errors?.map((error) => error.message).filter(Boolean);
+    if (!failed && result.data) {
+      return result.data;
+    }
+
+    if (throttled && attempt < ADMIN_QUERY_MAX_ATTEMPTS) {
+      await wait(500 * attempt);
+      continue;
+    }
+
     throw new Error(
-      messages?.length
+      messages.length
         ? messages.join(", ")
         : `Admin query failed with status ${response.status}`,
     );
   }
 
-  return result.data;
+  throw new Error("Admin query failed");
 }
 
 function mapProductContext(node: ProductNode): ProductContext | null {
