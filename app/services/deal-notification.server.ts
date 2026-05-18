@@ -8,6 +8,7 @@ import {
   collectProductInfluencerAliases,
   resolveProductInfluencerHandle,
 } from "./product-collector.server";
+import { loadFollowEmailTemplateConfig } from "./follow-email-template.server";
 
 function toCustomerGid(customerId: string) {
   return customerId.startsWith("gid://")
@@ -130,6 +131,8 @@ export async function processDealNotification(params: {
     };
   }
 
+  const templateConfig = await loadFollowEmailTemplateConfig(params.admin);
+
   let sentCount = 0;
   let logOnlyCount = 0;
   let skippedCount = 0;
@@ -183,6 +186,8 @@ export async function processDealNotification(params: {
         productUrl,
         openAtLabel,
         isUpcoming,
+        shopName: templateConfig.shopName,
+        templateSettings: templateConfig.settings,
       });
 
       if (emailResult.mode === "resend") {

@@ -20,6 +20,7 @@ export default function App() {
       <s-app-nav>
         <s-link href="/app">Overview</s-link>
         <s-link href="/app/collectors">Collectors</s-link>
+        <s-link href="/app/email-templates">Email templates</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

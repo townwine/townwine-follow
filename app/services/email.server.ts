@@ -1,3 +1,9 @@
+import {
+  DEFAULT_FOLLOW_EMAIL_TEMPLATE_SETTINGS,
+  applyFollowEmailTemplateVariables,
+  type FollowEmailTemplateSettings,
+} from "./follow-email-template.shared";
+
 type NewDealEmailParams = {
   to: string;
   customerFirstName: string;
@@ -6,6 +12,8 @@ type NewDealEmailParams = {
   productUrl: string;
   openAtLabel?: string;
   isUpcoming?: boolean;
+  shopName?: string;
+  templateSettings?: FollowEmailTemplateSettings;
 };
 
 type UpcomingOpenAlertEmailParams = {
@@ -15,6 +23,8 @@ type UpcomingOpenAlertEmailParams = {
   productUrl: string;
   openAtLabel: string;
   hostName?: string;
+  shopName?: string;
+  templateSettings?: FollowEmailTemplateSettings;
 };
 
 function escapeHtml(value: string) {
@@ -26,6 +36,83 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
+function normalizeTemplateSettings(settings?: FollowEmailTemplateSettings) {
+  return settings || DEFAULT_FOLLOW_EMAIL_TEMPLATE_SETTINGS;
+}
+
+function textToHtml(value: string) {
+  return escapeHtml(value).replaceAll("\n", "<br />");
+}
+
+function buildTemplateContext(params: {
+  customerFirstName: string;
+  influencerName?: string;
+  hostName?: string;
+  productTitle: string;
+  productUrl: string;
+  openAtLabel?: string;
+  shopName?: string;
+}) {
+  const customerName = params.customerFirstName.trim()
+    ? `${params.customerFirstName.trim()}님`
+    : "고객님";
+  const influencerName = params.influencerName?.trim() || "";
+  const hostName = params.hostName?.trim() || influencerName;
+
+  return {
+    customer_name: customerName,
+    influencer_name: influencerName,
+    host_name: hostName,
+    product_title: params.productTitle,
+    product_url: params.productUrl,
+    open_at_label: params.openAtLabel?.trim() || "",
+    shop_name: params.shopName?.trim() || "TownWine",
+  };
+}
+
+function applyTemplate(template: string, context: Record<string, string>) {
+  return applyFollowEmailTemplateVariables(template, context).trim();
+}
+
+function buildEmailShell(params: {
+  brandLabel: string;
+  heading: string;
+  body: string;
+  productTitle: string;
+  productUrl: string;
+  buttonLabel: string;
+  footerText: string;
+  detailLines?: string[];
+}) {
+  const detailLines = (params.detailLines || []).filter(Boolean);
+  const detailHtml = detailLines.length
+    ? `<div style="font-size:14px;color:#7a6f61;margin-top:10px">${detailLines
+        .map((line) => textToHtml(line))
+        .join("<br />")}</div>`
+    : "";
+
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f6f1e7;padding:32px;color:#2e2925">
+      <div style="max-width:640px;margin:0 auto;background:#fffdf8;border:1px solid #e6ddcf;padding:32px">
+        <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9b8f7e;margin-bottom:16px">${escapeHtml(params.brandLabel)}</div>
+        <h1 style="font-size:28px;line-height:1.2;margin:0 0 16px">${textToHtml(params.heading)}</h1>
+        <p style="font-size:16px;line-height:1.7;margin:0 0 20px">${textToHtml(params.body)}</p>
+        <div style="padding:20px;border:1px solid #e6ddcf;background:#faf5ec;margin:0 0 24px">
+          <div style="font-size:13px;color:#7a6f61;margin-bottom:8px">상품명</div>
+          <div style="font-size:22px;font-weight:700;line-height:1.4">${escapeHtml(params.productTitle)}</div>
+          ${detailHtml}
+        </div>
+        <a href="${params.productUrl}" style="display:inline-block;background:#2f2925;color:#fffdf8;text-decoration:none;padding:14px 22px;font-weight:700;border-radius:0">${escapeHtml(params.buttonLabel)}</a>
+        ${
+          params.footerText
+            ? `<p style="font-size:13px;line-height:1.7;color:#7a6f61;margin:28px 0 0">${textToHtml(params.footerText)}</p>`
+            : ""
+        }
+      </div>
+    </div>
+  `;
+}
+
 export async function sendNewDealEmail(params: NewDealEmailParams) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
@@ -33,52 +120,56 @@ export async function sendNewDealEmail(params: NewDealEmailParams) {
   const testOverride = process.env.EMAIL_TO_OVERRIDE;
 
   const to = testOverride || params.to;
-  const customerName = params.customerFirstName
-    ? `${escapeHtml(params.customerFirstName)}님`
-    : "고객님";
-  const influencerName = escapeHtml(params.influencerName);
-  const productTitle = escapeHtml(params.productTitle);
-  const productUrl = params.productUrl;
-  const openAtLabel = params.openAtLabel
-    ? escapeHtml(params.openAtLabel)
-    : "";
   const isUpcoming = Boolean(params.isUpcoming);
+  const templateSettings = normalizeTemplateSettings(params.templateSettings);
+  const context = buildTemplateContext({
+    customerFirstName: params.customerFirstName,
+    influencerName: params.influencerName,
+    productTitle: params.productTitle,
+    productUrl: params.productUrl,
+    openAtLabel: params.openAtLabel,
+    shopName: params.shopName,
+  });
+  const subject = applyTemplate(
+    isUpcoming
+      ? templateSettings.followDeal.subjectUpcoming
+      : templateSettings.followDeal.subjectLive,
+    context,
+  );
+  const heading = applyTemplate(templateSettings.followDeal.heading, context);
+  const body = applyTemplate(
+    isUpcoming
+      ? templateSettings.followDeal.bodyUpcoming
+      : templateSettings.followDeal.bodyLive,
+    context,
+  );
+  const buttonLabel = applyTemplate(
+    templateSettings.followDeal.buttonLabel,
+    context,
+  );
+  const footerText = applyTemplate(templateSettings.footerText, context);
+  const detailLines =
+    isUpcoming && context.open_at_label
+      ? [`오픈 예정: ${context.open_at_label}`]
+      : [];
+  const text = `${heading}
 
-  const subject = isUpcoming
-    ? `[TownWine] ${influencerName}님의 새 공동구매가 등록됐어요`
-    : `[TownWine] ${influencerName}님의 새 공동구매가 열렸어요`;
-  const text = `${customerName}
-
-${params.influencerName}님이 새 공동구매를 ${
-  isUpcoming ? "등록했습니다." : "열었습니다."
-}
+${body}
 
 상품명: ${params.productTitle}
-${isUpcoming && params.openAtLabel ? `오픈 예정: ${params.openAtLabel}\n` : ""}참여하기: ${productUrl}
-`;
+${detailLines.length ? `${detailLines.join("\n")}\n` : ""}참여하기: ${params.productUrl}
+${footerText ? `\n${footerText}` : ""}`.trim();
 
-  const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f6f1e7;padding:32px;color:#2e2925">
-      <div style="max-width:640px;margin:0 auto;background:#fffdf8;border:1px solid #e6ddcf;padding:32px">
-        <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9b8f7e;margin-bottom:16px">TownWine</div>
-        <h1 style="font-size:28px;line-height:1.2;margin:0 0 16px">${customerName}, 새 공동구매 소식이 도착했어요.</h1>
-        <p style="font-size:16px;line-height:1.7;margin:0 0 20px"><strong>${influencerName}</strong>님이 새 와인 공동구매를 ${
-          isUpcoming ? "등록했습니다." : "시작했습니다."
-        }</p>
-        <div style="padding:20px;border:1px solid #e6ddcf;background:#faf5ec;margin:0 0 24px">
-          <div style="font-size:13px;color:#7a6f61;margin-bottom:8px">상품명</div>
-          <div style="font-size:22px;font-weight:700;line-height:1.4">${productTitle}</div>
-          ${
-            isUpcoming && openAtLabel
-              ? `<div style="font-size:14px;color:#7a6f61;margin-top:10px">오픈 예정: ${openAtLabel}</div>`
-              : ""
-          }
-        </div>
-        <a href="${productUrl}" style="display:inline-block;background:#2f2925;color:#fffdf8;text-decoration:none;padding:14px 22px;font-weight:700;border-radius:0">공동구매 보러 가기</a>
-        <p style="font-size:13px;line-height:1.7;color:#7a6f61;margin:28px 0 0">이 메일은 TownWine에서 팔로우한 인플루언서의 새 공동구매 알림으로 발송되었습니다.</p>
-      </div>
-    </div>
-  `;
+  const html = buildEmailShell({
+    brandLabel: applyTemplate(templateSettings.brandLabel, context),
+    heading,
+    body,
+    productTitle: params.productTitle,
+    productUrl: params.productUrl,
+    buttonLabel,
+    footerText,
+    detailLines,
+  });
 
   if (!resendApiKey || !from) {
     console.log("Email delivery skipped (missing Resend config)", {
@@ -128,41 +219,44 @@ export async function sendUpcomingOpenAlertEmail(
   const testOverride = process.env.EMAIL_TO_OVERRIDE;
 
   const to = testOverride || params.to;
-  const customerName = params.customerFirstName
-    ? `${escapeHtml(params.customerFirstName)}님`
-    : "고객님";
-  const productTitle = escapeHtml(params.productTitle);
-  const productUrl = params.productUrl;
-  const openAtLabel = escapeHtml(params.openAtLabel);
-  const hostName = escapeHtml(params.hostName || "TownWine");
+  const templateSettings = normalizeTemplateSettings(params.templateSettings);
+  const context = buildTemplateContext({
+    customerFirstName: params.customerFirstName,
+    influencerName: params.hostName,
+    hostName: params.hostName,
+    productTitle: params.productTitle,
+    productUrl: params.productUrl,
+    openAtLabel: params.openAtLabel,
+    shopName: params.shopName,
+  });
+  const subject = applyTemplate(templateSettings.openAlert.subject, context);
+  const heading = applyTemplate(templateSettings.openAlert.heading, context);
+  const body = applyTemplate(templateSettings.openAlert.body, context);
+  const buttonLabel = applyTemplate(
+    templateSettings.openAlert.buttonLabel,
+    context,
+  );
+  const footerText = applyTemplate(templateSettings.footerText, context);
+  const detailLines = [`오픈 시각: ${context.open_at_label}`];
+  const text = `${heading}
 
-  const subject = `[TownWine] 신청하신 와인 오픈 알림이 도착했어요`;
-  const text = `${customerName}
-
-신청하신 와인이 오픈되었습니다.
+${body}
 
 상품명: ${params.productTitle}
-오픈 시각: ${params.openAtLabel}
-추천 컬렉터: ${params.hostName || "TownWine"}
-바로 보기: ${productUrl}
-`;
+${detailLines.join("\n")}
+바로 보기: ${params.productUrl}
+${footerText ? `\n${footerText}` : ""}`.trim();
 
-  const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f6f1e7;padding:32px;color:#2e2925">
-      <div style="max-width:640px;margin:0 auto;background:#fffdf8;border:1px solid #e6ddcf;padding:32px">
-        <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#9b8f7e;margin-bottom:16px">TownWine</div>
-        <h1 style="font-size:28px;line-height:1.2;margin:0 0 16px">${customerName}, 기다리던 와인이 열렸어요.</h1>
-        <p style="font-size:16px;line-height:1.7;margin:0 0 20px"><strong>${hostName}</strong> 추천 와인이 지금 참여 가능한 상태로 오픈되었습니다.</p>
-        <div style="padding:20px;border:1px solid #e6ddcf;background:#faf5ec;margin:0 0 24px">
-          <div style="font-size:13px;color:#7a6f61;margin-bottom:8px">상품명</div>
-          <div style="font-size:22px;font-weight:700;line-height:1.4;margin-bottom:10px">${productTitle}</div>
-          <div style="font-size:14px;color:#7a6f61">오픈 시각: ${openAtLabel}</div>
-        </div>
-        <a href="${productUrl}" style="display:inline-block;background:#2f2925;color:#fffdf8;text-decoration:none;padding:14px 22px;font-weight:700;border-radius:0">오픈된 와인 보러 가기</a>
-        <p style="font-size:13px;line-height:1.7;color:#7a6f61;margin:28px 0 0">이 메일은 TownWine에서 신청한 예약 와인 오픈 알림으로 발송되었습니다.</p>
-      </div>
-    </div>
-  `;
+  const html = buildEmailShell({
+    brandLabel: applyTemplate(templateSettings.brandLabel, context),
+    heading,
+    body,
+    productTitle: params.productTitle,
+    productUrl: params.productUrl,
+    buttonLabel,
+    footerText,
+    detailLines,
+  });
 
   if (!resendApiKey || !from) {
     console.log("Upcoming open alert delivery skipped (missing Resend config)", {

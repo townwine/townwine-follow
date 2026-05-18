@@ -85,6 +85,7 @@ export default function Index() {
           <s-list-item>상품 상세 커스텀 메타필드 자동 보장</s-list-item>
           <s-list-item>상품 예약 오픈 월/일/시/분 입력 및 실제 오픈 일시 자동 계산</s-list-item>
           <s-list-item>예정 공구 오픈 알림 신청 및 고객별 메일 발송</s-list-item>
+          <s-list-item>팔로우 / 오픈 알림 메일 공통 템플릿 관리</s-list-item>
           <s-list-item>실고객 기반 컬렉터 메타오브젝트 등록 / 수정</s-list-item>
           <s-list-item>상품 update webhook 수신</s-list-item>
           <s-list-item>인플루언서 handle 기준 팔로워 매칭</s-list-item>
@@ -138,6 +139,9 @@ export default function Index() {
         <s-paragraph>
           예약 상품 오픈 시점에 맞춘 고객 알림까지 자동화하려면 별도 스케줄러나
           워커를 붙이는 것이 가장 안전합니다.
+        </s-paragraph>
+        <s-paragraph>
+          메일 문구는 상단의 <code>Email templates</code> 탭에서 스토어별 공통 템플릿으로 수정할 수 있습니다.
         </s-paragraph>
       </s-section>
     </s-page>

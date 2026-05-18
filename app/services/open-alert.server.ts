@@ -5,6 +5,7 @@ import {
   wasNotificationSent,
 } from "./follow.server";
 import { sendUpcomingOpenAlertEmail } from "./email.server";
+import { loadFollowEmailTemplateConfig } from "./follow-email-template.server";
 import { resolveProductInfluencerHandle } from "./product-collector.server";
 
 type AdminGraphqlClient = {
@@ -515,6 +516,8 @@ export async function processDueOpenAlerts(params: {
     };
   }
 
+  const templateConfig = await loadFollowEmailTemplateConfig(params.admin);
+
   const products = await fetchProductsByIds(
     params.admin,
     subscriptions.map((subscription) => subscription.productId),
@@ -581,6 +584,8 @@ export async function processDueOpenAlerts(params: {
           productUrl: product.onlineStoreUrl,
           openAtLabel: formatOpenAtLabel(openAtKst),
           hostName: getHostName(product),
+          shopName: templateConfig.shopName,
+          templateSettings: templateConfig.settings,
         });
 
         if (emailResult.mode === "resend") {
