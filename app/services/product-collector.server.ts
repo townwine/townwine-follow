@@ -1,6 +1,7 @@
 import { normalizeInfluencerHandle } from "./follow.server";
 
 type ProductCollectorIdentity = {
+  collectorTag?: string | null;
   influencerHandle?: string | null;
   hostHandle?: string | null;
   hostName?: string | null;
@@ -33,6 +34,12 @@ function normalizeTagKey(value: string) {
 
 function getExplicitHandleCandidates(source: ProductCollectorIdentity) {
   return [source.influencerHandle, source.hostHandle]
+    .map((value) => normalizeInfluencerHandle(String(value || "")))
+    .filter(Boolean);
+}
+
+function getNameFallbackCandidates(source: ProductCollectorIdentity) {
+  return [source.collectorTag, source.hostName, source.vendor]
     .map((value) => normalizeInfluencerHandle(String(value || "")))
     .filter(Boolean);
 }
@@ -80,21 +87,35 @@ export function resolveProductInfluencerHandle(
 ) {
   const explicitCandidates = getExplicitHandleCandidates(source);
   const taggedCandidates = extractTaggedInfluencerHandles(source.tags);
-  const handle = [...explicitCandidates, ...taggedCandidates].find(Boolean);
+  const fallbackCandidates = options?.includeNameFallback
+    ? getNameFallbackCandidates(source)
+    : [];
+  const handle = [
+    ...explicitCandidates,
+    ...taggedCandidates,
+    ...fallbackCandidates,
+  ].find(Boolean);
 
   if (handle) {
     return handle;
   }
 
-  if (!options?.includeNameFallback) {
-    return "";
-  }
+  return "";
+}
 
-  return (
-    [source.hostName, source.vendor]
-      .map((value) => normalizeInfluencerHandle(String(value || "")))
-      .find(Boolean) || ""
-  );
+export function collectProductInfluencerAliases(
+  source: ProductCollectorIdentity,
+  options?: { includeNameFallback?: boolean },
+) {
+  const aliases = [
+    ...getExplicitHandleCandidates(source),
+    ...extractTaggedInfluencerHandles(source.tags),
+    ...(options?.includeNameFallback ? getNameFallbackCandidates(source) : []),
+  ];
+
+  return aliases.filter((alias, index, values) => {
+    return Boolean(alias) && values.indexOf(alias) === index;
+  });
 }
 
 export function productMatchesInfluencerHandle(

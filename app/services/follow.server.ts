@@ -227,6 +227,39 @@ export async function getFollowersForInfluencer(params: {
   });
 }
 
+export async function getFollowersForInfluencerAliases(params: {
+  shop: string;
+  aliases: string[];
+}) {
+  const shop = normalizeShop(params.shop);
+  const aliases = Array.from(
+    new Set(params.aliases.map((alias) => normalizeInfluencerHandle(alias)).filter(Boolean)),
+  );
+
+  if (!aliases.length) {
+    return [];
+  }
+
+  const aliasSet = new Set(aliases);
+  const records = await prisma.followSubscription.findMany({
+    where: { shop },
+  });
+
+  return records.filter((record, index, items) => {
+    const influencerHandle = normalizeInfluencerHandle(record.influencerHandle);
+    const influencerName = normalizeInfluencerHandle(record.influencerName || "");
+    const isMatched =
+      aliasSet.has(influencerHandle) ||
+      (influencerName ? aliasSet.has(influencerName) : false);
+
+    if (!isMatched) {
+      return false;
+    }
+
+    return items.findIndex((item) => item.customerId === record.customerId) === index;
+  });
+}
+
 export async function markNotificationSent(params: {
   shop: string;
   customerId: string;

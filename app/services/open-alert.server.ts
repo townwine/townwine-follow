@@ -551,47 +551,59 @@ export async function processDueOpenAlerts(params: {
     }
 
     for (const subscription of productSubscriptions) {
-      const alreadySent = await wasNotificationSent({
-        shop,
-        customerId: subscription.customerId,
-        productId: product.id,
-        notificationType: "UPCOMING_OPEN_ALERT",
-      });
+      try {
+        const alreadySent = await wasNotificationSent({
+          shop,
+          customerId: subscription.customerId,
+          productId: product.id,
+          notificationType: "UPCOMING_OPEN_ALERT",
+        });
 
-      if (alreadySent) {
-        cleanupIds.add(subscription.id);
-        continue;
+        if (alreadySent) {
+          cleanupIds.add(subscription.id);
+          continue;
+        }
+
+        let customer = customerCache.get(subscription.customerId) || null;
+        if (!customerCache.has(subscription.customerId)) {
+          customer = await fetchCustomer(params.admin, subscription.customerId);
+          customerCache.set(subscription.customerId, customer);
+        }
+
+        if (!customer?.email) {
+          continue;
+        }
+
+        const emailResult = await sendUpcomingOpenAlertEmail({
+          to: customer.email,
+          customerFirstName: customer.firstName || "",
+          productTitle: product.title,
+          productUrl: product.onlineStoreUrl,
+          openAtLabel: formatOpenAtLabel(openAtKst),
+          hostName: getHostName(product),
+        });
+
+        if (emailResult.mode === "resend") {
+          await markNotificationSent({
+            shop,
+            customerId: subscription.customerId,
+            influencerHandle: getInfluencerHandle(product),
+            productId: product.id,
+            notificationType: "UPCOMING_OPEN_ALERT",
+          });
+
+          cleanupIds.add(subscription.id);
+          sentCount += 1;
+        }
+      } catch (error) {
+        console.error("[open-alert] failed to deliver upcoming open alert email", {
+          shop,
+          productId: product.id,
+          customerId: subscription.customerId,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
-
-      let customer = customerCache.get(subscription.customerId) || null;
-      if (!customerCache.has(subscription.customerId)) {
-        customer = await fetchCustomer(params.admin, subscription.customerId);
-        customerCache.set(subscription.customerId, customer);
-      }
-
-      if (!customer?.email) {
-        continue;
-      }
-
-      await sendUpcomingOpenAlertEmail({
-        to: customer.email,
-        customerFirstName: customer.firstName || "",
-        productTitle: product.title,
-        productUrl: product.onlineStoreUrl,
-        openAtLabel: formatOpenAtLabel(openAtKst),
-        hostName: getHostName(product),
-      });
-
-      await markNotificationSent({
-        shop,
-        customerId: subscription.customerId,
-        influencerHandle: getInfluencerHandle(product),
-        productId: product.id,
-        notificationType: "UPCOMING_OPEN_ALERT",
-      });
-
-      cleanupIds.add(subscription.id);
-      sentCount += 1;
     }
   }
 
