@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { readFollowStatusRequest } from "../services/follow-request.server";
 import {
@@ -8,7 +8,7 @@ import {
 } from "../services/follow.server";
 import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
 
-export async function loader({ request }: LoaderFunctionArgs) {
+async function handleStatusRequest(request: Request) {
   const url = new URL(request.url);
   const payload = await readFollowStatusRequest(request);
   const shop = payload.requestParams.get("shop") || "";
@@ -87,4 +87,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     return Response.json({ following: [], loggedIn: false }, { status: 500 });
   }
+}
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  return handleStatusRequest(request);
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  return handleStatusRequest(request);
 }
