@@ -49,6 +49,35 @@ export function normalizeInfluencerHandle(value: string) {
   return handle;
 }
 
+async function getSubscriptionsForCustomer(params: {
+  shop: string;
+  customerId: string;
+}) {
+  const shop = normalizeShop(params.shop);
+  const customerId = normalizeCustomerId(params.customerId);
+
+  if (!customerId) {
+    return [];
+  }
+
+  const scopedRecords = await prisma.followSubscription.findMany({
+    where: {
+      shop,
+      customerId,
+    },
+  });
+
+  if (scopedRecords.length > 0 || !shop) {
+    return scopedRecords;
+  }
+
+  return prisma.followSubscription.findMany({
+    where: {
+      customerId,
+    },
+  });
+}
+
 async function findMatchingSubscriptions(params: {
   shop: string;
   customerId: string;
@@ -139,8 +168,6 @@ export async function getFollowingHandles(params: {
   customerId: string;
   handles: string[];
 }) {
-  const shop = normalizeShop(params.shop);
-  const customerId = normalizeCustomerId(params.customerId);
   const requestedHandles = params.handles
     .map((handle) => handle.trim())
     .filter(Boolean);
@@ -149,13 +176,7 @@ export async function getFollowingHandles(params: {
     return [];
   }
 
-  const records = await prisma.followSubscription.findMany({
-    where: {
-      shop,
-      customerId,
-    },
-    select: { influencerHandle: true },
-  });
+  const records = await getSubscriptionsForCustomer(params);
 
   const followingSet = new Set(
     records.map((record) => normalizeInfluencerHandle(record.influencerHandle)),
@@ -180,16 +201,7 @@ export async function getAllFollowingHandles(params: {
   shop: string;
   customerId: string;
 }) {
-  const shop = normalizeShop(params.shop);
-  const customerId = normalizeCustomerId(params.customerId);
-
-  const records = await prisma.followSubscription.findMany({
-    where: {
-      shop,
-      customerId,
-    },
-    select: { influencerHandle: true },
-  });
+  const records = await getSubscriptionsForCustomer(params);
 
   return Array.from(
     new Set(
