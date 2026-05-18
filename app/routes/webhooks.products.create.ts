@@ -1,9 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
-import { syncProductDealSchedule } from "../services/deal-schedule.server";
-import { syncProductCollectorIdentity } from "../services/product-collector-sync.server";
-import { processDealNotification } from "../services/deal-notification.server";
-import { processDueOpenAlerts } from "../services/open-alert.server";
+import { processProductWebhookEvent } from "../services/product-webhook-processing.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   const { admin, topic, shop } = await authenticate.webhook(request);
@@ -18,22 +15,11 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const payload = await request.json();
   const productId = `gid://shopify/Product/${payload.id}`;
-  const schedule = await syncProductDealSchedule(admin, productId);
-  const collectorIdentity = await syncProductCollectorIdentity(admin, productId);
-  const notification = await processDealNotification({
+  const result = await processProductWebhookEvent({
     admin,
     shop,
     productId,
-    resolvedInfluencerHandle:
-      "influencerHandle" in collectorIdentity ? collectorIdentity.influencerHandle : "",
-    resolvedInfluencerName:
-      "hostName" in collectorIdentity ? collectorIdentity.hostName : "",
-  });
-  const openAlertDelivery = await processDueOpenAlerts({
-    admin,
-    shop,
-    productIds: [productId],
   });
 
-  return Response.json({ schedule, collectorIdentity, notification, openAlertDelivery });
+  return Response.json(result);
 }
