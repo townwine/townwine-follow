@@ -16,6 +16,7 @@ type WatchdogSessionRecord = {
 
 type WatchdogProductNode = {
   id: string;
+  status: string;
   updatedAt: string;
 };
 
@@ -181,10 +182,10 @@ async function fetchRecentActiveProducts(admin: AdminGraphqlClient) {
           first: $first
           sortKey: UPDATED_AT
           reverse: true
-          query: "status:active"
         ) {
           nodes {
             id
+            status
             updatedAt
           }
         }
@@ -261,8 +262,8 @@ async function runWatchdogCycle() {
         lastMostRecentProductUpdatedAt = products[0].updatedAt;
       }
 
-      const candidateProducts = products.filter((product) =>
-        isWithinLookback(product.updatedAt),
+      const candidateProducts = products.filter(
+        (product) => product.status === "ACTIVE" && isWithinLookback(product.updatedAt),
       );
 
       lastProductCount += candidateProducts.length;
