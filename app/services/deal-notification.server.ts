@@ -37,6 +37,26 @@ function maskEmailAddress(value: string) {
   return `${localPart.slice(0, 2)}***@${domainPart}`;
 }
 
+function logSkippedFollowerEmail(params: {
+  shop: string;
+  productId: string;
+  followerCustomerId: string;
+  influencerHandle: string;
+  reason: string;
+  email?: string | null;
+  detail?: Record<string, unknown>;
+}) {
+  console.info("[follow-notification] skipped new deal email", {
+    shop: params.shop,
+    productId: params.productId,
+    followerCustomerId: params.followerCustomerId,
+    influencerHandle: params.influencerHandle,
+    reason: params.reason,
+    email: params.email ? maskEmailAddress(params.email) : "",
+    ...(params.detail || {}),
+  });
+}
+
 async function buildEffectiveInfluencerAliases(params: {
   admin: { graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response> };
   shop: string;
@@ -221,6 +241,17 @@ export async function processDealNotification(params: {
 
       if (alreadySent) {
         skippedCount += 1;
+        logSkippedFollowerEmail({
+          shop: params.shop,
+          productId: params.productId,
+          followerCustomerId: follower.customerId,
+          influencerHandle,
+          reason: "ALREADY_SENT",
+          email: follower.customerEmail,
+          detail: {
+            followerUpdatedAt: follower.updatedAt.toISOString(),
+          },
+        });
         continue;
       }
 
@@ -250,6 +281,14 @@ export async function processDealNotification(params: {
 
       if (!customerEmail) {
         skippedCount += 1;
+        logSkippedFollowerEmail({
+          shop: params.shop,
+          productId: params.productId,
+          followerCustomerId: follower.customerId,
+          influencerHandle,
+          reason: "MISSING_CUSTOMER_EMAIL",
+          email: follower.customerEmail,
+        });
         continue;
       }
 
@@ -283,12 +322,16 @@ export async function processDealNotification(params: {
           sentCount += 1;
         } else {
           skippedCount += 1;
-          console.info("[follow-notification] notification log already existed", {
+          logSkippedFollowerEmail({
             shop: params.shop,
             productId: params.productId,
             followerCustomerId: follower.customerId,
             influencerHandle,
-            notificationType: "FOLLOW_NEW_DEAL",
+            reason: "NOTIFICATION_LOG_ALREADY_EXISTS",
+            email: customerEmail,
+            detail: {
+              notificationType: "FOLLOW_NEW_DEAL",
+            },
           });
         }
       } else {

@@ -7,7 +7,6 @@ import {
   syncFollowSubscriptionContact,
 } from "../services/follow.server";
 import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
-import { processFollowNotificationCatchup } from "../services/deal-notification.server";
 import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
 
 async function handleStatusRequest(request: Request) {
@@ -68,24 +67,6 @@ async function handleStatusRequest(request: Request) {
       customerEmail: payload.customerEmail,
       customerFirstName: payload.customerFirstName,
     });
-
-    if (admin && payload.handles.length) {
-      try {
-        await processFollowNotificationCatchup({
-          admin,
-          shop,
-          handles: payload.handles,
-        });
-      } catch (error) {
-        console.error("[follow] failed to run notification catchup on status", {
-          shop,
-          customerId,
-          handles: payload.handles,
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-    }
 
     if (!handles.length) {
       const following = await getAllFollowingHandles({
