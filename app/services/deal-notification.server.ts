@@ -318,7 +318,7 @@ export async function processDealNotification(params: {
           notificationType: "FOLLOW_NEW_DEAL",
         });
 
-        if (notificationLog.created) {
+        if (notificationLog.created || notificationLog.updated) {
           sentCount += 1;
         } else {
           skippedCount += 1;

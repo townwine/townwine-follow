@@ -539,6 +539,7 @@ export async function markNotificationSent(params: {
 
     return {
       created: true,
+      updated: false,
       record,
     };
   } catch (error) {
@@ -546,7 +547,7 @@ export async function markNotificationSent(params: {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      const record = await prisma.notificationLog.findUnique({
+      const record = await prisma.notificationLog.update({
         where: {
           shop_customerId_productId_notificationType: {
             shop: params.shop,
@@ -555,10 +556,15 @@ export async function markNotificationSent(params: {
             notificationType: params.notificationType,
           },
         },
+        data: {
+          influencerHandle: params.influencerHandle,
+          sentAt: new Date(),
+        },
       });
 
       return {
         created: false,
+        updated: true,
         record,
       };
     }

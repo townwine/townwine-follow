@@ -140,6 +140,7 @@ function getWatchdogState() {
 function isWatchdogEnabled() {
   return (
     process.env.NODE_ENV === "production" &&
+    process.env.ENABLE_FOLLOW_NOTIFICATION_WATCHDOG === "1" &&
     process.env.DISABLE_FOLLOW_NOTIFICATION_WATCHDOG !== "1"
   );
 }
