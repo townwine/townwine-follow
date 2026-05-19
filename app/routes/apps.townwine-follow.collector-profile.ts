@@ -1,11 +1,13 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import { syncCollectorCommentDisplayName } from "../services/collector-comments.server";
 import {
   findCollectorProfileByCustomerId,
   normalizeCollectorFormInput,
   toCustomerGid,
   upsertCollectorProfile,
 } from "../services/collector-profiles.server";
+import { syncFollowSubscriptionContact } from "../services/follow.server";
 
 function readTextValue(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -61,9 +63,23 @@ async function handleCollectorProfileSave(request: Request) {
 
     const result = await upsertCollectorProfile(admin, input);
 
+    await Promise.all([
+      syncCollectorCommentDisplayName({
+        shop,
+        customerId,
+        customerDisplayName: result.displayName,
+      }),
+      syncFollowSubscriptionContact({
+        shop,
+        customerId,
+        customerFirstName: result.displayName,
+      }),
+    ]);
+
     return Response.json({
       ok: true,
       handle: result.handle,
+      displayName: result.displayName,
       storefrontPath: result.storefrontPath,
     });
   } catch (error) {

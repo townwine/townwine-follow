@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import { findCollectorProfileByCustomerId } from "../services/collector-profiles.server";
 import {
   createCollectorComment,
   deleteCollectorComment,
@@ -143,12 +144,28 @@ async function handleCollectorCommentsRequest(request: Request) {
       });
     }
 
+    let customerDisplayName =
+      payload.customerDisplayName || payload.customerFirstName;
+
+    if (appProxyContext.admin && customerId) {
+      const customerProfile = await findCollectorProfileByCustomerId(
+        appProxyContext.admin,
+        customerId,
+      );
+      const preferredDisplayName = String(
+        customerProfile?.fields.displayName || "",
+      ).trim();
+
+      if (preferredDisplayName) {
+        customerDisplayName = preferredDisplayName;
+      }
+    }
+
     const comment = await createCollectorComment({
       shop,
       collectorHandle: payload.collectorHandle,
       customerId,
-      customerDisplayName:
-        payload.customerDisplayName || payload.customerFirstName,
+      customerDisplayName,
       body: payload.body,
     });
 

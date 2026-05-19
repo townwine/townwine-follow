@@ -1087,6 +1087,7 @@ export async function upsertCollectorProfile(
 
   return {
     handle: mutationResult.metaobject?.handle || collectorHandle,
+    displayName,
     storefrontPath: toStorefrontPath(mutationResult.metaobject?.handle || collectorHandle),
   };
 }

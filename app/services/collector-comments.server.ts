@@ -242,3 +242,45 @@ export async function deleteCollectorComment(params: {
     id: record.id,
   };
 }
+
+export async function syncCollectorCommentDisplayName(params: {
+  shop: string;
+  customerId: string;
+  customerDisplayName?: string;
+}) {
+  const shop = normalizeShop(params.shop);
+  const customerId = normalizeCustomerId(params.customerId);
+
+  if (!customerId) {
+    return { count: 0, fallback: false };
+  }
+
+  const customerDisplayName = normalizeCustomerDisplayName(
+    params.customerDisplayName || "",
+  );
+
+  const scopedResult = await prisma.collectorComment.updateMany({
+    where: {
+      shop,
+      customerId,
+    },
+    data: {
+      customerDisplayName,
+    },
+  });
+
+  if (scopedResult.count > 0 || !shop) {
+    return { count: scopedResult.count, fallback: false };
+  }
+
+  const fallbackResult = await prisma.collectorComment.updateMany({
+    where: {
+      customerId,
+    },
+    data: {
+      customerDisplayName,
+    },
+  });
+
+  return { count: fallbackResult.count, fallback: fallbackResult.count > 0 };
+}
