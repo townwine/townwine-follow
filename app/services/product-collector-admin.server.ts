@@ -1,5 +1,6 @@
 import { processDealNotification } from "./deal-notification.server";
 import { syncProductCollectorIdentity } from "./product-collector-sync.server";
+import { isSellableProductStatus } from "./product-status.server";
 
 type AdminGraphqlClient = {
   graphql: (
@@ -155,7 +156,7 @@ export async function ensureProductCollectorAdminNotification(params: {
   }
 
   const notification =
-    state.productStatus === "ACTIVE" && state.influencerHandle
+    isSellableProductStatus(state.productStatus) && state.influencerHandle
       ? await processDealNotification({
           admin: params.admin,
           shop: params.shop,
@@ -163,7 +164,7 @@ export async function ensureProductCollectorAdminNotification(params: {
           resolvedInfluencerHandle: state.influencerHandle,
           resolvedInfluencerName: state.hostName,
         })
-      : state.productStatus !== "ACTIVE"
+      : !isSellableProductStatus(state.productStatus)
         ? { ok: true, skipped: "PRODUCT_NOT_ACTIVE" as const }
         : { ok: true, skipped: "NO_INFLUENCER_HANDLE" as const };
 

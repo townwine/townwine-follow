@@ -10,6 +10,7 @@ import {
   collectProductInfluencerAliases,
   resolveProductInfluencerHandle,
 } from "./product-collector.server";
+import { isSellableProductStatus } from "./product-status.server";
 import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
 
 function toCustomerGid(customerId: string) {
@@ -75,7 +76,7 @@ export async function processDealNotification(params: {
   const result = await response.json();
   const product = result.data?.product;
 
-  if (!product || product.status !== "ACTIVE") {
+  if (!product || !isSellableProductStatus(product.status)) {
     return { ok: true, skipped: "PRODUCT_NOT_ACTIVE" };
   }
 
@@ -291,7 +292,7 @@ async function fetchActiveFollowNotificationProducts(params: {
     const response = await params.admin.graphql(
       `#graphql
         query ActiveFollowNotificationProducts($cursor: String) {
-          products(first: 250, after: $cursor, query: "status:active") {
+          products(first: 250, after: $cursor) {
             pageInfo {
               hasNextPage
               endCursor
@@ -330,7 +331,7 @@ async function fetchActiveFollowNotificationProducts(params: {
     products.push(
       ...connection.nodes.filter(
         (node: ActiveFollowNotificationProductNode): node is Exclude<ActiveFollowNotificationProductNode, null> =>
-          Boolean(node?.id && node.status === "ACTIVE"),
+          Boolean(node?.id && isSellableProductStatus(node.status)),
       ),
     );
 

@@ -7,6 +7,7 @@ import {
 import { sendUpcomingOpenAlertEmail } from "./email.server";
 import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
 import { resolveProductInfluencerHandle } from "./product-collector.server";
+import { isSellableProductStatus } from "./product-status.server";
 
 type AdminGraphqlClient = {
   graphql: (
@@ -550,7 +551,7 @@ export async function processDueOpenAlerts(params: {
       !openAtKst ||
       !Number.isFinite(openTimestamp) ||
       openTimestamp > currentTimestamp ||
-      product.status !== "ACTIVE" ||
+      !isSellableProductStatus(product.status) ||
       !product.onlineStoreUrl
     ) {
       continue;

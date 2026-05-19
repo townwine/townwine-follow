@@ -1,6 +1,7 @@
 import { ApiVersion } from "@shopify/shopify-app-react-router/server";
 import db from "../db.server";
 import { processProductWebhookEvent } from "./product-webhook-processing.server";
+import { isSellableProductStatus } from "./product-status.server";
 import { getRecentWebhookEvents } from "./webhook-observability.server";
 
 type AdminGraphqlClient = {
@@ -320,7 +321,8 @@ async function runWatchdogCycle() {
       }
 
       const candidateProducts = products.filter(
-        (product) => product.status === "ACTIVE" && isWithinLookback(product.updatedAt),
+        (product) =>
+          isSellableProductStatus(product.status) && isWithinLookback(product.updatedAt),
       );
 
       lastProductCount += candidateProducts.length;
