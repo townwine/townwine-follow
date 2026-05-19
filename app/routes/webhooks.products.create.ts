@@ -1,16 +1,13 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { processProductWebhookEvent } from "../services/product-webhook-processing.server";
+import { recordWebhookEvent } from "../services/webhook-observability.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   const { admin, topic, shop, payload } = await authenticate.webhook(request);
 
   if (topic !== "PRODUCTS_CREATE") {
     return Response.json({ ok: true });
-  }
-
-  if (!admin) {
-    return Response.json({ ok: true, skipped: "NO_ADMIN_CLIENT" });
   }
 
   const productId =
@@ -20,6 +17,19 @@ export async function action({ request }: ActionFunctionArgs) {
       : payload?.id
         ? `gid://shopify/Product/${payload.id}`
         : "";
+
+  recordWebhookEvent({
+    timestamp: new Date().toISOString(),
+    topic,
+    shop,
+    productId,
+    adminAvailable: Boolean(admin),
+    skipped: !admin ? "NO_ADMIN_CLIENT" : !productId ? "MISSING_PRODUCT_ID" : "",
+  });
+
+  if (!admin) {
+    return Response.json({ ok: true, skipped: "NO_ADMIN_CLIENT" });
+  }
 
   if (!productId) {
     console.warn("[webhooks] products/create missing product id", {

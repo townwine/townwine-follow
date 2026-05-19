@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { processProductWebhookEvent } from "./product-webhook-processing.server";
+import { recordWebhookEvent } from "./webhook-observability.server";
 
 const RELEVANT_PRODUCT_METAFIELD_KEYS = new Set([
   "collector_tag",
@@ -53,6 +54,30 @@ export async function handleMetafieldWebhookAction(
   const key = String(metafieldPayload.key || "")
     .trim()
     .toLowerCase();
+  const productId = toProductGid(metafieldPayload.owner_id);
+
+  recordWebhookEvent({
+    timestamp: new Date().toISOString(),
+    topic,
+    shop,
+    productId,
+    adminAvailable: Boolean(admin),
+    namespace,
+    key,
+    skipped: !admin
+      ? "NO_ADMIN_CLIENT"
+      : ownerResource !== "product"
+        ? "NON_PRODUCT_OWNER"
+        : namespace !== "custom" || !RELEVANT_PRODUCT_METAFIELD_KEYS.has(key)
+          ? "IRRELEVANT_METAFIELD"
+          : !productId
+            ? "MISSING_PRODUCT_ID"
+            : "",
+  });
+
+  if (!admin) {
+    return Response.json({ ok: true, skipped: "NO_ADMIN_CLIENT" });
+  }
 
   if (ownerResource !== "product") {
     return Response.json({ ok: true, skipped: "NON_PRODUCT_OWNER" });
@@ -67,8 +92,6 @@ export async function handleMetafieldWebhookAction(
       key,
     });
   }
-
-  const productId = toProductGid(metafieldPayload.owner_id);
 
   if (!productId) {
     console.warn("[webhooks] metafield webhook missing product owner id", {

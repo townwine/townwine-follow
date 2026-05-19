@@ -1,6 +1,7 @@
 import { ApiVersion } from "@shopify/shopify-app-react-router/server";
 import db from "../db.server";
 import { processProductWebhookEvent } from "./product-webhook-processing.server";
+import { getRecentWebhookEvents } from "./webhook-observability.server";
 
 type AdminGraphqlClient = {
   graphql: (
@@ -26,6 +27,7 @@ type WatchdogStatusSnapshot = {
   intervalMs: number;
   lookbackMinutes: number;
   maxProductsPerShop: number;
+  maxPagesPerShop: number;
   running: boolean;
   startedAt: string | null;
   lastRunAt: string | null;
@@ -44,6 +46,16 @@ type WatchdogStatusSnapshot = {
     followerCount: number;
     sentCount: number;
     failedCount: number;
+  }>;
+  recentWebhookEvents: Array<{
+    timestamp: string;
+    topic: string;
+    shop: string;
+    productId: string;
+    adminAvailable: boolean;
+    namespace?: string;
+    key?: string;
+    skipped?: string;
   }>;
 };
 
@@ -84,8 +96,12 @@ const WATCHDOG_LOOKBACK_MINUTES = Math.max(
   Number(process.env.FOLLOW_NOTIFICATION_WATCHDOG_LOOKBACK_MINUTES || 180),
 );
 const WATCHDOG_MAX_PRODUCTS_PER_SHOP = Math.max(
+  50,
+  Number(process.env.FOLLOW_NOTIFICATION_WATCHDOG_MAX_PRODUCTS_PER_SHOP || 250),
+);
+const WATCHDOG_MAX_PAGES_PER_SHOP = Math.max(
   1,
-  Number(process.env.FOLLOW_NOTIFICATION_WATCHDOG_MAX_PRODUCTS_PER_SHOP || 50),
+  Number(process.env.FOLLOW_NOTIFICATION_WATCHDOG_MAX_PAGES_PER_SHOP || 8),
 );
 
 function getWatchdogState() {
@@ -95,16 +111,16 @@ function getWatchdogState() {
       startedAt: null,
       running: false,
       lastRunAt: null,
-        lastCompletedAt: null,
-        lastShopCount: 0,
-        lastFetchedProductCount: 0,
-        lastProductCount: 0,
-        lastSentCount: 0,
-        lastFailedCount: 0,
-        lastError: "",
-        lastMostRecentProductUpdatedAt: "",
-        recentResults: [],
-      };
+      lastCompletedAt: null,
+      lastShopCount: 0,
+      lastFetchedProductCount: 0,
+      lastProductCount: 0,
+      lastSentCount: 0,
+      lastFailedCount: 0,
+      lastError: "",
+      lastMostRecentProductUpdatedAt: "",
+      recentResults: [],
+    };
   }
 
   return global.followNotificationWatchdog;
@@ -175,42 +191,83 @@ async function listOfflineSessions(): Promise<WatchdogSessionRecord[]> {
 }
 
 async function fetchRecentActiveProducts(admin: AdminGraphqlClient) {
-  const response = await admin.graphql(
-    `#graphql
-      query FollowNotificationWatchdogProducts($first: Int!) {
-        products(
-          first: $first
-          sortKey: UPDATED_AT
-          reverse: true
-        ) {
-          nodes {
-            id
-            status
-            updatedAt
+  const cutoffMs = Date.now() - WATCHDOG_LOOKBACK_MINUTES * 60_000;
+  const products: WatchdogProductNode[] = [];
+  let cursor: string | null = null;
+  let hasNextPage = true;
+  let pageCount = 0;
+
+  while (hasNextPage && pageCount < WATCHDOG_MAX_PAGES_PER_SHOP) {
+    const response = await admin.graphql(
+      `#graphql
+        query FollowNotificationWatchdogProducts($first: Int!, $cursor: String) {
+          products(
+            first: $first
+            after: $cursor
+            sortKey: UPDATED_AT
+            reverse: true
+          ) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+              status
+              updatedAt
+            }
           }
         }
-      }
-    `,
-    { variables: { first: WATCHDOG_MAX_PRODUCTS_PER_SHOP } },
-  );
+      `,
+      {
+        variables: {
+          first: WATCHDOG_MAX_PRODUCTS_PER_SHOP,
+          cursor,
+        },
+      },
+    );
 
-  const result = (await response.json()) as {
-    data?: {
-      products?: {
-        nodes?: WatchdogProductNode[];
+    const result = (await response.json()) as {
+      data?: {
+        products?: {
+          pageInfo?: {
+            hasNextPage?: boolean;
+            endCursor?: string | null;
+          };
+          nodes?: WatchdogProductNode[];
+        };
       };
+      errors?: Array<{ message?: string }>;
     };
-    errors?: Array<{ message?: string }>;
-  };
 
-  if (!response.ok || result.errors?.length) {
-    const message =
-      result.errors?.map((error) => error.message).filter(Boolean).join(", ") ||
-      `Failed to load recent products (${response.status})`;
-    throw new Error(message);
+    if (!response.ok || result.errors?.length) {
+      const message =
+        result.errors?.map((error) => error.message).filter(Boolean).join(", ") ||
+        `Failed to load recent products (${response.status})`;
+      throw new Error(message);
+    }
+
+    const pageNodes = result.data?.products?.nodes || [];
+    products.push(...pageNodes);
+    pageCount += 1;
+
+    const pageInfo = result.data?.products?.pageInfo;
+    hasNextPage = Boolean(pageInfo?.hasNextPage);
+    cursor = pageInfo?.endCursor || null;
+
+    const oldestUpdatedAt = pageNodes[pageNodes.length - 1]?.updatedAt;
+    const oldestUpdatedAtMs = Date.parse(String(oldestUpdatedAt || ""));
+
+    if (!pageNodes.length) {
+      break;
+    }
+
+    if (Number.isFinite(oldestUpdatedAtMs) && oldestUpdatedAtMs < cutoffMs) {
+      break;
+    }
   }
 
-  return result.data?.products?.nodes || [];
+  return products;
 }
 
 function isWithinLookback(updatedAt: string) {
@@ -342,6 +399,7 @@ export function getFollowNotificationWatchdogStatus(): WatchdogStatusSnapshot {
     intervalMs: WATCHDOG_INTERVAL_MS,
     lookbackMinutes: WATCHDOG_LOOKBACK_MINUTES,
     maxProductsPerShop: WATCHDOG_MAX_PRODUCTS_PER_SHOP,
+    maxPagesPerShop: WATCHDOG_MAX_PAGES_PER_SHOP,
     running: state.running,
     startedAt: state.startedAt,
     lastRunAt: state.lastRunAt,
@@ -354,5 +412,6 @@ export function getFollowNotificationWatchdogStatus(): WatchdogStatusSnapshot {
     lastError: state.lastError,
     lastMostRecentProductUpdatedAt: state.lastMostRecentProductUpdatedAt,
     recentResults: state.recentResults,
+    recentWebhookEvents: getRecentWebhookEvents(),
   };
 }

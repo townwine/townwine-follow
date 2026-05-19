@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { authenticate } from "../shopify.server";
+import { authenticate, registerWebhooks } from "../shopify.server";
 import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
 import {
   ensureProductCollectorAdminNotification,
@@ -15,6 +15,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const { admin, cors, session } = await authenticate.admin(request);
 
   try {
+    try {
+      await registerWebhooks({ session });
+    } catch (error) {
+      console.error("[webhooks] failed to refresh webhooks during collector-tag load", {
+        shop: session.shop,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     const url = new URL(request.url);
     const productId = String(url.searchParams.get("productId") || "").trim();
     const ensureNotification =
@@ -71,6 +80,15 @@ export async function action({ request }: ActionFunctionArgs) {
   const { admin, cors, session } = await authenticate.admin(request);
 
   try {
+    try {
+      await registerWebhooks({ session });
+    } catch (error) {
+      console.error("[webhooks] failed to refresh webhooks during collector-tag save", {
+        shop: session.shop,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     const payload = (await request.json()) as {
       productId?: string;
       collectorTag?: string;
