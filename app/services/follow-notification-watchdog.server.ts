@@ -17,10 +17,6 @@ type WatchdogSessionRecord = {
 type WatchdogProductNode = {
   id: string;
   updatedAt: string;
-  collectorTag: { value: string | null } | null;
-  influencerHandle: { value: string | null } | null;
-  hostHandle: { value: string | null } | null;
-  hostName: { value: string | null } | null;
 };
 
 type WatchdogStatusSnapshot = {
@@ -167,18 +163,6 @@ async function fetchRecentActiveProducts(admin: AdminGraphqlClient) {
           nodes {
             id
             updatedAt
-            collectorTag: metafield(namespace: "custom", key: "collector_tag") {
-              value
-            }
-            influencerHandle: metafield(namespace: "custom", key: "influencer_handle") {
-              value
-            }
-            hostHandle: metafield(namespace: "custom", key: "host_handle") {
-              value
-            }
-            hostName: metafield(namespace: "custom", key: "host_name") {
-              value
-            }
           }
         }
       }
@@ -215,15 +199,6 @@ function isWithinLookback(updatedAt: string) {
   return updatedAtMs >= Date.now() - WATCHDOG_LOOKBACK_MINUTES * 60_000;
 }
 
-function hasCollectorSignal(product: WatchdogProductNode) {
-  return Boolean(
-    normalizeText(product.collectorTag?.value) ||
-      normalizeText(product.influencerHandle?.value) ||
-      normalizeText(product.hostHandle?.value) ||
-      normalizeText(product.hostName?.value),
-  );
-}
-
 async function runWatchdogCycle() {
   const state = getWatchdogState();
 
@@ -247,8 +222,8 @@ async function runWatchdogCycle() {
     for (const session of sessions) {
       const admin = createOfflineAdminClient(session);
       const products = await fetchRecentActiveProducts(admin);
-      const candidateProducts = products.filter(
-        (product) => hasCollectorSignal(product) && isWithinLookback(product.updatedAt),
+      const candidateProducts = products.filter((product) =>
+        isWithinLookback(product.updatedAt),
       );
 
       lastProductCount += candidateProducts.length;
