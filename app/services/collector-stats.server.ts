@@ -3,6 +3,10 @@ import {
   normalizeInfluencerHandle,
 } from "./follow.server";
 import {
+  listCollectorProfiles,
+  type CollectorProfileRecord,
+} from "./collector-profiles.server";
+import {
   collectProductInfluencerAliases,
   productMatchesInfluencerHandle,
   resolveProductInfluencerHandle,
@@ -75,10 +79,25 @@ type CollectorCatalogCacheEntry = {
   promise: Promise<ProductContext[]> | null;
 };
 
+type CollectorAliasDirectory = {
+  aliasesByHandle: Map<string, string[]>;
+  handleByAlias: Map<string, string>;
+};
+
+type CollectorAliasDirectoryCacheEntry = {
+  value: CollectorAliasDirectory | null;
+  expiresAt: number;
+  promise: Promise<CollectorAliasDirectory> | null;
+};
+
 const COLLECTOR_CATALOG_CACHE_TTL_MS = 30_000;
 const COLLECTOR_CATALOG_STALE_TTL_MS = 5_000;
 const ADMIN_QUERY_MAX_ATTEMPTS = 3;
 const collectorCatalogCache = new Map<string, CollectorCatalogCacheEntry>();
+const collectorAliasDirectoryCache = new Map<
+  string,
+  CollectorAliasDirectoryCacheEntry
+>();
 
 function toProductGid(value: string) {
   const trimmedValue = String(value || "").trim();
@@ -108,6 +127,16 @@ function normalizeCollectorName(value: string) {
     .trim()
     .replace(/\s+/g, " ")
     .toLocaleLowerCase();
+}
+
+function collectUniqueNormalizedHandles(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeInfluencerHandle(String(value || "")))
+        .filter(Boolean),
+    ),
+  );
 }
 
 function toInteger(value: string | null | undefined) {
@@ -322,6 +351,41 @@ function getCollectorCatalogCacheKey(shop: string) {
   return String(shop || "").trim().toLowerCase();
 }
 
+function buildCollectorAliasDirectory(
+  profiles: CollectorProfileRecord[],
+): CollectorAliasDirectory {
+  const aliasesByHandle = new Map<string, string[]>();
+  const handleByAlias = new Map<string, string>();
+
+  for (const profile of profiles) {
+    const canonicalHandle = normalizeInfluencerHandle(profile.handle);
+
+    if (!canonicalHandle) {
+      continue;
+    }
+
+    const aliases = collectUniqueNormalizedHandles([
+      profile.handle,
+      profile.fields.publicHandle,
+      profile.fields.displayName,
+      profile.fields.customerName,
+    ]);
+
+    aliasesByHandle.set(canonicalHandle, aliases);
+
+    for (const alias of aliases) {
+      if (!handleByAlias.has(alias)) {
+        handleByAlias.set(alias, canonicalHandle);
+      }
+    }
+  }
+
+  return {
+    aliasesByHandle,
+    handleByAlias,
+  };
+}
+
 async function fetchCachedCollectorProducts(
   admin: AdminGraphqlClient,
   shop: string,
@@ -370,6 +434,84 @@ async function fetchCachedCollectorProducts(
     collectorCatalogCache.delete(cacheKey);
     throw error;
   }
+}
+
+async function fetchCachedCollectorAliasDirectory(
+  admin: AdminGraphqlClient,
+  shop: string,
+) {
+  const cacheKey = getCollectorCatalogCacheKey(shop);
+  const now = Date.now();
+  const cachedEntry = collectorAliasDirectoryCache.get(cacheKey);
+
+  if (cachedEntry?.value && cachedEntry.expiresAt > now) {
+    return cachedEntry.value;
+  }
+
+  if (cachedEntry?.promise) {
+    return cachedEntry.promise;
+  }
+
+  const refreshPromise = listCollectorProfiles(admin).then((profiles) => {
+    return buildCollectorAliasDirectory(profiles);
+  });
+
+  collectorAliasDirectoryCache.set(cacheKey, {
+    value: cachedEntry?.value ?? null,
+    expiresAt: cachedEntry?.expiresAt ?? 0,
+    promise: refreshPromise,
+  });
+
+  try {
+    const directory = await refreshPromise;
+
+    collectorAliasDirectoryCache.set(cacheKey, {
+      value: directory,
+      expiresAt: Date.now() + COLLECTOR_CATALOG_CACHE_TTL_MS,
+      promise: null,
+    });
+
+    return directory;
+  } catch (error) {
+    if (cachedEntry?.value) {
+      collectorAliasDirectoryCache.set(cacheKey, {
+        value: cachedEntry.value,
+        expiresAt: Date.now() + COLLECTOR_CATALOG_STALE_TTL_MS,
+        promise: null,
+      });
+
+      return cachedEntry.value;
+    }
+
+    collectorAliasDirectoryCache.delete(cacheKey);
+    throw error;
+  }
+}
+
+function resolveCollectorHandle(
+  directory: CollectorAliasDirectory,
+  handle: string,
+) {
+  const normalizedHandle = normalizeInfluencerHandle(handle);
+
+  if (!normalizedHandle) {
+    return "";
+  }
+
+  return directory.handleByAlias.get(normalizedHandle) || normalizedHandle;
+}
+
+function getCollectorHandleAliases(
+  directory: CollectorAliasDirectory,
+  handle: string,
+) {
+  const normalizedHandle = resolveCollectorHandle(directory, handle);
+
+  if (!normalizedHandle) {
+    return [];
+  }
+
+  return directory.aliasesByHandle.get(normalizedHandle) || [normalizedHandle];
 }
 
 function getPrimaryInfluencerHandle(product: ProductContext) {
@@ -430,10 +572,12 @@ function getMatchingDealCount(
 function getFollowerAliasKeys(
   primaryAlias: string,
   matchedProducts: ProductContext[],
+  additionalAliases: string[] = [],
 ) {
   return Array.from(
     new Set(
       [primaryAlias]
+        .concat(additionalAliases)
         .concat(
           matchedProducts.flatMap((product) => getCollectorAliasKeys(product)),
         )
@@ -473,15 +617,24 @@ export async function getCollectorStatsSnapshots(params: {
     ? await fetchCollectorTargets(params.admin, params.productIds)
     : [];
   const catalog = await fetchCachedCollectorProducts(params.admin, params.shop);
+  const collectorAliasDirectory = await fetchCachedCollectorAliasDirectory(
+    params.admin,
+    params.shop,
+  );
   const snapshots: CollectorStatsSnapshot[] = [];
 
   const targetSnapshots = await Promise.all(
     targets.map(async (target): Promise<CollectorStatsSnapshot> => {
       const influencerHandle = getPrimaryInfluencerHandle(target);
+      const canonicalInfluencerHandle = resolveCollectorHandle(
+        collectorAliasDirectory,
+        influencerHandle,
+      );
       const actualDealCount = getMatchingDealCount(target, catalog);
       const matchedProducts = getMatchingProducts(
         {
           handle:
+            canonicalInfluencerHandle ||
             influencerHandle ||
             target.influencerHandle ||
             target.hostHandle ||
@@ -490,11 +643,18 @@ export async function getCollectorStatsSnapshots(params: {
         },
         catalog,
       );
-      const actualFollowerCount = influencerHandle
+      const actualFollowerCount = (canonicalInfluencerHandle || influencerHandle)
         ? (
             await getFollowersForInfluencerAliases({
               shop: params.shop,
-              aliases: getFollowerAliasKeys(influencerHandle, matchedProducts),
+              aliases: getFollowerAliasKeys(
+                canonicalInfluencerHandle || influencerHandle,
+                matchedProducts,
+                getCollectorHandleAliases(
+                  collectorAliasDirectory,
+                  canonicalInfluencerHandle || influencerHandle,
+                ),
+              ),
             })
           ).length
         : 0;
@@ -507,7 +667,7 @@ export async function getCollectorStatsSnapshots(params: {
       return {
         productId: target.id,
         legacyProductId: target.legacyId,
-        handleKey: influencerHandle,
+        handleKey: canonicalInfluencerHandle || influencerHandle,
         followerCount,
         actualFollowerCount,
         followerAdjustment: target.followersAdjustment,
@@ -516,7 +676,7 @@ export async function getCollectorStatsSnapshots(params: {
         actualDealCount,
         dealAdjustment: target.dealsAdjustment,
         dealsLabel: `누적 공구 ${formatNumber(dealCount)}회`,
-        influencerHandle,
+        influencerHandle: canonicalInfluencerHandle || influencerHandle,
       };
     }),
   );
@@ -525,11 +685,25 @@ export async function getCollectorStatsSnapshots(params: {
 
   const handleSnapshots = await Promise.all(
     requestedHandles.map(async (handleKey): Promise<CollectorStatsSnapshot> => {
-      const matchedProducts = getMatchingProducts({ handle: handleKey }, catalog);
+      const canonicalHandleKey = resolveCollectorHandle(
+        collectorAliasDirectory,
+        handleKey,
+      );
+      const matchedProducts = getMatchingProducts(
+        { handle: canonicalHandleKey || handleKey },
+        catalog,
+      );
       const actualFollowerCount = (
         await getFollowersForInfluencerAliases({
           shop: params.shop,
-          aliases: getFollowerAliasKeys(handleKey, matchedProducts),
+          aliases: getFollowerAliasKeys(
+            canonicalHandleKey || handleKey,
+            matchedProducts,
+            getCollectorHandleAliases(
+              collectorAliasDirectory,
+              canonicalHandleKey || handleKey,
+            ),
+          ),
         })
       ).length;
       const actualDealCount = matchedProducts.length;
@@ -556,7 +730,7 @@ export async function getCollectorStatsSnapshots(params: {
         actualDealCount,
         dealAdjustment,
         dealsLabel: `누적 공구 ${formatNumber(dealCount)}회`,
-        influencerHandle: handleKey,
+        influencerHandle: canonicalHandleKey || handleKey,
       };
     }),
   );

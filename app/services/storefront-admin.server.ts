@@ -57,12 +57,15 @@ export async function resolveStorefrontAdmin(
 
   try {
     const context = await authenticate.public.appProxy(params.request);
+    const resolvedAppProxyShop = normalizeShop(
+      context.session?.shop || requestedShop,
+    );
 
     if (context.admin) {
       return {
         admin: context.admin,
         requestedShop,
-        resolvedShop: requestedShop,
+        resolvedShop: resolvedAppProxyShop,
         source: "app_proxy",
         error: null,
       };
