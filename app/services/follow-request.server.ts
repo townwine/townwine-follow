@@ -209,3 +209,34 @@ export async function readOpenAlertStatusRequest(request: Request) {
     requestParams: params,
   };
 }
+
+export async function readCollectorCommentsRequest(request: Request) {
+  const params = await readRequestParams(request);
+  const limitRaw = readFirst(params, ["limit"]);
+  const parsedLimit = Number.parseInt(limitRaw, 10);
+
+  return {
+    collectorHandle: readFirst(params, [
+      "collectorHandle",
+      "handle",
+      "influencerHandle",
+      "influencer_handle",
+    ]),
+    body: readFirst(params, ["body", "comment", "message"]),
+    customerDisplayName: readFirst(params, [
+      "customerDisplayName",
+      "displayName",
+      "customerName",
+      "customer_name",
+      "name",
+    ]),
+    customerFirstName: readFirst(params, [
+      "customerFirstName",
+      "customer_first_name",
+      "firstName",
+      "first_name",
+    ]),
+    limit: Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined,
+    requestParams: params,
+  };
+}

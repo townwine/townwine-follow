@@ -72,3 +72,17 @@ model UpcomingDealAlertSubscription {
   @@unique([shop, customerId, productId])
   @@index([shop, productId])
 }
+
+model CollectorComment {
+  id                  String   @id @default(cuid())
+  shop                String
+  collectorHandle     String
+  customerId          String
+  customerDisplayName String?
+  body                String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([shop, collectorHandle, createdAt])
+  @@index([shop, customerId])
+}
