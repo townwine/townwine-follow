@@ -274,6 +274,8 @@ export async function processDealNotification(params: {
         continue;
       }
 
+      // Per-product rule: once a customer receives this deal email, later
+      // product edits or follow refreshes must not reopen delivery.
       const notificationReservation = shouldReserveLiveDelivery
         ? await reserveNotificationSend({
             shop: params.shop,
@@ -281,9 +283,6 @@ export async function processDealNotification(params: {
             influencerHandle,
             productId: params.productId,
             notificationType: "FOLLOW_NEW_DEAL",
-            // Only a true re-follow should reopen past products. Contact/profile syncs
-            // also touch updatedAt, so createdAt is the safer invalidation anchor.
-            invalidateBefore: follower.createdAt,
           })
         : null;
 
@@ -296,9 +295,6 @@ export async function processDealNotification(params: {
           influencerHandle,
           reason: notificationReservation.reason,
           email: customerEmail,
-          detail: {
-            followerCreatedAt: follower.createdAt.toISOString(),
-          },
         });
         continue;
       }

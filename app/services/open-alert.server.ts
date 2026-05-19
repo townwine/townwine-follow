@@ -575,6 +575,8 @@ export async function processDueOpenAlerts(params: {
           continue;
         }
 
+        // Keep open alerts idempotent per product/customer even if the product
+        // record or subscription is touched again later.
         const notificationReservation = shouldReserveLiveDelivery
           ? await reserveNotificationSend({
               shop,
@@ -582,7 +584,6 @@ export async function processDueOpenAlerts(params: {
               influencerHandle: getInfluencerHandle(product),
               productId: product.id,
               notificationType: "UPCOMING_OPEN_ALERT",
-              invalidateBefore: subscription.createdAt,
             })
           : null;
 
