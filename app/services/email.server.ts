@@ -7,6 +7,10 @@ import nodemailer from "nodemailer";
 
 const RESEND_MIN_INTERVAL_MS = 650;
 const RESEND_MAX_ATTEMPTS = 4;
+const DEFAULT_SMTP_CONNECTION_TIMEOUT_MS = 15_000;
+const DEFAULT_SMTP_GREETING_TIMEOUT_MS = 15_000;
+const DEFAULT_SMTP_SOCKET_TIMEOUT_MS = 20_000;
+const DEFAULT_RESEND_REQUEST_TIMEOUT_MS = 15_000;
 
 let resendSendQueue: Promise<void> = Promise.resolve();
 let resendLastAttemptAt = 0;
@@ -52,7 +56,15 @@ export type EmailDeliveryRuntimeStatus = {
 
 export function getEmailDeliveryErrorMessage(error: unknown) {
   const rawMessage =
-    error instanceof Error ? error.message : String(error || "");
+    error instanceof Error
+      ? [
+          error.message,
+          "code" in error ? String((error as { code?: unknown }).code || "") : "",
+          "cause" in error ? String((error as { cause?: unknown }).cause || "") : "",
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : String(error || "");
 
   if (/rate_limit_exceeded/i.test(rawMessage) || /too many requests/i.test(rawMessage)) {
     return "Resend 발송 속도 제한에 걸렸습니다. 잠시 뒤 다시 시도해 주세요. 운영 상품 메일은 자동 재시도되도록 조치할 수 있습니다.";
@@ -66,8 +78,25 @@ export function getEmailDeliveryErrorMessage(error: unknown) {
     return "SMTP 인증에 실패했습니다. Render의 SMTP_USER / SMTP_PASS를 다시 확인해 주세요. Gmail 또는 Google Workspace를 쓰는 경우 일반 계정 비밀번호 대신 App Password를 넣어야 합니다.";
   }
 
+  if (
+    /daily_quota_exceeded/i.test(rawMessage) ||
+    /daily email sending quota/i.test(rawMessage)
+  ) {
+    return "Resend 일일 발송 한도를 초과했습니다. 테스트 메일은 오늘 더 이상 보낼 수 없고, 한도 초기화 후 다시 시도하거나 SMTP로 전환해야 합니다.";
+  }
+
   if (/resend send failed/i.test(rawMessage)) {
     return "Resend 발송 요청이 거절되었습니다. Render의 RESEND_API_KEY와 발신 도메인 설정을 확인해 주세요.";
+  }
+
+  if (
+    /aborterror/i.test(rawMessage) ||
+    /timed? out/i.test(rawMessage) ||
+    /connection timeout/i.test(rawMessage) ||
+    /greeting never received/i.test(rawMessage) ||
+    /socket timeout/i.test(rawMessage)
+  ) {
+    return "메일 서버 응답 시간이 초과되었습니다. SMTP/Resend 설정이 올바른지, 외부 메일 서버에 접속 가능한지 확인해 주세요.";
   }
 
   if (/certificate|tls|ssl/i.test(rawMessage)) {
@@ -252,6 +281,16 @@ function parseBooleanEnv(value: string | undefined, fallback: boolean) {
   return fallback;
 }
 
+function parseNumberEnv(value: string | undefined, fallback: number) {
+  const parsed = Number(String(value || "").trim());
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -330,13 +369,41 @@ async function sendViaSmtp(params: {
     process.env.SMTP_REQUIRE_TLS,
     !smtpSecure,
   );
+  const connectionTimeout = parseNumberEnv(
+    process.env.SMTP_CONNECTION_TIMEOUT_MS,
+    DEFAULT_SMTP_CONNECTION_TIMEOUT_MS,
+  );
+  const greetingTimeout = parseNumberEnv(
+    process.env.SMTP_GREETING_TIMEOUT_MS,
+    DEFAULT_SMTP_GREETING_TIMEOUT_MS,
+  );
+  const socketTimeout = parseNumberEnv(
+    process.env.SMTP_SOCKET_TIMEOUT_MS,
+    DEFAULT_SMTP_SOCKET_TIMEOUT_MS,
+  );
 
   const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
     secure: smtpSecure,
     requireTLS: smtpRequireTls,
+    connectionTimeout,
+    greetingTimeout,
+    socketTimeout,
     auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+  });
+
+  console.info("[email] sending via SMTP", {
+    to: maskEmailAddress(params.to),
+    subject: params.subject,
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    requireTLS: smtpRequireTls,
+    connectionTimeout,
+    greetingTimeout,
+    socketTimeout,
+    hasAuth: Boolean(smtpUser && smtpPass),
   });
 
   const info = await transporter.sendMail({
@@ -366,12 +433,24 @@ async function sendViaResend(params: {
   replyTo?: string;
 }) {
   const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
+  const requestTimeoutMs = parseNumberEnv(
+    process.env.RESEND_REQUEST_TIMEOUT_MS,
+    DEFAULT_RESEND_REQUEST_TIMEOUT_MS,
+  );
   await runInResendQueue(async () => {
     for (let attempt = 1; attempt <= RESEND_MAX_ATTEMPTS; attempt += 1) {
       await waitForResendWindow();
 
+      console.info("[email] sending via Resend", {
+        to: maskEmailAddress(params.to),
+        subject: params.subject,
+        attempt,
+        requestTimeoutMs,
+      });
+
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
+        signal: AbortSignal.timeout(requestTimeoutMs),
         headers: {
           Authorization: `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
@@ -397,6 +476,14 @@ async function sendViaResend(params: {
       }
 
       const errorText = await response.text();
+
+      if (
+        response.status === 429 &&
+        (/daily_quota_exceeded/i.test(errorText) ||
+          /daily email sending quota/i.test(errorText))
+      ) {
+        throw new Error(`Resend send failed: ${response.status} ${errorText}`);
+      }
 
       if (response.status === 429 && attempt < RESEND_MAX_ATTEMPTS) {
         const retryDelayMs = getResendRetryDelayMs(response, attempt);

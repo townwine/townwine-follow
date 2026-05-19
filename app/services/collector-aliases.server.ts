@@ -194,3 +194,46 @@ export async function expandInfluencerAliasesWithCollectorProfiles(params: {
     ),
   );
 }
+
+export async function expandKnownInfluencerAliasesWithCollectorProfiles(params: {
+  admin: AdminGraphqlClient;
+  shop: string;
+  aliases: string[];
+}) {
+  const normalizedAliases = Array.from(
+    new Set(
+      params.aliases
+        .map((alias) => normalizeInfluencerHandle(alias))
+        .filter(Boolean),
+    ),
+  );
+
+  if (!normalizedAliases.length) {
+    return [];
+  }
+
+  let directory: CollectorAliasDirectory;
+
+  try {
+    directory = await fetchCollectorAliasDirectory(params.admin, params.shop);
+  } catch (error) {
+    console.warn("[collector-aliases] failed to resolve known collector aliases", {
+      shop: params.shop,
+      aliases: normalizedAliases,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      normalizedAliases.flatMap((alias) => {
+        if (!directory.handleByAlias.has(alias)) {
+          return [];
+        }
+
+        return [alias, ...getCollectorHandleAliases(directory, alias)];
+      }),
+    ),
+  );
+}

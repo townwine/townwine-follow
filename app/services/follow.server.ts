@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db.server";
 
 export type NotificationType = "FOLLOW_NEW_DEAL" | "UPCOMING_OPEN_ALERT";
@@ -377,15 +378,45 @@ export async function markNotificationSent(params: {
   productId: string;
   notificationType: NotificationType;
 }) {
-  return prisma.notificationLog.create({
-    data: {
-      shop: params.shop,
-      customerId: params.customerId,
-      influencerHandle: params.influencerHandle,
-      productId: params.productId,
-      notificationType: params.notificationType,
-    },
-  });
+  try {
+    const record = await prisma.notificationLog.create({
+      data: {
+        shop: params.shop,
+        customerId: params.customerId,
+        influencerHandle: params.influencerHandle,
+        productId: params.productId,
+        notificationType: params.notificationType,
+      },
+    });
+
+    return {
+      created: true,
+      record,
+    };
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const record = await prisma.notificationLog.findUnique({
+        where: {
+          shop_customerId_productId_notificationType: {
+            shop: params.shop,
+            customerId: params.customerId,
+            productId: params.productId,
+            notificationType: params.notificationType,
+          },
+        },
+      });
+
+      return {
+        created: false,
+        record,
+      };
+    }
+
+    throw error;
+  }
 }
 
 export async function wasNotificationSent(params: {

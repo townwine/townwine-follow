@@ -5,7 +5,10 @@ import {
   wasNotificationSent,
 } from "./follow.server";
 import { sendNewDealEmail } from "./email.server";
-import { expandInfluencerAliasesWithCollectorProfiles } from "./collector-aliases.server";
+import {
+  expandInfluencerAliasesWithCollectorProfiles,
+  expandKnownInfluencerAliasesWithCollectorProfiles,
+} from "./collector-aliases.server";
 import {
   collectProductInfluencerAliases,
   resolveProductInfluencerHandle,
@@ -32,6 +35,35 @@ function maskEmailAddress(value: string) {
   }
 
   return `${localPart.slice(0, 2)}***@${domainPart}`;
+}
+
+async function buildEffectiveInfluencerAliases(params: {
+  admin: { graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response> };
+  shop: string;
+  aliases: string[];
+  tags: string[];
+}) {
+  const expandedAliases = await expandInfluencerAliasesWithCollectorProfiles({
+    admin: params.admin,
+    shop: params.shop,
+    aliases: params.aliases,
+  });
+  const knownTagAliases = await expandKnownInfluencerAliasesWithCollectorProfiles({
+    admin: params.admin,
+    shop: params.shop,
+    aliases: params.tags,
+  });
+
+  return Array.from(
+    new Set(
+      [
+        ...knownTagAliases,
+        ...(expandedAliases.length ? expandedAliases : params.aliases),
+      ]
+        .map((alias) => normalizeInfluencerHandle(String(alias || "")))
+        .filter(Boolean),
+    ),
+  );
 }
 
 export async function processDealNotification(params: {
@@ -109,13 +141,14 @@ export async function processDealNotification(params: {
     },
     { includeNameFallback: true },
   );
-  const expandedInfluencerAliases = await expandInfluencerAliasesWithCollectorProfiles({
+  const effectiveInfluencerAliases = await buildEffectiveInfluencerAliases({
     admin: params.admin,
     shop: params.shop,
     aliases: influencerAliases,
+    tags: Array.isArray(product.tags) ? product.tags : [],
   });
   const influencerHandle =
-    expandedInfluencerAliases[0] ||
+    effectiveInfluencerAliases[0] ||
     influencerAliases[0] ||
     resolveProductInfluencerHandle(
       {
@@ -143,12 +176,11 @@ export async function processDealNotification(params: {
 
   const followers = await getFollowersForInfluencerAliases({
     shop: params.shop,
-    aliases:
-      expandedInfluencerAliases.length
-        ? expandedInfluencerAliases
-        : influencerAliases.length
-          ? influencerAliases
-          : [influencerHandle],
+    aliases: effectiveInfluencerAliases.length
+      ? effectiveInfluencerAliases
+      : influencerAliases.length
+        ? influencerAliases
+        : [influencerHandle],
   });
 
   if (!followers.length) {
@@ -156,8 +188,8 @@ export async function processDealNotification(params: {
       ok: true,
       skipped: "NO_FOLLOWERS",
       influencerHandle,
-      influencerAliases: expandedInfluencerAliases.length
-        ? expandedInfluencerAliases
+      influencerAliases: effectiveInfluencerAliases.length
+        ? effectiveInfluencerAliases
         : influencerAliases,
     };
   }
@@ -239,14 +271,26 @@ export async function processDealNotification(params: {
       });
 
       if (emailResult.mode !== "log-only" && !emailResult.isTestOverride) {
-        await markNotificationSent({
+        const notificationLog = await markNotificationSent({
           shop: params.shop,
           customerId: follower.customerId,
           influencerHandle,
           productId: params.productId,
           notificationType: "FOLLOW_NEW_DEAL",
         });
-        sentCount += 1;
+
+        if (notificationLog.created) {
+          sentCount += 1;
+        } else {
+          skippedCount += 1;
+          console.info("[follow-notification] notification log already existed", {
+            shop: params.shop,
+            productId: params.productId,
+            followerCustomerId: follower.customerId,
+            influencerHandle,
+            notificationType: "FOLLOW_NEW_DEAL",
+          });
+        }
       } else {
         logOnlyCount += 1;
       }
@@ -262,8 +306,8 @@ export async function processDealNotification(params: {
         productId: params.productId,
         followerCustomerId: follower.customerId,
         influencerHandle,
-        influencerAliases: expandedInfluencerAliases.length
-          ? expandedInfluencerAliases
+        influencerAliases: effectiveInfluencerAliases.length
+          ? effectiveInfluencerAliases
           : influencerAliases,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -274,8 +318,8 @@ export async function processDealNotification(params: {
   return {
     ok: true,
     influencerHandle,
-    influencerAliases: expandedInfluencerAliases.length
-      ? expandedInfluencerAliases
+    influencerAliases: effectiveInfluencerAliases.length
+      ? effectiveInfluencerAliases
       : influencerAliases,
     followerCount: followers.length,
     sentCount,
@@ -401,7 +445,9 @@ export async function processFollowNotificationCatchup(params: {
   const products = await fetchActiveFollowNotificationProducts({
     admin: params.admin,
   });
-  const matchedProducts = products.filter((product) => {
+  const matchedProducts = [];
+
+  for (const product of products) {
     const aliases = collectProductInfluencerAliases(
       {
         collectorTag: product.collectorTag?.value,
@@ -413,9 +459,17 @@ export async function processFollowNotificationCatchup(params: {
       },
       { includeNameFallback: true },
     );
+    const effectiveAliases = await buildEffectiveInfluencerAliases({
+      admin: params.admin,
+      shop: params.shop,
+      aliases,
+      tags: Array.isArray(product.tags) ? product.tags : [],
+    });
 
-    return aliases.some((alias) => aliasSet.has(normalizeInfluencerHandle(String(alias || ""))));
-  });
+    if (effectiveAliases.some((alias) => aliasSet.has(alias))) {
+      matchedProducts.push(product);
+    }
+  }
 
   let sentCount = 0;
   let logOnlyCount = 0;
