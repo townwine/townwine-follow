@@ -30,10 +30,12 @@ type WatchdogStatusSnapshot = {
   lastRunAt: string | null;
   lastCompletedAt: string | null;
   lastShopCount: number;
+  lastFetchedProductCount: number;
   lastProductCount: number;
   lastSentCount: number;
   lastFailedCount: number;
   lastError: string;
+  lastMostRecentProductUpdatedAt: string;
 };
 
 declare global {
@@ -46,10 +48,12 @@ declare global {
         lastRunAt: string | null;
         lastCompletedAt: string | null;
         lastShopCount: number;
+        lastFetchedProductCount: number;
         lastProductCount: number;
         lastSentCount: number;
         lastFailedCount: number;
         lastError: string;
+        lastMostRecentProductUpdatedAt: string;
       }
     | undefined;
 }
@@ -74,13 +78,15 @@ function getWatchdogState() {
       startedAt: null,
       running: false,
       lastRunAt: null,
-      lastCompletedAt: null,
-      lastShopCount: 0,
-      lastProductCount: 0,
-      lastSentCount: 0,
-      lastFailedCount: 0,
-      lastError: "",
-    };
+        lastCompletedAt: null,
+        lastShopCount: 0,
+        lastFetchedProductCount: 0,
+        lastProductCount: 0,
+        lastSentCount: 0,
+        lastFailedCount: 0,
+        lastError: "",
+        lastMostRecentProductUpdatedAt: "",
+      };
   }
 
   return global.followNotificationWatchdog;
@@ -211,9 +217,11 @@ async function runWatchdogCycle() {
   state.lastError = "";
 
   let lastShopCount = 0;
+  let lastFetchedProductCount = 0;
   let lastProductCount = 0;
   let lastSentCount = 0;
   let lastFailedCount = 0;
+  let lastMostRecentProductUpdatedAt = "";
 
   try {
     const sessions = await listOfflineSessions();
@@ -222,6 +230,12 @@ async function runWatchdogCycle() {
     for (const session of sessions) {
       const admin = createOfflineAdminClient(session);
       const products = await fetchRecentActiveProducts(admin);
+      lastFetchedProductCount += products.length;
+
+      if (!lastMostRecentProductUpdatedAt && products[0]?.updatedAt) {
+        lastMostRecentProductUpdatedAt = products[0].updatedAt;
+      }
+
       const candidateProducts = products.filter((product) =>
         isWithinLookback(product.updatedAt),
       );
@@ -250,9 +264,11 @@ async function runWatchdogCycle() {
     state.running = false;
     state.lastCompletedAt = new Date().toISOString();
     state.lastShopCount = lastShopCount;
+    state.lastFetchedProductCount = lastFetchedProductCount;
     state.lastProductCount = lastProductCount;
     state.lastSentCount = lastSentCount;
     state.lastFailedCount = lastFailedCount;
+    state.lastMostRecentProductUpdatedAt = lastMostRecentProductUpdatedAt;
 
     console.info("[follow-watchdog] cycle completed", {
       shopCount: lastShopCount,
@@ -293,9 +309,11 @@ export function getFollowNotificationWatchdogStatus(): WatchdogStatusSnapshot {
     lastRunAt: state.lastRunAt,
     lastCompletedAt: state.lastCompletedAt,
     lastShopCount: state.lastShopCount,
+    lastFetchedProductCount: state.lastFetchedProductCount,
     lastProductCount: state.lastProductCount,
     lastSentCount: state.lastSentCount,
     lastFailedCount: state.lastFailedCount,
     lastError: state.lastError,
+    lastMostRecentProductUpdatedAt: state.lastMostRecentProductUpdatedAt,
   };
 }
