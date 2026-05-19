@@ -256,6 +256,21 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function maskEmailAddress(value: string) {
+  const email = String(value || "").trim();
+  const [localPart, domainPart] = email.split("@");
+
+  if (!localPart || !domainPart) {
+    return email;
+  }
+
+  if (localPart.length <= 2) {
+    return `${localPart[0] || "*"}*@${domainPart}`;
+  }
+
+  return `${localPart.slice(0, 2)}***@${domainPart}`;
+}
+
 async function runInResendQueue<T>(task: () => Promise<T>) {
   const previous = resendSendQueue.catch(() => undefined);
   let release = () => {};
@@ -373,7 +388,11 @@ async function sendViaResend(params: {
 
       if (response.ok) {
         const result = await response.json();
-        console.log("Resend email sent", result);
+        console.log("Resend email sent", {
+          ...result,
+          to: maskEmailAddress(params.to),
+          subject: params.subject,
+        });
         return;
       }
 

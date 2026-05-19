@@ -41,6 +41,10 @@ function shouldRetry(args: {
   );
 }
 
+function getSkippedCode(value: { skipped?: string | null } | null | undefined) {
+  return String(value?.skipped || "").trim();
+}
+
 export async function processProductWebhookEvent(params: {
   admin: AdminGraphqlClient;
   shop: string;
@@ -60,6 +64,21 @@ export async function processProductWebhookEvent(params: {
 
     schedule = await syncProductDealSchedule(params.admin, params.productId);
     collectorIdentity = await syncProductCollectorIdentity(params.admin, params.productId);
+    const collectorSkipped = getSkippedCode(collectorIdentity);
+
+    if (RETRYABLE_COLLECTOR_SKIPS.has(collectorSkipped)) {
+      notification = {
+        ok: true,
+        skipped: "AWAITING_COLLECTOR_IDENTITY" as const,
+      };
+      openAlertDelivery = null;
+
+      if (attempts < maxAttempts) {
+        await sleep(attempts * 1200);
+        continue;
+      }
+    }
+
     notification = await processDealNotification({
       admin: params.admin,
       shop: params.shop,
@@ -83,6 +102,18 @@ export async function processProductWebhookEvent(params: {
       await sleep(attempts * 1200);
     }
   }
+
+  console.info("[webhooks] processed product webhook event", {
+    shop: params.shop,
+    productId: params.productId,
+    attempts,
+    scheduleSkipped: getSkippedCode(schedule),
+    collectorSkipped: getSkippedCode(collectorIdentity),
+    collectorIdentity,
+    notificationSkipped: getSkippedCode(notification),
+    notification,
+    openAlertDelivery,
+  });
 
   return {
     attempts,
