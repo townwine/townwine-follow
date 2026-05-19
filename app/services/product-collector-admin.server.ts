@@ -117,6 +117,64 @@ export async function getProductCollectorAdminState(
   };
 }
 
+export async function ensureProductCollectorAdminNotification(params: {
+  admin: AdminGraphqlClient;
+  shop: string;
+  productId: string;
+}) {
+  let state = await getProductCollectorAdminState(params.admin, params.productId);
+
+  if (!state) {
+    return {
+      ok: true,
+      sync: { ok: true, skipped: "PRODUCT_NOT_FOUND" as const },
+      notification: { ok: true, skipped: "PRODUCT_NOT_FOUND" as const },
+      state: null,
+    };
+  }
+
+  const shouldSyncCollectorIdentity =
+    !!state.collectorTag &&
+    (!state.influencerHandle || !state.hostHandle || !state.hostName);
+
+  const sync = shouldSyncCollectorIdentity
+    ? await syncProductCollectorIdentity(params.admin, params.productId)
+    : { ok: true, skipped: "UNCHANGED" as const };
+
+  if (shouldSyncCollectorIdentity) {
+    state = await getProductCollectorAdminState(params.admin, params.productId);
+  }
+
+  if (!state) {
+    return {
+      ok: true,
+      sync,
+      notification: { ok: true, skipped: "PRODUCT_NOT_FOUND" as const },
+      state: null,
+    };
+  }
+
+  const notification =
+    state.productStatus === "ACTIVE" && state.influencerHandle
+      ? await processDealNotification({
+          admin: params.admin,
+          shop: params.shop,
+          productId: params.productId,
+          resolvedInfluencerHandle: state.influencerHandle,
+          resolvedInfluencerName: state.hostName,
+        })
+      : state.productStatus !== "ACTIVE"
+        ? { ok: true, skipped: "PRODUCT_NOT_ACTIVE" as const }
+        : { ok: true, skipped: "NO_INFLUENCER_HANDLE" as const };
+
+  return {
+    ok: true,
+    sync,
+    notification,
+    state,
+  };
+}
+
 async function setProductCollectorMetafields(
   admin: AdminGraphqlClient,
   productId: string,

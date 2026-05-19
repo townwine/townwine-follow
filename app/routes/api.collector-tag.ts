@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
 import {
+  ensureProductCollectorAdminNotification,
   getProductCollectorAdminState,
   saveProductCollectorAdminState,
 } from "../services/product-collector-admin.server";
@@ -11,24 +12,48 @@ function jsonError(message: string, status: number) {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { admin, cors } = await authenticate.admin(request);
+  const { admin, cors, session } = await authenticate.admin(request);
 
   try {
     const url = new URL(request.url);
     const productId = String(url.searchParams.get("productId") || "").trim();
+    const ensureNotification =
+      url.searchParams.get("ensureNotification") === "1";
 
     if (!productId) {
       return cors(jsonError("PRODUCT_ID_REQUIRED", 422));
     }
 
     await ensureProductMetafieldDefinitions(admin);
+
+    if (ensureNotification) {
+      const result = await ensureProductCollectorAdminNotification({
+        admin,
+        shop: session.shop,
+        productId,
+      });
+
+      if (!result.state) {
+        return cors(jsonError("PRODUCT_NOT_FOUND", 404));
+      }
+
+      return cors(Response.json(result));
+    }
+
     const state = await getProductCollectorAdminState(admin, productId);
 
     if (!state) {
       return cors(jsonError("PRODUCT_NOT_FOUND", 404));
     }
 
-    return cors(Response.json({ ok: true, state }));
+    return cors(
+      Response.json({
+        ok: true,
+        state,
+        sync: { ok: true, skipped: "NOT_REQUESTED" as const },
+        notification: { ok: true, skipped: "NOT_REQUESTED" as const },
+      }),
+    );
   } catch (error) {
     return cors(
       Response.json(

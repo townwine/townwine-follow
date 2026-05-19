@@ -54,6 +54,25 @@ function buildSaveMessage(result) {
   return "컬렉터 연결이 비워졌습니다.";
 }
 
+function buildEnsureMessage(result) {
+  if (!result?.ok) {
+    return "";
+  }
+
+  const sentCount = Number(result.notification?.sentCount || 0);
+  const failedCount = Number(result.notification?.failedCount || 0);
+
+  if (sentCount > 0) {
+    return `누락된 팔로워 메일 ${sentCount}건을 방금 발송했습니다.`;
+  }
+
+  if (failedCount > 0) {
+    return `팔로워 메일 발송 중 ${failedCount}건 오류가 있었습니다.`;
+  }
+
+  return "";
+}
+
 function CollectorTagBlock() {
   const { data } = useApi(TARGET);
   const productId = data.selected?.[0]?.id;
@@ -66,24 +85,31 @@ function CollectorTagBlock() {
   const [state, setState] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const dirty = draftCollectorTag !== savedCollectorTag;
 
   useEffect(() => {
     let active = true;
 
-    async function loadState() {
+    async function loadState(options = {}) {
+      const { background = false } = options;
+
       if (!productId) {
         setLoading(false);
         setState(null);
         return;
       }
 
-      setLoading(true);
-      setErrorMessage("");
-      setStatusMessage("");
+      if (!background) {
+        setLoading(true);
+        setErrorMessage("");
+        setStatusMessage("");
+      }
 
       try {
         const response = await fetch(
-          `/api/collector-tag?productId=${encodeURIComponent(productId)}`,
+          `/api/collector-tag?productId=${encodeURIComponent(
+            productId,
+          )}&ensureNotification=1`,
         );
         const result = await response.json();
 
@@ -95,8 +121,17 @@ function CollectorTagBlock() {
 
         setState(result.state);
         setSavedCollectorTag(result.state.collectorTag || "");
-        setDraftCollectorTag(result.state.collectorTag || "");
-        setInputKey((value) => value + 1);
+
+        if (!background) {
+          setDraftCollectorTag(result.state.collectorTag || "");
+          setInputKey((value) => value + 1);
+        }
+
+        const ensureMessage = buildEnsureMessage(result);
+
+        if (ensureMessage) {
+          setStatusMessage(ensureMessage);
+        }
       } catch (error) {
         if (!active) return;
 
@@ -114,12 +149,20 @@ function CollectorTagBlock() {
 
     loadState();
 
+    const interval = setInterval(() => {
+      if (saving || dirty) {
+        return;
+      }
+
+      loadState({ background: true });
+    }, 15000);
+
     return () => {
       active = false;
+      clearInterval(interval);
     };
-  }, [productId]);
+  }, [productId, saving, dirty]);
 
-  const dirty = draftCollectorTag !== savedCollectorTag;
   const collapsedSummary = useMemo(() => {
     if (state?.hostName) {
       return `${state.hostName} 연결됨`;
