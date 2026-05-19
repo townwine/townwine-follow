@@ -1,11 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
-import { authenticate } from "../shopify.server";
 import { readFollowMutationRequest } from "../services/follow-request.server";
 import {
   normalizeInfluencerHandle,
   unfollowInfluencer,
 } from "../services/follow.server";
+import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
 
 function getSafeReturnTo(value: string) {
   const returnTo = value.trim();
@@ -27,10 +27,16 @@ async function handleUnfollowRequest(request: Request) {
   const url = new URL(request.url);
 
   try {
-    await authenticate.public.appProxy(request);
     const payload = await readFollowMutationRequest(request);
-    const shop = payload.requestParams.get("shop") || "";
+    const requestedShop = payload.requestParams.get("shop") || "";
     const customerId = payload.requestParams.get("logged_in_customer_id") || "";
+    const adminContext = await resolveStorefrontAdmin({
+      request,
+      shop: requestedShop,
+      required: false,
+      logPrefix: "[follow] unfollow",
+    });
+    const shop = adminContext.resolvedShop || adminContext.requestedShop;
 
     if (!shop || !customerId) {
       console.info("[follow] unfollow request missing logged_in_customer_id", {
