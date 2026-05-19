@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
-import { processProductWebhookEvent } from "../services/product-webhook-processing.server";
+import { processProductWebhookEvent } from "./product-webhook-processing.server";
 
 const RELEVANT_PRODUCT_METAFIELD_KEYS = new Set([
   "collector_tag",
@@ -11,8 +11,6 @@ const RELEVANT_PRODUCT_METAFIELD_KEYS = new Set([
 ]);
 
 type MetafieldWebhookPayload = {
-  admin_graphql_api_id?: string | null;
-  id?: string | number | null;
   owner_id?: string | number | null;
   owner_resource?: string | null;
   namespace?: string | null;
