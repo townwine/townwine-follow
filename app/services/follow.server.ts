@@ -334,11 +334,9 @@ export async function getFollowersForInfluencerAliases(params: {
     updatedAt: Date;
   }>) => {
     return records.filter((record, index, items) => {
-      const influencerHandle = normalizeInfluencerHandle(record.influencerHandle);
-      const influencerName = normalizeInfluencerHandle(record.influencerName || "");
-      const isMatched =
-        aliasSet.has(influencerHandle) ||
-        (influencerName ? aliasSet.has(influencerName) : false);
+      const isMatched = getFollowSubscriptionAliases(record).some((alias) => {
+        return aliasSet.has(alias);
+      });
 
       if (!isMatched) {
         return false;

@@ -44,6 +44,33 @@ export type EmailDeliveryRuntimeStatus = {
   nodeEnv: string;
 };
 
+export function getEmailDeliveryErrorMessage(error: unknown) {
+  const rawMessage =
+    error instanceof Error ? error.message : String(error || "");
+
+  if (
+    /invalid login/i.test(rawMessage) ||
+    /535-5\.7\.8/i.test(rawMessage) ||
+    /BadCredentials/i.test(rawMessage)
+  ) {
+    return "SMTP 인증에 실패했습니다. Render의 SMTP_USER / SMTP_PASS를 다시 확인해 주세요. Gmail 또는 Google Workspace를 쓰는 경우 일반 계정 비밀번호 대신 App Password를 넣어야 합니다.";
+  }
+
+  if (/resend send failed/i.test(rawMessage)) {
+    return "Resend 발송 요청이 거절되었습니다. Render의 RESEND_API_KEY와 발신 도메인 설정을 확인해 주세요.";
+  }
+
+  if (/certificate|tls|ssl/i.test(rawMessage)) {
+    return "SMTP TLS 연결에 실패했습니다. Render의 SMTP 포트와 보안 설정을 다시 확인해 주세요.";
+  }
+
+  if (/timed? out|timeout|network|econn|enotfound/i.test(rawMessage)) {
+    return "메일 서버 연결에 실패했습니다. Render의 SMTP 호스트 정보와 외부 메일 서버 연결 상태를 확인해 주세요.";
+  }
+
+  return "메일 발송 중 오류가 발생했습니다. Render 메일 설정과 서버 로그를 확인해 주세요.";
+}
+
 type EmailSendResult = {
   ok: true;
   mode: "smtp" | "resend" | "log-only";

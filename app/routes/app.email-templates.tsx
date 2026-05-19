@@ -23,6 +23,7 @@ import {
   validateFollowEmailTemplateFormValues,
 } from "../services/follow-email-template.server";
 import {
+  getEmailDeliveryErrorMessage,
   getEmailDeliveryRuntimeStatus,
   sendNewDealEmail,
 } from "../services/email.server";
@@ -128,10 +129,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return {
         ok: false,
         operation: "send-test-mail",
-        error:
-          error instanceof Error
-            ? error.message
-            : "테스트 메일 발송 중 오류가 발생했습니다.",
+        error: getEmailDeliveryErrorMessage(error),
       } satisfies ActionData;
     }
   }

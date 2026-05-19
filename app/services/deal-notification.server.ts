@@ -5,6 +5,7 @@ import {
   wasNotificationSent,
 } from "./follow.server";
 import { sendNewDealEmail } from "./email.server";
+import { expandInfluencerAliasesWithCollectorProfiles } from "./collector-aliases.server";
 import {
   collectProductInfluencerAliases,
   resolveProductInfluencerHandle,
@@ -92,7 +93,13 @@ export async function processDealNotification(params: {
     },
     { includeNameFallback: true },
   );
+  const expandedInfluencerAliases = await expandInfluencerAliasesWithCollectorProfiles({
+    admin: params.admin,
+    shop: params.shop,
+    aliases: influencerAliases,
+  });
   const influencerHandle =
+    expandedInfluencerAliases[0] ||
     influencerAliases[0] ||
     resolveProductInfluencerHandle(
       {
@@ -120,7 +127,12 @@ export async function processDealNotification(params: {
 
   const followers = await getFollowersForInfluencerAliases({
     shop: params.shop,
-    aliases: influencerAliases.length ? influencerAliases : [influencerHandle],
+    aliases:
+      expandedInfluencerAliases.length
+        ? expandedInfluencerAliases
+        : influencerAliases.length
+          ? influencerAliases
+          : [influencerHandle],
   });
 
   if (!followers.length) {
@@ -128,7 +140,9 @@ export async function processDealNotification(params: {
       ok: true,
       skipped: "NO_FOLLOWERS",
       influencerHandle,
-      influencerAliases,
+      influencerAliases: expandedInfluencerAliases.length
+        ? expandedInfluencerAliases
+        : influencerAliases,
     };
   }
 
@@ -222,7 +236,9 @@ export async function processDealNotification(params: {
         productId: params.productId,
         followerCustomerId: follower.customerId,
         influencerHandle,
-        influencerAliases,
+        influencerAliases: expandedInfluencerAliases.length
+          ? expandedInfluencerAliases
+          : influencerAliases,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
@@ -232,7 +248,9 @@ export async function processDealNotification(params: {
   return {
     ok: true,
     influencerHandle,
-    influencerAliases,
+    influencerAliases: expandedInfluencerAliases.length
+      ? expandedInfluencerAliases
+      : influencerAliases,
     followerCount: followers.length,
     sentCount,
     logOnlyCount,
@@ -345,7 +363,14 @@ export async function processFollowNotificationCatchup(params: {
     };
   }
 
-  const aliasSet = new Set(requestedAliases);
+  const expandedRequestedAliases = await expandInfluencerAliasesWithCollectorProfiles({
+    admin: params.admin,
+    shop: params.shop,
+    aliases: requestedAliases,
+  });
+  const aliasSet = new Set(
+    expandedRequestedAliases.length ? expandedRequestedAliases : requestedAliases,
+  );
   const products = await fetchActiveFollowNotificationProducts({
     admin: params.admin,
   });
