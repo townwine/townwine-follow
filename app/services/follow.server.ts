@@ -195,8 +195,29 @@ export async function followInfluencer(params: {
   });
 
   if (matches[0]) {
+    const primaryMatch = matches[0];
+    const hasChanged =
+      String(primaryMatch.customerEmail || "") !== String(customerEmail || "") ||
+      String(primaryMatch.customerFirstName || "") !== String(customerFirstName || "") ||
+      normalizeInfluencerHandle(primaryMatch.influencerHandle) !== influencerHandle ||
+      String(primaryMatch.influencerName || "") !== String(influencerName || "");
+
+    if (!hasChanged) {
+      if (matches.length > 1) {
+        await prisma.followSubscription.deleteMany({
+          where: {
+            id: {
+              in: matches.slice(1).map((record) => record.id),
+            },
+          },
+        });
+      }
+
+      return primaryMatch;
+    }
+
     const updated = await prisma.followSubscription.update({
-      where: { id: matches[0].id },
+      where: { id: primaryMatch.id },
       data: {
         customerEmail,
         customerFirstName,
@@ -570,6 +591,206 @@ export async function markNotificationSent(params: {
     }
 
     throw error;
+  }
+}
+
+type NotificationReservationRecord = {
+  id: string;
+  shop: string;
+  customerId: string;
+  influencerHandle: string;
+  productId: string;
+  notificationType: string;
+  sentAt: Date;
+};
+
+type ReservedNotificationSend = {
+  reserved: true;
+  created: boolean;
+  updated: boolean;
+  record: NotificationReservationRecord;
+  previousSentAt: Date | null;
+  previousInfluencerHandle: string | null;
+};
+
+type SkippedNotificationSend = {
+  reserved: false;
+  reason: "ALREADY_SENT";
+  record: NotificationReservationRecord;
+};
+
+export type NotificationSendReservation =
+  | ReservedNotificationSend
+  | SkippedNotificationSend;
+
+function getNotificationLogUniqueWhere(params: {
+  shop: string;
+  customerId: string;
+  productId: string;
+  notificationType: NotificationType;
+}) {
+  return {
+    shop_customerId_productId_notificationType: {
+      shop: params.shop,
+      customerId: params.customerId,
+      productId: params.productId,
+      notificationType: params.notificationType,
+    },
+  } as const;
+}
+
+function parseNotificationInvalidateDate(value?: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const invalidateDate = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(invalidateDate.getTime())) {
+    return null;
+  }
+
+  return invalidateDate;
+}
+
+export async function reserveNotificationSend(params: {
+  shop: string;
+  customerId: string;
+  influencerHandle: string;
+  productId: string;
+  notificationType: NotificationType;
+  invalidateBefore?: Date | string | null;
+}): Promise<NotificationSendReservation> {
+  const where = getNotificationLogUniqueWhere(params);
+  const invalidateDate = parseNotificationInvalidateDate(params.invalidateBefore);
+
+  const tryRefreshExistingRecord = async (
+    existingRecord: NotificationReservationRecord,
+  ): Promise<ReservedNotificationSend | null> => {
+    if (
+      !invalidateDate ||
+      existingRecord.sentAt.getTime() >= invalidateDate.getTime()
+    ) {
+      return null;
+    }
+
+    const nextSentAt = new Date();
+    const refreshResult = await prisma.notificationLog.updateMany({
+      where: {
+        id: existingRecord.id,
+        sentAt: existingRecord.sentAt,
+      },
+      data: {
+        influencerHandle: params.influencerHandle,
+        sentAt: nextSentAt,
+      },
+    });
+
+    if (!refreshResult.count) {
+      return null;
+    }
+
+    const record = await prisma.notificationLog.findUniqueOrThrow({
+      where,
+    });
+
+    return {
+      reserved: true,
+      created: false,
+      updated: true,
+      record,
+      previousSentAt: existingRecord.sentAt,
+      previousInfluencerHandle: existingRecord.influencerHandle,
+    };
+  };
+
+  const existingRecord = await prisma.notificationLog.findUnique({
+    where,
+  });
+
+  if (existingRecord) {
+    const refreshed = await tryRefreshExistingRecord(existingRecord);
+
+    if (refreshed) {
+      return refreshed;
+    }
+
+    return {
+      reserved: false,
+      reason: "ALREADY_SENT",
+      record: existingRecord,
+    };
+  }
+
+  try {
+    const record = await prisma.notificationLog.create({
+      data: {
+        shop: params.shop,
+        customerId: params.customerId,
+        influencerHandle: params.influencerHandle,
+        productId: params.productId,
+        notificationType: params.notificationType,
+      },
+    });
+
+    return {
+      reserved: true,
+      created: true,
+      updated: false,
+      record,
+      previousSentAt: null,
+      previousInfluencerHandle: null,
+    };
+  } catch (error) {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== "P2002"
+    ) {
+      throw error;
+    }
+
+    const record = await prisma.notificationLog.findUniqueOrThrow({
+      where,
+    });
+    const refreshed = await tryRefreshExistingRecord(record);
+
+    if (refreshed) {
+      return refreshed;
+    }
+
+    return {
+      reserved: false,
+      reason: "ALREADY_SENT",
+      record,
+    };
+  }
+}
+
+export async function releaseNotificationSendReservation(
+  reservation: Extract<NotificationSendReservation, { reserved: true }>,
+) {
+  if (reservation.created) {
+    await prisma.notificationLog.deleteMany({
+      where: {
+        id: reservation.record.id,
+        sentAt: reservation.record.sentAt,
+      },
+    });
+    return;
+  }
+
+  if (reservation.updated && reservation.previousSentAt) {
+    await prisma.notificationLog.updateMany({
+      where: {
+        id: reservation.record.id,
+        sentAt: reservation.record.sentAt,
+      },
+      data: {
+        influencerHandle:
+          reservation.previousInfluencerHandle || reservation.record.influencerHandle,
+        sentAt: reservation.previousSentAt,
+      },
+    });
   }
 }
 

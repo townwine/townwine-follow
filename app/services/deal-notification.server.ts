@@ -1,10 +1,13 @@
 import {
   getFollowersForInfluencerAliases,
-  markNotificationSent,
   normalizeInfluencerHandle,
-  wasNotificationSent,
+  releaseNotificationSendReservation,
+  reserveNotificationSend,
 } from "./follow.server";
-import { sendNewDealEmail } from "./email.server";
+import {
+  getEmailDeliveryRuntimeStatus,
+  sendNewDealEmail,
+} from "./email.server";
 import {
   expandInfluencerAliasesWithCollectorProfiles,
   expandKnownInfluencerAliasesWithCollectorProfiles,
@@ -218,6 +221,9 @@ export async function processDealNotification(params: {
     params.admin,
     params.shop,
   );
+  const emailDeliveryRuntime = getEmailDeliveryRuntimeStatus();
+  const shouldReserveLiveDelivery =
+    emailDeliveryRuntime.provider !== "none" && emailDeliveryRuntime.mode === "live";
 
   let sentCount = 0;
   let logOnlyCount = 0;
@@ -231,30 +237,6 @@ export async function processDealNotification(params: {
 
   for (const follower of followers) {
     try {
-      const alreadySent = await wasNotificationSent({
-        shop: params.shop,
-        customerId: follower.customerId,
-        productId: params.productId,
-        notificationType: "FOLLOW_NEW_DEAL",
-        invalidateBefore: follower.updatedAt,
-      });
-
-      if (alreadySent) {
-        skippedCount += 1;
-        logSkippedFollowerEmail({
-          shop: params.shop,
-          productId: params.productId,
-          followerCustomerId: follower.customerId,
-          influencerHandle,
-          reason: "ALREADY_SENT",
-          email: follower.customerEmail,
-          detail: {
-            followerUpdatedAt: follower.updatedAt.toISOString(),
-          },
-        });
-        continue;
-      }
-
       let customerEmail = String(follower.customerEmail || "").trim();
       let customerFirstName = String(follower.customerFirstName || "").trim();
 
@@ -292,50 +274,66 @@ export async function processDealNotification(params: {
         continue;
       }
 
-      const emailResult = await sendNewDealEmail({
-        to: customerEmail,
-        customerFirstName,
-        influencerName:
-          follower.influencerName ||
-          String(params.resolvedInfluencerName || "").trim() ||
-          product.hostName?.value ||
-          product.collectorTag?.value ||
-          influencerHandle,
-        productTitle: product.title,
-        productUrl,
-        openAtLabel,
-        isUpcoming,
-        shopName: templateConfig.shopName,
-        templateSettings: templateConfig.settings,
-      });
+      const notificationReservation = shouldReserveLiveDelivery
+        ? await reserveNotificationSend({
+            shop: params.shop,
+            customerId: follower.customerId,
+            influencerHandle,
+            productId: params.productId,
+            notificationType: "FOLLOW_NEW_DEAL",
+            // Only a true re-follow should reopen past products. Contact/profile syncs
+            // also touch updatedAt, so createdAt is the safer invalidation anchor.
+            invalidateBefore: follower.createdAt,
+          })
+        : null;
 
-      if (emailResult.mode !== "log-only" && !emailResult.isTestOverride) {
-        const notificationLog = await markNotificationSent({
+      if (notificationReservation && !notificationReservation.reserved) {
+        skippedCount += 1;
+        logSkippedFollowerEmail({
           shop: params.shop,
-          customerId: follower.customerId,
-          influencerHandle,
           productId: params.productId,
-          notificationType: "FOLLOW_NEW_DEAL",
+          followerCustomerId: follower.customerId,
+          influencerHandle,
+          reason: notificationReservation.reason,
+          email: customerEmail,
+          detail: {
+            followerCreatedAt: follower.createdAt.toISOString(),
+          },
+        });
+        continue;
+      }
+
+      try {
+        const emailResult = await sendNewDealEmail({
+          to: customerEmail,
+          customerFirstName,
+          influencerName:
+            follower.influencerName ||
+            String(params.resolvedInfluencerName || "").trim() ||
+            product.hostName?.value ||
+            product.collectorTag?.value ||
+            influencerHandle,
+          productTitle: product.title,
+          productUrl,
+          openAtLabel,
+          isUpcoming,
+          shopName: templateConfig.shopName,
+          templateSettings: templateConfig.settings,
         });
 
-        if (notificationLog.created || notificationLog.updated) {
+        if (emailResult.mode !== "log-only" && !emailResult.isTestOverride) {
           sentCount += 1;
         } else {
-          skippedCount += 1;
-          logSkippedFollowerEmail({
-            shop: params.shop,
-            productId: params.productId,
-            followerCustomerId: follower.customerId,
-            influencerHandle,
-            reason: "NOTIFICATION_LOG_ALREADY_EXISTS",
-            email: customerEmail,
-            detail: {
-              notificationType: "FOLLOW_NEW_DEAL",
-            },
-          });
+          if (notificationReservation?.reserved) {
+            await releaseNotificationSendReservation(notificationReservation);
+          }
+          logOnlyCount += 1;
         }
-      } else {
-        logOnlyCount += 1;
+      } catch (error) {
+        if (notificationReservation?.reserved) {
+          await releaseNotificationSendReservation(notificationReservation);
+        }
+        throw error;
       }
     } catch (error) {
       failedCount += 1;

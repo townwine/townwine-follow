@@ -1,10 +1,13 @@
 import type { UpcomingDealAlertSubscription } from "@prisma/client";
 import { prisma } from "../db.server";
 import {
-  markNotificationSent,
-  wasNotificationSent,
+  releaseNotificationSendReservation,
+  reserveNotificationSend,
 } from "./follow.server";
-import { sendUpcomingOpenAlertEmail } from "./email.server";
+import {
+  getEmailDeliveryRuntimeStatus,
+  sendUpcomingOpenAlertEmail,
+} from "./email.server";
 import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
 import { resolveProductInfluencerHandle } from "./product-collector.server";
 import { isSellableProductStatus } from "./product-status.server";
@@ -521,6 +524,9 @@ export async function processDueOpenAlerts(params: {
     params.admin,
     shop,
   );
+  const emailDeliveryRuntime = getEmailDeliveryRuntimeStatus();
+  const shouldReserveLiveDelivery =
+    emailDeliveryRuntime.provider !== "none" && emailDeliveryRuntime.mode === "live";
 
   const products = await fetchProductsByIds(
     params.admin,
@@ -559,19 +565,6 @@ export async function processDueOpenAlerts(params: {
 
     for (const subscription of productSubscriptions) {
       try {
-        const alreadySent = await wasNotificationSent({
-          shop,
-          customerId: subscription.customerId,
-          productId: product.id,
-          notificationType: "UPCOMING_OPEN_ALERT",
-          invalidateBefore: subscription.updatedAt,
-        });
-
-        if (alreadySent) {
-          cleanupIds.add(subscription.id);
-          continue;
-        }
-
         let customer = customerCache.get(subscription.customerId) || null;
         if (!customerCache.has(subscription.customerId)) {
           customer = await fetchCustomer(params.admin, subscription.customerId);
@@ -582,28 +575,47 @@ export async function processDueOpenAlerts(params: {
           continue;
         }
 
-        const emailResult = await sendUpcomingOpenAlertEmail({
-          to: customer.email,
-          customerFirstName: customer.firstName || "",
-          productTitle: product.title,
-          productUrl: product.onlineStoreUrl,
-          openAtLabel: formatOpenAtLabel(openAtKst),
-          hostName: getHostName(product),
-          shopName: templateConfig.shopName,
-          templateSettings: templateConfig.settings,
-        });
+        const notificationReservation = shouldReserveLiveDelivery
+          ? await reserveNotificationSend({
+              shop,
+              customerId: subscription.customerId,
+              influencerHandle: getInfluencerHandle(product),
+              productId: product.id,
+              notificationType: "UPCOMING_OPEN_ALERT",
+              invalidateBefore: subscription.createdAt,
+            })
+          : null;
 
-        if (emailResult.mode !== "log-only" && !emailResult.isTestOverride) {
-          await markNotificationSent({
-            shop,
-            customerId: subscription.customerId,
-            influencerHandle: getInfluencerHandle(product),
-            productId: product.id,
-            notificationType: "UPCOMING_OPEN_ALERT",
+        if (notificationReservation && !notificationReservation.reserved) {
+          cleanupIds.add(subscription.id);
+          continue;
+        }
+
+        try {
+          const emailResult = await sendUpcomingOpenAlertEmail({
+            to: customer.email,
+            customerFirstName: customer.firstName || "",
+            productTitle: product.title,
+            productUrl: product.onlineStoreUrl,
+            openAtLabel: formatOpenAtLabel(openAtKst),
+            hostName: getHostName(product),
+            shopName: templateConfig.shopName,
+            templateSettings: templateConfig.settings,
           });
 
-          cleanupIds.add(subscription.id);
-          sentCount += 1;
+          if (emailResult.mode !== "log-only" && !emailResult.isTestOverride) {
+            cleanupIds.add(subscription.id);
+            sentCount += 1;
+          } else {
+            if (notificationReservation?.reserved) {
+              await releaseNotificationSendReservation(notificationReservation);
+            }
+          }
+        } catch (error) {
+          if (notificationReservation?.reserved) {
+            await releaseNotificationSendReservation(notificationReservation);
+          }
+          throw error;
         }
       } catch (error) {
         console.error("[open-alert] failed to deliver upcoming open alert email", {
