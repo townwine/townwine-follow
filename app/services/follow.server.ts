@@ -86,8 +86,70 @@ async function getSubscriptionsForCustomer(params: {
     return scopedRecords;
   }
 
+  const fallbackRecords = await prisma.followSubscription.findMany({
+    where: {
+      customerId,
+    },
+  });
+
+  if (!fallbackRecords.length) {
+    return fallbackRecords;
+  }
+
+  let backfilledCount = 0;
+
+  for (const record of fallbackRecords) {
+    const influencerHandle = normalizeInfluencerHandle(record.influencerHandle);
+
+    if (!influencerHandle) {
+      continue;
+    }
+
+    await prisma.followSubscription.upsert({
+      where: {
+        shop_customerId_influencerHandle: {
+          shop,
+          customerId,
+          influencerHandle,
+        },
+      },
+      update: {
+        customerEmail: record.customerEmail,
+        customerFirstName: record.customerFirstName,
+        influencerName: record.influencerName,
+      },
+      create: {
+        shop,
+        customerId,
+        customerEmail: record.customerEmail,
+        customerFirstName: record.customerFirstName,
+        influencerHandle,
+        influencerName: record.influencerName,
+      },
+    });
+
+    backfilledCount += 1;
+  }
+
+  if (backfilledCount > 0) {
+    console.info("[follow] backfilled customer subscriptions to requested shop", {
+      requestedShop: shop,
+      customerId,
+      fallbackCount: fallbackRecords.length,
+      backfilledCount,
+      sourceShops: Array.from(
+        new Set(
+          fallbackRecords
+            .map((record) => normalizeShop(record.shop))
+            .filter(Boolean),
+        ),
+      ),
+    });
+  }
+
   return prisma.followSubscription.findMany({
     where: {
+      shop,
       customerId,
     },
   });
