@@ -5,6 +5,12 @@ import {
 } from "./follow-email-template.shared";
 import nodemailer from "nodemailer";
 
+const RESEND_MIN_INTERVAL_MS = 650;
+const RESEND_MAX_ATTEMPTS = 4;
+
+let resendSendQueue: Promise<void> = Promise.resolve();
+let resendLastAttemptAt = 0;
+
 type NewDealEmailParams = {
   to: string;
   customerFirstName: string;
@@ -47,6 +53,10 @@ export type EmailDeliveryRuntimeStatus = {
 export function getEmailDeliveryErrorMessage(error: unknown) {
   const rawMessage =
     error instanceof Error ? error.message : String(error || "");
+
+  if (/rate_limit_exceeded/i.test(rawMessage) || /too many requests/i.test(rawMessage)) {
+    return "Resend 발송 속도 제한에 걸렸습니다. 잠시 뒤 다시 시도해 주세요. 운영 상품 메일은 자동 재시도되도록 조치할 수 있습니다.";
+  }
 
   if (
     /invalid login/i.test(rawMessage) ||
@@ -242,6 +252,49 @@ function parseBooleanEnv(value: string | undefined, fallback: boolean) {
   return fallback;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runInResendQueue<T>(task: () => Promise<T>) {
+  const previous = resendSendQueue.catch(() => undefined);
+  let release = () => {};
+  resendSendQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous;
+
+  try {
+    return await task();
+  } finally {
+    release();
+  }
+}
+
+async function waitForResendWindow() {
+  const waitMs = Math.max(
+    0,
+    resendLastAttemptAt + RESEND_MIN_INTERVAL_MS - Date.now(),
+  );
+
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+
+  resendLastAttemptAt = Date.now();
+}
+
+function getResendRetryDelayMs(response: Response, attempt: number) {
+  const retryAfterSeconds = Number(response.headers.get("retry-after") || "");
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return Math.ceil(retryAfterSeconds * 1000);
+  }
+
+  return 900 * attempt;
+}
+
 async function sendViaSmtp(params: {
   to: string;
   subject: string;
@@ -298,29 +351,48 @@ async function sendViaResend(params: {
   replyTo?: string;
 }) {
   const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: params.from,
-      to: [params.to],
-      subject: params.subject,
-      html: params.html,
-      text: params.text,
-      ...(params.replyTo ? { reply_to: params.replyTo } : {}),
-    }),
+  await runInResendQueue(async () => {
+    for (let attempt = 1; attempt <= RESEND_MAX_ATTEMPTS; attempt += 1) {
+      await waitForResendWindow();
+
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: params.from,
+          to: [params.to],
+          subject: params.subject,
+          html: params.html,
+          text: params.text,
+          ...(params.replyTo ? { reply_to: params.replyTo } : {}),
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Resend email sent", result);
+        return;
+      }
+
+      const errorText = await response.text();
+
+      if (response.status === 429 && attempt < RESEND_MAX_ATTEMPTS) {
+        const retryDelayMs = getResendRetryDelayMs(response, attempt);
+        console.warn("[email] Resend rate limited, retrying", {
+          to: params.to,
+          attempt,
+          retryDelayMs,
+        });
+        await sleep(retryDelayMs);
+        continue;
+      }
+
+      throw new Error(`Resend send failed: ${response.status} ${errorText}`);
+    }
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Resend send failed: ${response.status} ${errorText}`);
-  }
-
-  const result = await response.json();
-  console.log("Resend email sent", result);
 }
 
 async function deliverEmailMessage(
