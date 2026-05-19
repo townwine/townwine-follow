@@ -385,6 +385,34 @@ export async function getFollowersForInfluencerAliases(params: {
   }
 
   const aliasSet = new Set(aliases);
+  const choosePreferredFollowerRecord = <
+    TRecord extends {
+      customerEmail: string | null;
+      updatedAt: Date;
+    },
+  >(
+    current: TRecord | undefined,
+    candidate: TRecord,
+  ) => {
+    if (!current) {
+      return candidate;
+    }
+
+    const currentHasEmail = Boolean(String(current.customerEmail || "").trim());
+    const candidateHasEmail = Boolean(String(candidate.customerEmail || "").trim());
+
+    if (candidateHasEmail && !currentHasEmail) {
+      return candidate;
+    }
+
+    if (!candidateHasEmail && currentHasEmail) {
+      return current;
+    }
+
+    return candidate.updatedAt.getTime() >= current.updatedAt.getTime()
+      ? candidate
+      : current;
+  };
   const filterRecords = (records: Array<{
     id: string;
     shop: string;
@@ -396,17 +424,24 @@ export async function getFollowersForInfluencerAliases(params: {
     createdAt: Date;
     updatedAt: Date;
   }>) => {
-    return records.filter((record, index, items) => {
+    const matchesByCustomerId = new Map<string, (typeof records)[number]>();
+
+    for (const record of records) {
       const isMatched = getFollowSubscriptionAliases(record).some((alias) => {
         return aliasSet.has(alias);
       });
 
       if (!isMatched) {
-        return false;
+        continue;
       }
 
-      return items.findIndex((item) => item.customerId === record.customerId) === index;
-    });
+      matchesByCustomerId.set(
+        record.customerId,
+        choosePreferredFollowerRecord(matchesByCustomerId.get(record.customerId), record),
+      );
+    }
+
+    return Array.from(matchesByCustomerId.values());
   };
 
   const scopedRecords = await prisma.followSubscription.findMany({
