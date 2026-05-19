@@ -52,9 +52,14 @@ function parseInteger(value: string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function getCurrentKstYear() {
+function getCurrentKstDateParts() {
   const nowInKst = new Date(Date.now() + KST_OFFSET_MS);
-  return nowInKst.getUTCFullYear();
+
+  return {
+    year: nowInKst.getUTCFullYear(),
+    month: nowInKst.getUTCMonth() + 1,
+    day: nowInKst.getUTCDate(),
+  };
 }
 
 function createUtcDateFromKstParts(
@@ -96,15 +101,23 @@ function resolveOpenAtKst(
   hour: number,
   minute: number,
 ) {
-  const currentYear = getCurrentKstYear();
-  const now = Date.now();
+  const currentKstDate = getCurrentKstDateParts();
+  let resolvedYear = currentKstDate.year;
 
-  let scheduledAt = createUtcDateFromKstParts(currentYear, month, day, hour, minute);
-  if (!scheduledAt) return null;
-
-  if (scheduledAt.getTime() < now) {
-    scheduledAt = createUtcDateFromKstParts(currentYear + 1, month, day, hour, minute);
+  if (
+    currentKstDate.month > month ||
+    (currentKstDate.month === month && currentKstDate.day > day)
+  ) {
+    resolvedYear = currentKstDate.year + 1;
   }
+
+  const scheduledAt = createUtcDateFromKstParts(
+    resolvedYear,
+    month,
+    day,
+    hour,
+    minute,
+  );
 
   return scheduledAt ? toKstIsoString(scheduledAt) : null;
 }

@@ -8,6 +8,10 @@ const RELEVANT_PRODUCT_METAFIELD_KEYS = new Set([
   "influencer_handle",
   "host_handle",
   "host_name",
+  "deal_open_month",
+  "deal_open_day",
+  "deal_open_hour",
+  "deal_open_minute",
   "deal_open_at_kst",
 ]);
 

@@ -44,6 +44,14 @@ const shopify = shopifyApp({
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/products/update",
     },
+    METAFIELDS_CREATE: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/metafields/create",
+    },
+    METAFIELDS_UPDATE: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/metafields/update",
+    },
   },
   future: {
     expiringOfflineAccessTokens: true,
