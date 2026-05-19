@@ -5,6 +5,12 @@ type AdminGraphqlClient = {
   ) => Promise<Response>;
 };
 
+type SoldCountCacheEntry = {
+  value: Map<string, number> | null;
+  expiresAt: number;
+  promise: Promise<Map<string, number>> | null;
+};
+
 type InventoryVariantNode = {
   id: string;
   legacyResourceId: string | number;
@@ -61,6 +67,12 @@ export type InventorySnapshot = {
 
 const ORDERS_PAGE_SIZE = 50;
 const ORDER_LINE_ITEMS_PAGE_SIZE = 50;
+const ADMIN_QUERY_MAX_ATTEMPTS = 4;
+const ADMIN_QUERY_RETRY_BASE_MS = 400;
+const SOLD_COUNT_CACHE_TTL_MS = 120_000;
+const SOLD_COUNT_CACHE_STALE_TTL_MS = 20_000;
+const VARIANT_CHUNK_SIZE = 100;
+const soldCountCache = new Map<string, SoldCountCacheEntry>();
 
 function clampQuantity(value: number | null | undefined) {
   if (typeof value !== "number" || Number.isNaN(value)) {
@@ -68,6 +80,32 @@ function clampQuantity(value: number | null | undefined) {
   }
 
   return Math.max(0, value);
+}
+
+function normalizeShop(value: string | null | undefined) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isThrottleMessage(value: unknown) {
+  return /throttled/i.test(String(value || ""));
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getRetryDelayMs(attempt: number) {
+  return ADMIN_QUERY_RETRY_BASE_MS * attempt;
+}
+
+function chunkArray<TItem>(items: TItem[], size: number) {
+  const chunks: TItem[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 function normalizeVariantId(value: string) {
@@ -111,62 +149,89 @@ async function runAdminQuery<TData>(
   query: string,
   variables?: Record<string, unknown>,
 ) {
-  const response = await admin.graphql(query, variables ? { variables } : undefined);
-  const result = (await response.json()) as {
-    data?: TData;
-    errors?: Array<{ message?: string }>;
-  };
+  for (let attempt = 1; attempt <= ADMIN_QUERY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await admin.graphql(query, variables ? { variables } : undefined);
+      const result = (await response.json()) as {
+        data?: TData;
+        errors?: Array<{ message?: string }>;
+      };
+      const messages = result.errors?.map((error) => error.message).filter(Boolean) || [];
 
-  if (!response.ok || result.errors?.length || !result.data) {
-    const messages = result.errors?.map((error) => error.message).filter(Boolean);
-    throw new Error(
-      messages?.length
-        ? messages.join(", ")
-        : `Admin query failed with status ${response.status}`,
-    );
+      if (
+        (isThrottleMessage(messages.join(" ")) || (!response.ok && response.status === 429)) &&
+        attempt < ADMIN_QUERY_MAX_ATTEMPTS
+      ) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+
+      if (!response.ok || result.errors?.length || !result.data) {
+        throw new Error(
+          messages.length
+            ? messages.join(", ")
+            : `Admin query failed with status ${response.status}`,
+        );
+      }
+
+      return result.data;
+    } catch (error) {
+      if (isThrottleMessage(error) && attempt < ADMIN_QUERY_MAX_ATTEMPTS) {
+        await sleep(getRetryDelayMs(attempt));
+        continue;
+      }
+
+      throw error;
+    }
   }
 
-  return result.data;
+  throw new Error("Admin query failed after retries");
 }
 
 async function fetchVariants(
   admin: AdminGraphqlClient,
   variantIds: string[],
 ) {
-  const data = await runAdminQuery<VariantsQueryResponse>(
-    admin,
-    `#graphql
-      query InventoryVariants($ids: [ID!]!) {
-        nodes(ids: $ids) {
-          ... on ProductVariant {
-            id
-            legacyResourceId
-            inventoryPolicy
-            inventoryQuantity
-            availableForSale
-            inventoryItem {
-              tracked
-            }
-            product {
+  const chunks = chunkArray(variantIds, VARIANT_CHUNK_SIZE);
+  const nodes: InventoryVariantNode[] = [];
+
+  for (const chunk of chunks) {
+    const data = await runAdminQuery<VariantsQueryResponse>(
+      admin,
+      `#graphql
+        query InventoryVariants($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on ProductVariant {
               id
-              handle
-              title
+              legacyResourceId
+              inventoryPolicy
+              inventoryQuantity
+              availableForSale
+              inventoryItem {
+                tracked
+              }
+              product {
+                id
+                handle
+                title
+              }
             }
           }
         }
-      }
-    `,
-    { ids: variantIds },
-  );
+      `,
+      { ids: chunk },
+    );
 
-  return data.nodes.filter((node): node is Exclude<InventoryVariantNode, null> => {
+    nodes.push(...data.nodes);
+  }
+
+  return nodes.filter((node): node is Exclude<InventoryVariantNode, null> => {
     return Boolean(node?.id && node.product?.id);
   });
 }
 
 async function fetchSoldCounts(
   admin: AdminGraphqlClient,
-  targetVariantIds: Set<string>,
 ) {
   const soldCounts = new Map<string, number>();
   let cursor: string | null = null;
@@ -210,7 +275,7 @@ async function fetchSoldCounts(
       for (const lineItem of order.lineItems.nodes) {
         const variantId = lineItem.variant?.id;
 
-        if (!variantId || !targetVariantIds.has(variantId)) {
+        if (!variantId) {
           continue;
         }
 
@@ -229,8 +294,64 @@ async function fetchSoldCounts(
   return soldCounts;
 }
 
+async function getCachedSoldCounts(params: {
+  admin: AdminGraphqlClient;
+  shop: string;
+}) {
+  const cacheKey = normalizeShop(params.shop);
+
+  if (!cacheKey) {
+    return fetchSoldCounts(params.admin);
+  }
+
+  const now = Date.now();
+  const cachedEntry = soldCountCache.get(cacheKey);
+
+  if (cachedEntry?.value && cachedEntry.expiresAt > now) {
+    return cachedEntry.value;
+  }
+
+  if (cachedEntry?.promise) {
+    return cachedEntry.promise;
+  }
+
+  const refreshPromise = fetchSoldCounts(params.admin);
+
+  soldCountCache.set(cacheKey, {
+    value: cachedEntry?.value ?? null,
+    expiresAt: cachedEntry?.expiresAt ?? 0,
+    promise: refreshPromise,
+  });
+
+  try {
+    const soldCounts = await refreshPromise;
+
+    soldCountCache.set(cacheKey, {
+      value: soldCounts,
+      expiresAt: Date.now() + SOLD_COUNT_CACHE_TTL_MS,
+      promise: null,
+    });
+
+    return soldCounts;
+  } catch (error) {
+    if (cachedEntry?.value) {
+      soldCountCache.set(cacheKey, {
+        value: cachedEntry.value,
+        expiresAt: Date.now() + SOLD_COUNT_CACHE_STALE_TTL_MS,
+        promise: null,
+      });
+
+      return cachedEntry.value;
+    }
+
+    soldCountCache.delete(cacheKey);
+    throw error;
+  }
+}
+
 export async function getInventorySnapshots(params: {
   admin: AdminGraphqlClient;
+  shop?: string;
   variantIds: string[];
 }) {
   const normalizedVariantIds = Array.from(
@@ -241,10 +362,22 @@ export async function getInventorySnapshots(params: {
     return [];
   }
 
-  const [variants, soldCounts] = await Promise.all([
-    fetchVariants(params.admin, normalizedVariantIds),
-    fetchSoldCounts(params.admin, new Set(normalizedVariantIds)),
-  ]);
+  const variants = await fetchVariants(params.admin, normalizedVariantIds);
+  let soldCounts = new Map<string, number>();
+
+  try {
+    soldCounts = await getCachedSoldCounts({
+      admin: params.admin,
+      shop: params.shop || "",
+    });
+  } catch (error) {
+    console.error("[inventory] failed to refresh sold counts, falling back to inventory-only snapshots", {
+      shop: params.shop || "",
+      variantCount: normalizedVariantIds.length,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  }
 
   return variants.map<InventorySnapshot>((variant) => {
     const remainingInventory = clampQuantity(variant.inventoryQuantity);

@@ -27,6 +27,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     const snapshots = await getInventorySnapshots({
       admin: adminContext.admin,
+      shop: adminContext.resolvedShop || requestedShop,
       variantIds: payload.variantIds,
     });
 
