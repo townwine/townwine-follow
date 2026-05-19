@@ -47,6 +47,11 @@ type WatchdogStatusSnapshot = {
     followerCount: number;
     sentCount: number;
     failedCount: number;
+    failedDeliveries: Array<{
+      customerId: string;
+      email: string;
+      message: string;
+    }>;
   }>;
   recentWebhookEvents: Array<{
     timestamp: string;
@@ -83,6 +88,11 @@ declare global {
           followerCount: number;
           sentCount: number;
           failedCount: number;
+          failedDeliveries: Array<{
+            customerId: string;
+            email: string;
+            message: string;
+          }>;
         }>;
       }
     | undefined;
@@ -305,6 +315,11 @@ async function runWatchdogCycle() {
     followerCount: number;
     sentCount: number;
     failedCount: number;
+    failedDeliveries: Array<{
+      customerId: string;
+      email: string;
+      message: string;
+    }>;
   }> = [];
 
   try {
@@ -346,6 +361,10 @@ async function runWatchdogCycle() {
             followerCount: Number(result.notification?.followerCount || 0),
             sentCount: Number(result.notification?.sentCount || 0),
             failedCount: Number(result.notification?.failedCount || 0),
+            failedDeliveries:
+              Array.isArray(result.notification?.failedDeliveries)
+                ? result.notification.failedDeliveries.slice(0, 5)
+                : [],
           });
         }
       }

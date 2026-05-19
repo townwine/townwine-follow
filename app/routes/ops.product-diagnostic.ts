@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { ApiVersion } from "@shopify/shopify-app-react-router/server";
 import db from "../db.server";
 import { expandInfluencerAliasesWithCollectorProfiles } from "../services/collector-aliases.server";
+import { processDealNotification } from "../services/deal-notification.server";
 import { getFollowersForInfluencerAliases } from "../services/follow.server";
 import { collectProductInfluencerAliases } from "../services/product-collector.server";
 import { getRecentWebhookEvents } from "../services/webhook-observability.server";
@@ -52,6 +53,21 @@ function normalizeProductId(value: string) {
   }
 
   return `gid://shopify/Product/${normalizedValue}`;
+}
+
+function maskEmailAddress(value: string) {
+  const email = String(value || "").trim();
+  const [localPart, domainPart] = email.split("@");
+
+  if (!localPart || !domainPart) {
+    return email;
+  }
+
+  if (localPart.length <= 2) {
+    return `${localPart[0] || "*"}*@${domainPart}`;
+  }
+
+  return `${localPart.slice(0, 2)}***@${domainPart}`;
 }
 
 function createOfflineAdminClient(session: OfflineSessionRecord): AdminGraphqlClient {
@@ -157,6 +173,7 @@ async function loadProduct(admin: AdminGraphqlClient, productId: string) {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
   const productId = normalizeProductId(url.searchParams.get("productId") || "");
+  const runNotification = url.searchParams.get("runNotification") === "1";
 
   if (!productId) {
     return Response.json(
@@ -216,6 +233,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       shop: session.shop,
       aliases: expandedAliases.length ? expandedAliases : aliases,
     });
+    const notificationResult = runNotification
+      ? await processDealNotification({
+          admin,
+          shop: session.shop,
+          productId: product.id,
+          resolvedInfluencerHandle: product.influencerHandle?.value || "",
+          resolvedInfluencerName: product.hostName?.value || "",
+        })
+      : null;
 
     results.push({
       shop: session.shop,
@@ -239,7 +265,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       aliases,
       expandedAliases,
       followerCount: followerMatches.length,
+      followers: followerMatches.map((record) => ({
+        customerId: record.customerId,
+        customerFirstName: record.customerFirstName || "",
+        influencerName: record.influencerName || "",
+        email: maskEmailAddress(String(record.customerEmail || "")),
+      })),
       matchingCustomerIds: followerMatches.map((record) => record.customerId),
+      notificationResult,
       recentWebhookEvents: getRecentWebhookEvents().filter((event) => {
         return event.productId === product.id || event.productId === productId;
       }),

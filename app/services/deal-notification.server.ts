@@ -19,6 +19,21 @@ function toCustomerGid(customerId: string) {
     : `gid://shopify/Customer/${customerId}`;
 }
 
+function maskEmailAddress(value: string) {
+  const email = String(value || "").trim();
+  const [localPart, domainPart] = email.split("@");
+
+  if (!localPart || !domainPart) {
+    return email;
+  }
+
+  if (localPart.length <= 2) {
+    return `${localPart[0] || "*"}*@${domainPart}`;
+  }
+
+  return `${localPart.slice(0, 2)}***@${domainPart}`;
+}
+
 export async function processDealNotification(params: {
   admin: { graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response> };
   shop: string;
@@ -156,6 +171,11 @@ export async function processDealNotification(params: {
   let logOnlyCount = 0;
   let skippedCount = 0;
   let failedCount = 0;
+  const failedDeliveries: Array<{
+    customerId: string;
+    email: string;
+    message: string;
+  }> = [];
 
   for (const follower of followers) {
     try {
@@ -232,6 +252,11 @@ export async function processDealNotification(params: {
       }
     } catch (error) {
       failedCount += 1;
+      failedDeliveries.push({
+        customerId: follower.customerId,
+        email: maskEmailAddress(String(follower.customerEmail || "")),
+        message: error instanceof Error ? error.message : String(error),
+      });
       console.error("[follow-notification] failed to deliver new deal email", {
         shop: params.shop,
         productId: params.productId,
@@ -257,6 +282,7 @@ export async function processDealNotification(params: {
     logOnlyCount,
     skippedCount,
     failedCount,
+    failedDeliveries,
   };
 }
 
