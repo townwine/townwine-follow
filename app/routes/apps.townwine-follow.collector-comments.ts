@@ -2,7 +2,9 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import {
   createCollectorComment,
+  deleteCollectorComment,
   listCollectorComments,
+  updateCollectorComment,
 } from "../services/collector-comments.server";
 import { readCollectorCommentsRequest } from "../services/follow-request.server";
 
@@ -16,14 +18,37 @@ function getFriendlyMessage(error: unknown) {
   if (
     message === "SHOP_REQUIRED" ||
     message === "COLLECTOR_HANDLE_REQUIRED" ||
+    message === "COMMENT_ID_REQUIRED" ||
     message === "COMMENT_BODY_REQUIRED" ||
     message === "COMMENT_BODY_TOO_LONG" ||
-    message === "LOGIN_REQUIRED"
+    message === "LOGIN_REQUIRED" ||
+    message === "COMMENT_NOT_FOUND" ||
+    message === "COMMENT_FORBIDDEN"
   ) {
     return message;
   }
 
   return "COLLECTOR_COMMENT_REQUEST_FAILED";
+}
+
+function resolveCollectorCommentIntent(method: string, requestedIntent: string) {
+  const normalizedMethod = String(method || "").toUpperCase();
+  const normalizedIntent = String(requestedIntent || "").trim().toLowerCase();
+
+  if (normalizedMethod === "DELETE" || normalizedIntent === "delete") {
+    return "delete";
+  }
+
+  if (
+    normalizedMethod === "PATCH" ||
+    normalizedMethod === "PUT" ||
+    normalizedIntent === "update" ||
+    normalizedIntent === "edit"
+  ) {
+    return "update";
+  }
+
+  return "create";
 }
 
 async function handleCollectorCommentsRequest(request: Request) {
@@ -61,6 +86,7 @@ async function handleCollectorCommentsRequest(request: Request) {
         shop,
         collectorHandle: payload.collectorHandle,
         limit: payload.limit,
+        viewerCustomerId: customerId,
       });
 
       return Response.json({
@@ -77,11 +103,44 @@ async function handleCollectorCommentsRequest(request: Request) {
       );
     }
 
+    const intent = resolveCollectorCommentIntent(request.method, payload.intent);
+
+    if (intent === "delete") {
+      const deletedComment = await deleteCollectorComment({
+        commentId: payload.commentId,
+        shop,
+        collectorHandle: payload.collectorHandle,
+        customerId,
+      });
+
+      return Response.json({
+        ok: true,
+        loggedIn: true,
+        deletedCommentId: deletedComment.id,
+      });
+    }
+
     if (!payload.body) {
       return Response.json(
         { ok: false, message: "COMMENT_BODY_REQUIRED" },
         { status: 422 },
       );
+    }
+
+    if (intent === "update") {
+      const comment = await updateCollectorComment({
+        commentId: payload.commentId,
+        shop,
+        collectorHandle: payload.collectorHandle,
+        customerId,
+        body: payload.body,
+      });
+
+      return Response.json({
+        ok: true,
+        loggedIn: true,
+        comment,
+      });
     }
 
     const comment = await createCollectorComment({
@@ -105,9 +164,14 @@ async function handleCollectorCommentsRequest(request: Request) {
         ? 401
         : message === "SHOP_REQUIRED" ||
             message === "COLLECTOR_HANDLE_REQUIRED" ||
+            message === "COMMENT_ID_REQUIRED" ||
             message === "COMMENT_BODY_REQUIRED" ||
             message === "COMMENT_BODY_TOO_LONG"
           ? 422
+          : message === "COMMENT_NOT_FOUND"
+            ? 404
+            : message === "COMMENT_FORBIDDEN"
+              ? 403
           : 500;
 
     console.error("[collector-comments] request failed", {

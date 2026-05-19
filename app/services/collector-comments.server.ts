@@ -18,6 +18,10 @@ function normalizeCollectorHandle(value: string) {
   return normalizeInfluencerHandle(String(value || ""));
 }
 
+function normalizeCommentId(value: string) {
+  return String(value || "").trim();
+}
+
 function normalizeCustomerDisplayName(value: string) {
   const normalized = String(value || "")
     .replace(/\s+/g, " ")
@@ -57,10 +61,14 @@ function normalizeCommentLimit(value?: number) {
 function serializeCollectorComment(record: {
   id: string;
   collectorHandle: string;
+  customerId: string;
   customerDisplayName: string | null;
   body: string;
   createdAt: Date;
-}) {
+  updatedAt: Date;
+}, viewerCustomerId?: string) {
+  const normalizedViewerCustomerId = normalizeCustomerId(viewerCustomerId || "");
+
   return {
     id: record.id,
     collectorHandle: record.collectorHandle,
@@ -68,13 +76,63 @@ function serializeCollectorComment(record: {
       normalizeCustomerDisplayName(record.customerDisplayName || ""),
     body: record.body,
     createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    isEdited: record.updatedAt.getTime() > record.createdAt.getTime(),
+    isOwner:
+      Boolean(normalizedViewerCustomerId) &&
+      normalizeCustomerId(record.customerId) === normalizedViewerCustomerId,
   };
+}
+
+async function readOwnedComment(params: {
+  commentId: string;
+  shop: string;
+  collectorHandle: string;
+  customerId: string;
+}) {
+  const commentId = normalizeCommentId(params.commentId);
+  const shop = normalizeShop(params.shop);
+  const collectorHandle = normalizeCollectorHandle(params.collectorHandle);
+  const customerId = normalizeCustomerId(params.customerId);
+
+  if (!shop) {
+    throw new Error("SHOP_REQUIRED");
+  }
+
+  if (!collectorHandle) {
+    throw new Error("COLLECTOR_HANDLE_REQUIRED");
+  }
+
+  if (!customerId) {
+    throw new Error("LOGIN_REQUIRED");
+  }
+
+  if (!commentId) {
+    throw new Error("COMMENT_ID_REQUIRED");
+  }
+
+  const record = await prisma.collectorComment.findUnique({
+    where: {
+      id: commentId,
+    },
+  });
+
+  if (!record || normalizeShop(record.shop) !== shop || normalizeCollectorHandle(record.collectorHandle) !== collectorHandle) {
+    throw new Error("COMMENT_NOT_FOUND");
+  }
+
+  if (normalizeCustomerId(record.customerId) !== customerId) {
+    throw new Error("COMMENT_FORBIDDEN");
+  }
+
+  return record;
 }
 
 export async function listCollectorComments(params: {
   shop: string;
   collectorHandle: string;
   limit?: number;
+  viewerCustomerId?: string;
 }) {
   const shop = normalizeShop(params.shop);
   const collectorHandle = normalizeCollectorHandle(params.collectorHandle);
@@ -99,7 +157,9 @@ export async function listCollectorComments(params: {
     take: limit,
   });
 
-  return records.map(serializeCollectorComment);
+  return records.map((record) =>
+    serializeCollectorComment(record, params.viewerCustomerId),
+  );
 }
 
 export async function createCollectorComment(params: {
@@ -139,5 +199,46 @@ export async function createCollectorComment(params: {
     },
   });
 
-  return serializeCollectorComment(record);
+  return serializeCollectorComment(record, customerId);
+}
+
+export async function updateCollectorComment(params: {
+  commentId: string;
+  shop: string;
+  collectorHandle: string;
+  customerId: string;
+  body: string;
+}) {
+  const record = await readOwnedComment(params);
+  const body = normalizeCommentBody(params.body);
+
+  const updated = await prisma.collectorComment.update({
+    where: {
+      id: record.id,
+    },
+    data: {
+      body,
+    },
+  });
+
+  return serializeCollectorComment(updated, params.customerId);
+}
+
+export async function deleteCollectorComment(params: {
+  commentId: string;
+  shop: string;
+  collectorHandle: string;
+  customerId: string;
+}) {
+  const record = await readOwnedComment(params);
+
+  await prisma.collectorComment.delete({
+    where: {
+      id: record.id,
+    },
+  });
+
+  return {
+    id: record.id,
+  };
 }

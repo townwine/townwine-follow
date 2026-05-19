@@ -216,6 +216,8 @@ export async function readCollectorCommentsRequest(request: Request) {
   const parsedLimit = Number.parseInt(limitRaw, 10);
 
   return {
+    intent: readFirst(params, ["intent", "action", "_method"]).toLowerCase(),
+    commentId: readFirst(params, ["commentId", "comment_id", "id"]),
     collectorHandle: readFirst(params, [
       "collectorHandle",
       "handle",
