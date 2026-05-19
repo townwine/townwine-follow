@@ -258,24 +258,75 @@ export async function syncFollowSubscriptionContact(params: {
     data.customerFirstName = customerFirstName;
   }
 
-  const scopedResult = await prisma.followSubscription.updateMany({
+  const needsContactSync = (record: {
+    customerEmail: string | null;
+    customerFirstName: string | null;
+  }) => {
+    if (customerEmail && String(record.customerEmail || "").trim() !== customerEmail) {
+      return true;
+    }
+
+    if (
+      customerFirstName &&
+      String(record.customerFirstName || "").trim() !== customerFirstName
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const scopedRecords = await prisma.followSubscription.findMany({
     where: {
       shop,
       customerId,
     },
-    data,
+    select: {
+      id: true,
+      customerEmail: true,
+      customerFirstName: true,
+    },
   });
+
+  const scopedRecordIds = scopedRecords
+    .filter(needsContactSync)
+    .map((record) => record.id);
+
+  const scopedResult = scopedRecordIds.length
+    ? await prisma.followSubscription.updateMany({
+        where: {
+          id: {
+            in: scopedRecordIds,
+          },
+        },
+        data,
+      })
+    : { count: 0 };
 
   if (scopedResult.count > 0 || !shop) {
     return { count: scopedResult.count, fallback: false };
   }
 
-  const fallbackResult = await prisma.followSubscription.updateMany({
+  const fallbackRecords = await prisma.followSubscription.findMany({
     where: {
       customerId,
     },
-    data,
   });
+
+  const fallbackRecordIds = fallbackRecords
+    .filter(needsContactSync)
+    .map((record) => record.id);
+
+  const fallbackResult = fallbackRecordIds.length
+    ? await prisma.followSubscription.updateMany({
+        where: {
+          id: {
+            in: fallbackRecordIds,
+          },
+        },
+        data,
+      })
+    : { count: 0 };
 
   return { count: fallbackResult.count, fallback: fallbackResult.count > 0 };
 }

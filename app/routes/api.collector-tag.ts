@@ -2,7 +2,6 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate, registerWebhooks } from "../shopify.server";
 import { ensureProductMetafieldDefinitions } from "../services/product-metafield-definitions.server";
 import {
-  ensureProductCollectorAdminNotification,
   getProductCollectorAdminState,
   saveProductCollectorAdminState,
 } from "../services/product-collector-admin.server";
@@ -26,28 +25,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     const url = new URL(request.url);
     const productId = String(url.searchParams.get("productId") || "").trim();
-    const ensureNotification =
-      url.searchParams.get("ensureNotification") === "1";
 
     if (!productId) {
       return cors(jsonError("PRODUCT_ID_REQUIRED", 422));
     }
 
     await ensureProductMetafieldDefinitions(admin);
-
-    if (ensureNotification) {
-      const result = await ensureProductCollectorAdminNotification({
-        admin,
-        shop: session.shop,
-        productId,
-      });
-
-      if (!result.state) {
-        return cors(jsonError("PRODUCT_NOT_FOUND", 404));
-      }
-
-      return cors(Response.json(result));
-    }
 
     const state = await getProductCollectorAdminState(admin, productId);
 
