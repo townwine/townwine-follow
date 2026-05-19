@@ -36,6 +36,14 @@ type WatchdogStatusSnapshot = {
   lastFailedCount: number;
   lastError: string;
   lastMostRecentProductUpdatedAt: string;
+  recentResults: Array<{
+    productId: string;
+    collectorSkipped: string;
+    notificationSkipped: string;
+    followerCount: number;
+    sentCount: number;
+    failedCount: number;
+  }>;
 };
 
 declare global {
@@ -54,6 +62,14 @@ declare global {
         lastFailedCount: number;
         lastError: string;
         lastMostRecentProductUpdatedAt: string;
+        recentResults: Array<{
+          productId: string;
+          collectorSkipped: string;
+          notificationSkipped: string;
+          followerCount: number;
+          sentCount: number;
+          failedCount: number;
+        }>;
       }
     | undefined;
 }
@@ -86,6 +102,7 @@ function getWatchdogState() {
         lastFailedCount: 0,
         lastError: "",
         lastMostRecentProductUpdatedAt: "",
+        recentResults: [],
       };
   }
 
@@ -222,6 +239,14 @@ async function runWatchdogCycle() {
   let lastSentCount = 0;
   let lastFailedCount = 0;
   let lastMostRecentProductUpdatedAt = "";
+  const recentResults: Array<{
+    productId: string;
+    collectorSkipped: string;
+    notificationSkipped: string;
+    followerCount: number;
+    sentCount: number;
+    failedCount: number;
+  }> = [];
 
   try {
     const sessions = await listOfflineSessions();
@@ -252,6 +277,17 @@ async function runWatchdogCycle() {
 
         lastSentCount += Number(result.notification?.sentCount || 0);
         lastFailedCount += Number(result.notification?.failedCount || 0);
+
+        if (recentResults.length < 5) {
+          recentResults.push({
+            productId: product.id,
+            collectorSkipped: String(result.collectorIdentity?.skipped || ""),
+            notificationSkipped: String(result.notification?.skipped || ""),
+            followerCount: Number(result.notification?.followerCount || 0),
+            sentCount: Number(result.notification?.sentCount || 0),
+            failedCount: Number(result.notification?.failedCount || 0),
+          });
+        }
       }
     }
   } catch (error) {
@@ -269,6 +305,7 @@ async function runWatchdogCycle() {
     state.lastSentCount = lastSentCount;
     state.lastFailedCount = lastFailedCount;
     state.lastMostRecentProductUpdatedAt = lastMostRecentProductUpdatedAt;
+    state.recentResults = recentResults;
 
     console.info("[follow-watchdog] cycle completed", {
       shopCount: lastShopCount,
@@ -315,5 +352,6 @@ export function getFollowNotificationWatchdogStatus(): WatchdogStatusSnapshot {
     lastFailedCount: state.lastFailedCount,
     lastError: state.lastError,
     lastMostRecentProductUpdatedAt: state.lastMostRecentProductUpdatedAt,
+    recentResults: state.recentResults,
   };
 }
