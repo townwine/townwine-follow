@@ -31,6 +31,9 @@ async function handleFollowRequest(request: Request) {
     const payload = await readFollowMutationRequest(request);
     const requestedShop = payload.requestParams.get("shop") || "";
     const customerId = payload.requestParams.get("logged_in_customer_id") || "";
+    const returnTo = getSafeReturnTo(
+      String(payload.requestParams.get("returnTo") || "/"),
+    );
     const adminContext = await resolveStorefrontAdmin({
       request,
       shop: requestedShop,
@@ -45,6 +48,13 @@ async function handleFollowRequest(request: Request) {
         shop,
         query: url.search,
       });
+
+      if (shouldNavigateWithRedirect(request)) {
+        return redirect(
+          `/account/login?return_url=${encodeURIComponent(returnTo)}`,
+        );
+      }
+
       return Response.json({ ok: false, message: "LOGIN_REQUIRED" }, { status: 401 });
     }
 
@@ -53,10 +63,6 @@ async function handleFollowRequest(request: Request) {
     const influencerName = String(payload.influencerName || "").trim();
     const customerEmail = String(payload.customerEmail || "").trim();
     const customerFirstName = String(payload.customerFirstName || "").trim();
-    const returnTo = getSafeReturnTo(
-      String(payload.requestParams.get("returnTo") || "/"),
-    );
-
     console.info("[follow] received follow request", {
       method: request.method,
       shop,
@@ -78,24 +84,6 @@ async function handleFollowRequest(request: Request) {
       influencerName,
     });
 
-    if (admin) {
-      try {
-        await processFollowNotificationCatchup({
-          admin,
-          shop,
-          handles: [influencerHandle, influencerName],
-        });
-      } catch (error) {
-        console.error("[follow] failed to run notification catchup after follow", {
-          shop,
-          customerId,
-          influencerHandle,
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-    }
-
     console.info("[follow] saved follow subscription", {
       shop,
       customerId,
@@ -103,6 +91,22 @@ async function handleFollowRequest(request: Request) {
       influencerHandle,
       recordId: record.id,
     });
+
+    if (admin) {
+      void processFollowNotificationCatchup({
+        admin,
+        shop,
+        handles: [influencerHandle, influencerName],
+      }).catch((error) => {
+        console.error("[follow] failed to run notification catchup after follow", {
+          shop,
+          customerId,
+          influencerHandle,
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      });
+    }
 
     if (shouldNavigateWithRedirect(request)) {
       return redirect(returnTo);

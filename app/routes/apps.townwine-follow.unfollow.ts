@@ -30,6 +30,9 @@ async function handleUnfollowRequest(request: Request) {
     const payload = await readFollowMutationRequest(request);
     const requestedShop = payload.requestParams.get("shop") || "";
     const customerId = payload.requestParams.get("logged_in_customer_id") || "";
+    const returnTo = getSafeReturnTo(
+      String(payload.requestParams.get("returnTo") || "/"),
+    );
     const adminContext = await resolveStorefrontAdmin({
       request,
       shop: requestedShop,
@@ -43,15 +46,18 @@ async function handleUnfollowRequest(request: Request) {
         shop,
         query: url.search,
       });
+
+      if (shouldNavigateWithRedirect(request)) {
+        return redirect(
+          `/account/login?return_url=${encodeURIComponent(returnTo)}`,
+        );
+      }
+
       return Response.json({ ok: false, message: "LOGIN_REQUIRED" }, { status: 401 });
     }
 
     const rawInfluencerHandle = String(payload.influencerHandle || "").trim();
     const influencerHandle = normalizeInfluencerHandle(rawInfluencerHandle);
-    const returnTo = getSafeReturnTo(
-      String(payload.requestParams.get("returnTo") || "/"),
-    );
-
     console.info("[follow] received unfollow request", {
       method: request.method,
       shop,

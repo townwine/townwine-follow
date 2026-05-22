@@ -11,6 +11,7 @@ import {
   productMatchesInfluencerHandle,
   resolveProductInfluencerHandle,
 } from "./product-collector.server";
+import { isSellableProductStatus } from "./product-status.server";
 
 type AdminGraphqlClient = {
   graphql: (
@@ -23,14 +24,27 @@ type ProductMetafieldValue = {
   value: string | null;
 } | null;
 
+type ProductVariantNode = {
+  availableForSale: boolean | null;
+} | null;
+
 type ProductNode = {
   id: string;
+  status: string | null;
   vendor: string | null;
   tags: string[];
+  variants?: {
+    nodes: ProductVariantNode[];
+  } | null;
   collectorTag: ProductMetafieldValue;
   hostName: ProductMetafieldValue;
   hostHandle: ProductMetafieldValue;
   influencerHandle: ProductMetafieldValue;
+  openMonth?: ProductMetafieldValue;
+  openDay?: ProductMetafieldValue;
+  openHour?: ProductMetafieldValue;
+  openMinute?: ProductMetafieldValue;
+  openAtKst?: ProductMetafieldValue;
   followersAdjustment?: ProductMetafieldValue;
   dealsAdjustment?: ProductMetafieldValue;
 } | null;
@@ -38,12 +52,19 @@ type ProductNode = {
 type ProductContext = {
   id: string;
   legacyId: string;
+  status: string;
   vendor: string;
   tags: string[];
+  availableForSale: boolean;
   collectorTag: string;
   hostName: string;
   hostHandle: string;
   influencerHandle: string;
+  openMonth: number;
+  openDay: number;
+  openHour: number;
+  openMinute: number;
+  openAtKst: string;
   followersAdjustment: number;
   dealsAdjustment: number;
 };
@@ -60,6 +81,8 @@ type CollectorStatsSnapshot = {
   actualDealCount: number;
   dealAdjustment: number;
   dealsLabel: string;
+  liveDealCount: number;
+  upcomingDealCount: number;
   influencerHandle: string;
 };
 
@@ -93,6 +116,7 @@ type CollectorAliasDirectoryCacheEntry = {
 const COLLECTOR_CATALOG_CACHE_TTL_MS = 30_000;
 const COLLECTOR_CATALOG_STALE_TTL_MS = 5_000;
 const ADMIN_QUERY_MAX_ATTEMPTS = 3;
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const collectorCatalogCache = new Map<string, CollectorCatalogCacheEntry>();
 const collectorAliasDirectoryCache = new Map<
   string,
@@ -176,6 +200,104 @@ function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function getCurrentKstDateParts() {
+  const nowInKst = new Date(Date.now() + KST_OFFSET_MS);
+
+  return {
+    year: nowInKst.getUTCFullYear(),
+    month: nowInKst.getUTCMonth() + 1,
+    day: nowInKst.getUTCDate(),
+  };
+}
+
+function createUtcDateFromKstParts(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+) {
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour - 9, minute, 0, 0));
+  const kstDate = new Date(utcDate.getTime() + KST_OFFSET_MS);
+
+  if (
+    kstDate.getUTCFullYear() !== year ||
+    kstDate.getUTCMonth() + 1 !== month ||
+    kstDate.getUTCDate() !== day ||
+    kstDate.getUTCHours() !== hour ||
+    kstDate.getUTCMinutes() !== minute
+  ) {
+    return null;
+  }
+
+  return utcDate;
+}
+
+function resolveProductOpenAtTimestamp(product: ProductContext) {
+  const explicitOpenAt = String(product.openAtKst || "").trim();
+
+  if (explicitOpenAt) {
+    const explicitTimestamp = Date.parse(explicitOpenAt);
+
+    if (Number.isFinite(explicitTimestamp)) {
+      return Math.trunc(explicitTimestamp / 1000);
+    }
+  }
+
+  if (product.openMonth <= 0 || product.openDay <= 0) {
+    return 0;
+  }
+
+  const currentKstDate = getCurrentKstDateParts();
+  let resolvedYear = currentKstDate.year;
+
+  if (
+    currentKstDate.month > product.openMonth ||
+    (currentKstDate.month === product.openMonth &&
+      currentKstDate.day > product.openDay)
+  ) {
+    resolvedYear += 1;
+  }
+
+  const scheduledAt = createUtcDateFromKstParts(
+    resolvedYear,
+    product.openMonth,
+    product.openDay,
+    product.openHour,
+    product.openMinute,
+  );
+
+  return scheduledAt ? Math.trunc(scheduledAt.getTime() / 1000) : 0;
+}
+
+function getMatchedDealStatusCounts(products: ProductContext[]) {
+  const nowTimestamp = Math.trunc(Date.now() / 1000);
+  let liveDealCount = 0;
+  let upcomingDealCount = 0;
+
+  for (const product of products) {
+    if (!isSellableProductStatus(product.status)) {
+      continue;
+    }
+
+    const openAtTimestamp = resolveProductOpenAtTimestamp(product);
+
+    if (openAtTimestamp > nowTimestamp) {
+      upcomingDealCount += 1;
+      continue;
+    }
+
+    if (product.availableForSale) {
+      liveDealCount += 1;
+    }
+  }
+
+  return {
+    liveDealCount,
+    upcomingDealCount,
+  };
+}
+
 async function runAdminQuery<TData>(
   admin: AdminGraphqlClient,
   query: string,
@@ -226,12 +348,21 @@ function mapProductContext(node: ProductNode): ProductContext | null {
   return {
     id: node.id,
     legacyId: toLegacyProductId(node.id),
+    status: String(node.status || "").trim(),
     vendor: String(node.vendor || "").trim(),
     tags: Array.isArray(node.tags) ? node.tags : [],
+    availableForSale: Boolean(
+      node.variants?.nodes?.some((variant) => Boolean(variant?.availableForSale)),
+    ),
     collectorTag: String(node.collectorTag?.value || "").trim(),
     hostName: String(node.hostName?.value || "").trim(),
     hostHandle: String(node.hostHandle?.value || "").trim(),
     influencerHandle: String(node.influencerHandle?.value || "").trim(),
+    openMonth: toInteger(node.openMonth?.value),
+    openDay: toInteger(node.openDay?.value),
+    openHour: toInteger(node.openHour?.value),
+    openMinute: toInteger(node.openMinute?.value),
+    openAtKst: String(node.openAtKst?.value || "").trim(),
     followersAdjustment: toInteger(node.followersAdjustment?.value),
     dealsAdjustment: toInteger(node.dealsAdjustment?.value),
   };
@@ -260,8 +391,14 @@ async function fetchCollectorTargets(
         nodes(ids: $ids) {
           ... on Product {
             id
+            status
             vendor
             tags
+            variants(first: 1) {
+              nodes {
+                availableForSale
+              }
+            }
             collectorTag: metafield(namespace: "custom", key: "collector_tag") {
               value
             }
@@ -272,6 +409,21 @@ async function fetchCollectorTargets(
               value
             }
             influencerHandle: metafield(namespace: "custom", key: "influencer_handle") {
+              value
+            }
+            openMonth: metafield(namespace: "custom", key: "deal_open_month") {
+              value
+            }
+            openDay: metafield(namespace: "custom", key: "deal_open_day") {
+              value
+            }
+            openHour: metafield(namespace: "custom", key: "deal_open_hour") {
+              value
+            }
+            openMinute: metafield(namespace: "custom", key: "deal_open_minute") {
+              value
+            }
+            openAtKst: metafield(namespace: "custom", key: "deal_open_at_kst") {
               value
             }
             followersAdjustment: metafield(namespace: "custom", key: "collector_followers_adjustment") {
@@ -307,8 +459,14 @@ async function fetchAllCollectorProducts(admin: AdminGraphqlClient) {
             }
             nodes {
               id
+              status
               vendor
               tags
+              variants(first: 1) {
+                nodes {
+                  availableForSale
+                }
+              }
               collectorTag: metafield(namespace: "custom", key: "collector_tag") {
                 value
               }
@@ -319,6 +477,21 @@ async function fetchAllCollectorProducts(admin: AdminGraphqlClient) {
                 value
               }
               influencerHandle: metafield(namespace: "custom", key: "influencer_handle") {
+                value
+              }
+              openMonth: metafield(namespace: "custom", key: "deal_open_month") {
+                value
+              }
+              openDay: metafield(namespace: "custom", key: "deal_open_day") {
+                value
+              }
+              openHour: metafield(namespace: "custom", key: "deal_open_hour") {
+                value
+              }
+              openMinute: metafield(namespace: "custom", key: "deal_open_minute") {
+                value
+              }
+              openAtKst: metafield(namespace: "custom", key: "deal_open_at_kst") {
                 value
               }
               followersAdjustment: metafield(namespace: "custom", key: "collector_followers_adjustment") {
@@ -556,19 +729,6 @@ function getMatchingProducts(
   });
 }
 
-function getMatchingDealCount(
-  target: ProductContext,
-  catalog: ProductContext[],
-) {
-  return getMatchingProducts(
-    {
-      handle: target.influencerHandle || target.hostHandle || target.collectorTag,
-      name: target.collectorTag || target.hostName || target.vendor,
-    },
-    catalog,
-  ).length;
-}
-
 function getFollowerAliasKeys(
   primaryAlias: string,
   matchedProducts: ProductContext[],
@@ -630,7 +790,6 @@ export async function getCollectorStatsSnapshots(params: {
         collectorAliasDirectory,
         influencerHandle,
       );
-      const actualDealCount = getMatchingDealCount(target, catalog);
       const matchedProducts = getMatchingProducts(
         {
           handle:
@@ -643,6 +802,9 @@ export async function getCollectorStatsSnapshots(params: {
         },
         catalog,
       );
+      const actualDealCount = matchedProducts.length;
+      const { liveDealCount, upcomingDealCount } =
+        getMatchedDealStatusCounts(matchedProducts);
       const actualFollowerCount = (canonicalInfluencerHandle || influencerHandle)
         ? (
             await getFollowersForInfluencerAliases({
@@ -676,6 +838,8 @@ export async function getCollectorStatsSnapshots(params: {
         actualDealCount,
         dealAdjustment: target.dealsAdjustment,
         dealsLabel: `누적 공구 ${formatNumber(dealCount)}회`,
+        liveDealCount,
+        upcomingDealCount,
         influencerHandle: canonicalInfluencerHandle || influencerHandle,
       };
     }),
@@ -707,6 +871,8 @@ export async function getCollectorStatsSnapshots(params: {
         })
       ).length;
       const actualDealCount = matchedProducts.length;
+      const { liveDealCount, upcomingDealCount } =
+        getMatchedDealStatusCounts(matchedProducts);
       const followerAdjustment = pickAdjustment(
         matchedProducts,
         "followersAdjustment",
@@ -730,6 +896,8 @@ export async function getCollectorStatsSnapshots(params: {
         actualDealCount,
         dealAdjustment,
         dealsLabel: `누적 공구 ${formatNumber(dealCount)}회`,
+        liveDealCount,
+        upcomingDealCount,
         influencerHandle: canonicalHandleKey || handleKey,
       };
     }),
