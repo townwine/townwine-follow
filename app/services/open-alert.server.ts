@@ -9,6 +9,7 @@ import {
   sendUpcomingOpenAlertEmail,
 } from "./email.server";
 import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
+import { formatOpenAtLabel } from "./open-at-label.server";
 import { resolveProductInfluencerHandle } from "./product-collector.server";
 import { isSellableProductStatus } from "./product-status.server";
 
@@ -101,21 +102,6 @@ function chunkItems<TValue>(items: TValue[], size: number) {
   }
 
   return chunks;
-}
-
-function formatOpenAtLabel(openAtKst: string) {
-  const parsedDate = new Date(openAtKst);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return openAtKst;
-  }
-
-  const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getUTCDate()).padStart(2, "0");
-  const hour = String(parsedDate.getUTCHours()).padStart(2, "0");
-  const minute = String(parsedDate.getUTCMinutes()).padStart(2, "0");
-
-  return `${month}월 ${day}일 ${hour}:${minute}`;
 }
 
 function getHostName(node: ProductOpenAlertNode) {

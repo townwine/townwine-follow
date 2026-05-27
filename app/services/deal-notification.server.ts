@@ -16,6 +16,7 @@ import {
   collectProductInfluencerAliases,
   resolveProductInfluencerHandle,
 } from "./product-collector.server";
+import { formatOpenAtLabel } from "./open-at-label.server";
 import { isSellableProductStatus } from "./product-status.server";
 import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
 
@@ -96,21 +97,6 @@ export async function processDealNotification(params: {
   resolvedInfluencerHandle?: string;
   resolvedInfluencerName?: string;
 }) {
-  function formatOpenAtLabel(value: string) {
-    const parsedDate = new Date(value);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return value;
-    }
-
-    const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(parsedDate.getUTCDate()).padStart(2, "0");
-    const hour = String(parsedDate.getUTCHours()).padStart(2, "0");
-    const minute = String(parsedDate.getUTCMinutes()).padStart(2, "0");
-
-    return `${month}월 ${day}일 ${hour}:${minute}`;
-  }
-
   const response = await params.admin.graphql(
     `#graphql
       query FollowNotificationProduct($id: ID!) {
