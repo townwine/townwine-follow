@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import { invalidateLatestDealsCache } from "../services/latest-deals.server";
 import { processProductWebhookEvent } from "../services/product-webhook-processing.server";
 import { recordWebhookEvent } from "../services/webhook-observability.server";
 
@@ -44,6 +45,8 @@ export async function action({ request }: ActionFunctionArgs) {
     shop,
     productId,
   });
+
+  invalidateLatestDealsCache(shop);
 
   const result = await processProductWebhookEvent({
     admin,
