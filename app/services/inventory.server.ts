@@ -11,6 +11,12 @@ type SoldCountCacheEntry = {
   promise: Promise<Map<string, number>> | null;
 };
 
+type SoldCountState = {
+  ready: boolean;
+  stale: boolean;
+  value: Map<string, number> | null;
+};
+
 type InventoryVariantNode = {
   id: string;
   legacyResourceId: string | number;
@@ -60,6 +66,7 @@ export type InventorySnapshot = {
   inventoryPolicy: string;
   availableForSale: boolean;
   soldCount: number;
+  soldCountPending: boolean;
   totalInventory: number;
   remainingInventory: number;
   progressPercent: number;
@@ -294,7 +301,7 @@ async function fetchSoldCounts(
   return soldCounts;
 }
 
-async function getCachedSoldCounts(params: {
+async function scheduleSoldCountRefresh(params: {
   admin: AdminGraphqlClient;
   shop: string;
 }) {
@@ -304,12 +311,7 @@ async function getCachedSoldCounts(params: {
     return fetchSoldCounts(params.admin);
   }
 
-  const now = Date.now();
   const cachedEntry = soldCountCache.get(cacheKey);
-
-  if (cachedEntry?.value && cachedEntry.expiresAt > now) {
-    return cachedEntry.value;
-  }
 
   if (cachedEntry?.promise) {
     return cachedEntry.promise;
@@ -349,6 +351,64 @@ async function getCachedSoldCounts(params: {
   }
 }
 
+async function getCachedSoldCounts(params: {
+  admin: AdminGraphqlClient;
+  shop: string;
+}): Promise<SoldCountState> {
+  const cacheKey = normalizeShop(params.shop);
+
+  if (!cacheKey) {
+    return {
+      ready: true,
+      stale: false,
+      value: await fetchSoldCounts(params.admin),
+    };
+  }
+
+  const now = Date.now();
+  const cachedEntry = soldCountCache.get(cacheKey);
+
+  if (cachedEntry?.value && cachedEntry.expiresAt > now) {
+    return {
+      ready: true,
+      stale: false,
+      value: cachedEntry.value,
+    };
+  }
+
+  if (cachedEntry?.value) {
+    void scheduleSoldCountRefresh(params).catch((error: unknown) => {
+      console.error("[inventory] sold count refresh failed", {
+        shop: cacheKey,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    });
+
+    return {
+      ready: true,
+      stale: true,
+      value: cachedEntry.value,
+    };
+  }
+
+  if (!cachedEntry?.promise) {
+    void scheduleSoldCountRefresh(params).catch((error: unknown) => {
+      console.error("[inventory] sold count warm-up failed", {
+        shop: cacheKey,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    });
+  }
+
+  return {
+    ready: false,
+    stale: true,
+    value: null,
+  };
+}
+
 export async function getInventorySnapshots(params: {
   admin: AdminGraphqlClient;
   shop?: string;
@@ -363,10 +423,14 @@ export async function getInventorySnapshots(params: {
   }
 
   const variants = await fetchVariants(params.admin, normalizedVariantIds);
-  let soldCounts = new Map<string, number>();
+  let soldCountState: SoldCountState = {
+    ready: false,
+    stale: true,
+    value: null,
+  };
 
   try {
-    soldCounts = await getCachedSoldCounts({
+    soldCountState = await getCachedSoldCounts({
       admin: params.admin,
       shop: params.shop || "",
     });
@@ -379,12 +443,17 @@ export async function getInventorySnapshots(params: {
     });
   }
 
+  const soldCounts = soldCountState.value || new Map<string, number>();
+  const soldCountPending = !soldCountState.ready;
+
   return variants.map<InventorySnapshot>((variant) => {
     const remainingInventory = clampQuantity(variant.inventoryQuantity);
     const soldCount = clampQuantity(soldCounts.get(variant.id));
-    const totalInventory = remainingInventory + soldCount;
+    const totalInventory = soldCountPending
+      ? remainingInventory
+      : remainingInventory + soldCount;
     const progressPercent =
-      totalInventory > 0
+      !soldCountPending && totalInventory > 0
         ? Math.min(
             100,
             Math.round((soldCount / totalInventory) * 100),
@@ -401,6 +470,7 @@ export async function getInventorySnapshots(params: {
       inventoryPolicy: variant.inventoryPolicy,
       availableForSale: Boolean(variant.availableForSale),
       soldCount,
+      soldCountPending,
       totalInventory,
       remainingInventory,
       progressPercent,
