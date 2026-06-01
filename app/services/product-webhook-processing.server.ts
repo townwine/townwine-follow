@@ -17,6 +17,7 @@ type CollectorIdentityResult = Awaited<
 const RETRYABLE_NOTIFICATION_SKIPS = new Set([
   "NO_INFLUENCER_HANDLE",
   "PRODUCT_NOT_ACTIVE",
+  "PRODUCT_NOT_PUBLISHED",
 ]);
 
 const RETRYABLE_COLLECTOR_SKIPS = new Set([

@@ -11,7 +11,10 @@ import {
 import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
 import { formatOpenAtLabel } from "./open-at-label.server";
 import { resolveProductInfluencerHandle } from "./product-collector.server";
-import { isSellableProductStatus } from "./product-status.server";
+import {
+  hasOnlineStoreUrl,
+  isActiveProductStatus,
+} from "./product-status.server";
 
 type AdminGraphqlClient = {
   graphql: (
@@ -543,11 +546,13 @@ export async function processDueOpenAlerts(params: {
       !openAtKst ||
       !Number.isFinite(openTimestamp) ||
       openTimestamp > currentTimestamp ||
-      !isSellableProductStatus(product.status) ||
-      !product.onlineStoreUrl
+      !isActiveProductStatus(product.status) ||
+      !hasOnlineStoreUrl(product.onlineStoreUrl)
     ) {
       continue;
     }
+
+    const productUrl = String(product.onlineStoreUrl || "").trim();
 
     for (const subscription of productSubscriptions) {
       try {
@@ -583,7 +588,7 @@ export async function processDueOpenAlerts(params: {
             to: customer.email,
             customerFirstName: customer.firstName || "",
             productTitle: product.title,
-            productUrl: product.onlineStoreUrl,
+            productUrl,
             openAtLabel: formatOpenAtLabel(openAtKst),
             hostName: getHostName(product),
             shopName: templateConfig.shopName,

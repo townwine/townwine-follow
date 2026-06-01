@@ -12,12 +12,12 @@ import {
   expandInfluencerAliasesWithCollectorProfiles,
   expandKnownInfluencerAliasesWithCollectorProfiles,
 } from "./collector-aliases.server";
-import {
-  collectProductInfluencerAliases,
-  resolveProductInfluencerHandle,
-} from "./product-collector.server";
+import { collectProductInfluencerAliases } from "./product-collector.server";
 import { formatOpenAtLabel } from "./open-at-label.server";
-import { isSellableProductStatus } from "./product-status.server";
+import {
+  hasOnlineStoreUrl,
+  isActiveProductStatus,
+} from "./product-status.server";
 import { loadFollowEmailTemplateConfigSafe } from "./follow-email-template.server";
 
 function toCustomerGid(customerId: string) {
@@ -90,6 +90,34 @@ async function buildEffectiveInfluencerAliases(params: {
   );
 }
 
+function hasCollectorTag(value: string | null | undefined) {
+  return Boolean(String(value || "").trim());
+}
+
+function collectNotificationInfluencerAliases(source: {
+  collectorTag?: string | null;
+  influencerHandle?: string | null;
+  hostHandle?: string | null;
+  tags?: string[] | null;
+}) {
+  const collectorTagAlias = normalizeInfluencerHandle(
+    String(source.collectorTag || ""),
+  );
+  const explicitAliases = collectProductInfluencerAliases(
+    {
+      collectorTag: source.collectorTag,
+      influencerHandle: source.influencerHandle,
+      hostHandle: source.hostHandle,
+      tags: source.tags,
+    },
+    { includeNameFallback: false },
+  );
+
+  return Array.from(
+    new Set([collectorTagAlias, ...explicitAliases].filter(Boolean)),
+  );
+}
+
 export async function processDealNotification(params: {
   admin: { graphql: (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response> };
   shop: string;
@@ -132,23 +160,27 @@ export async function processDealNotification(params: {
   const result = await response.json();
   const product = result.data?.product;
 
-  if (!product || !isSellableProductStatus(product.status)) {
+  if (!product || !isActiveProductStatus(product.status)) {
     return { ok: true, skipped: "PRODUCT_NOT_ACTIVE" };
   }
 
+  if (!hasOnlineStoreUrl(product.onlineStoreUrl)) {
+    return { ok: true, skipped: "PRODUCT_NOT_PUBLISHED" };
+  }
+
+  if (!hasCollectorTag(product.collectorTag?.value)) {
+    return { ok: true, skipped: "NO_COLLECTOR_TAG" };
+  }
+
   const scheduledOpenAt = product.openAtKst?.value ? Date.parse(product.openAtKst.value) : NaN;
-  const influencerAliases = collectProductInfluencerAliases(
+  const influencerAliases = collectNotificationInfluencerAliases(
     {
       collectorTag: product.collectorTag?.value,
       influencerHandle:
         String(params.resolvedInfluencerHandle || "").trim() || product.metafield?.value,
       hostHandle: product.hostHandle?.value,
-      hostName:
-        String(params.resolvedInfluencerName || "").trim() || product.hostName?.value,
-      vendor: product.vendor,
       tags: Array.isArray(product.tags) ? product.tags : [],
     },
-    { includeNameFallback: true },
   );
   const effectiveInfluencerAliases = await buildEffectiveInfluencerAliases({
     admin: params.admin,
@@ -156,27 +188,18 @@ export async function processDealNotification(params: {
     aliases: influencerAliases,
     tags: Array.isArray(product.tags) ? product.tags : [],
   });
+  const explicitInfluencerHandle = normalizeInfluencerHandle(
+    String(params.resolvedInfluencerHandle || "").trim() || product.metafield?.value || "",
+  );
   const influencerHandle =
+    explicitInfluencerHandle ||
     effectiveInfluencerAliases[0] ||
-    influencerAliases[0] ||
-    resolveProductInfluencerHandle(
-      {
-        collectorTag: product.collectorTag?.value,
-        influencerHandle: product.metafield?.value,
-        hostHandle: product.hostHandle?.value,
-        hostName: product.hostName?.value,
-        vendor: product.vendor,
-        tags: Array.isArray(product.tags) ? product.tags : [],
-      },
-      { includeNameFallback: true },
-    );
+    influencerAliases[0];
   if (!influencerHandle) {
     return { ok: true, skipped: "NO_INFLUENCER_HANDLE" };
   }
 
-  const productUrl =
-    product.onlineStoreUrl ||
-    (product.handle ? `https://${params.shop}/products/${product.handle}` : "");
+  const productUrl = String(product.onlineStoreUrl || "").trim();
   const isUpcoming = Number.isFinite(scheduledOpenAt) && scheduledOpenAt > Date.now();
   const openAtLabel =
     isUpcoming && product.openAtKst?.value
@@ -358,6 +381,7 @@ type ActiveFollowNotificationProductNode = {
   status: string;
   vendor: string | null;
   tags: string[];
+  onlineStoreUrl: string | null;
   collectorTag: { value: string | null } | null;
   influencerHandle: { value: string | null } | null;
   hostHandle: { value: string | null } | null;
@@ -395,6 +419,7 @@ async function fetchActiveFollowNotificationProducts(params: {
               status
               vendor
               tags
+              onlineStoreUrl
               collectorTag: metafield(namespace: "custom", key: "collector_tag") {
                 value
               }
@@ -424,7 +449,12 @@ async function fetchActiveFollowNotificationProducts(params: {
     products.push(
       ...connection.nodes.filter(
         (node: ActiveFollowNotificationProductNode): node is Exclude<ActiveFollowNotificationProductNode, null> =>
-          Boolean(node?.id && isSellableProductStatus(node.status)),
+          Boolean(
+            node?.id &&
+              hasCollectorTag(node.collectorTag?.value) &&
+              isActiveProductStatus(node.status) &&
+              hasOnlineStoreUrl(node.onlineStoreUrl),
+          ),
       ),
     );
 
@@ -471,16 +501,13 @@ export async function processFollowNotificationCatchup(params: {
   const matchedProducts = [];
 
   for (const product of products) {
-    const aliases = collectProductInfluencerAliases(
+    const aliases = collectNotificationInfluencerAliases(
       {
         collectorTag: product.collectorTag?.value,
         influencerHandle: product.influencerHandle?.value,
         hostHandle: product.hostHandle?.value,
-        hostName: product.hostName?.value,
-        vendor: product.vendor,
         tags: Array.isArray(product.tags) ? product.tags : [],
       },
-      { includeNameFallback: true },
     );
     const effectiveAliases = await buildEffectiveInfluencerAliases({
       admin: params.admin,

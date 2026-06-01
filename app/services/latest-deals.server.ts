@@ -4,7 +4,10 @@ import {
 } from "./collector-profiles.server";
 import { normalizeInfluencerHandle } from "./follow.server";
 import { resolveProductInfluencerHandle } from "./product-collector.server";
-import { isSellableProductStatus } from "./product-status.server";
+import {
+  hasOnlineStoreUrl,
+  isActiveProductStatus,
+} from "./product-status.server";
 
 type AdminGraphqlClient = {
   graphql: (
@@ -41,6 +44,7 @@ type LatestDealProductNode = {
   status: string | null;
   createdAt: string;
   publishedAt: string | null;
+  onlineStoreUrl: string | null;
   vendor: string | null;
   productType: string | null;
   tags: string[];
@@ -463,6 +467,7 @@ async function fetchLatestDealProducts(params: {
               status
               createdAt
               publishedAt
+              onlineStoreUrl
               vendor
               productType
               tags
@@ -515,7 +520,8 @@ async function fetchLatestDealProducts(params: {
             node.handle &&
             node.createdAt &&
             node.publishedAt &&
-            isSellableProductStatus(node.status),
+            isActiveProductStatus(node.status) &&
+            hasOnlineStoreUrl(node.onlineStoreUrl),
         ),
     );
 
