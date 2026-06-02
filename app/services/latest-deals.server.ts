@@ -841,6 +841,18 @@ export async function getLatestDealsPage(params: {
     });
   }
 
+  if (!fullCachedEntry?.promise && page === 1) {
+    void getAllLatestDealsPayload({
+      admin: params.admin,
+      shop: params.shop,
+    }).catch((error) => {
+      console.warn("[latest-deals] full cache warmup failed", {
+        shop: params.shop,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }
+
   const cacheKey = createLatestDealsCacheKey(params.shop, page, pageSize);
   const cachedEntry = latestDealsPageCache.get(cacheKey);
 
