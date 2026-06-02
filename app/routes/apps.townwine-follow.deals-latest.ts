@@ -12,6 +12,10 @@ function toPositiveInteger(value: string | null, fallback: number) {
   return parsedValue;
 }
 
+function toBooleanFlag(value: string | null) {
+  return /^(1|true|yes|on)$/i.test(String(value || "").trim());
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const requestedShop = url.searchParams.get("shop") || "";
@@ -20,6 +24,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     url.searchParams.get("page_size") || url.searchParams.get("pageSize"),
     50,
   );
+  const all = toBooleanFlag(url.searchParams.get("all"));
 
   try {
     const adminContext = await resolveStorefrontAdmin({
@@ -52,6 +57,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       shop: adminContext.resolvedShop || requestedShop,
       page,
       pageSize,
+      all,
     });
 
     return Response.json(payload, {
