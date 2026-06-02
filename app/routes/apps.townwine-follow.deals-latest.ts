@@ -22,7 +22,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const page = toPositiveInteger(url.searchParams.get("page"), 1);
   const pageSize = toPositiveInteger(
     url.searchParams.get("page_size") || url.searchParams.get("pageSize"),
-    50,
+    20,
   );
   const all = toBooleanFlag(url.searchParams.get("all"));
 
