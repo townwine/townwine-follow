@@ -268,7 +268,7 @@ function clampPage(value: number) {
 function clampPageSize(value: number) {
   const normalizedValue = Math.trunc(value);
 
-  if (normalizedValue === 100 || normalizedValue === 200) {
+  if (normalizedValue === 20 || normalizedValue === 50 || normalizedValue === 100) {
     return normalizedValue;
   }
 
