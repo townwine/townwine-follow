@@ -79,7 +79,7 @@ export async function backfillQuoteSourceUrls(admin:DraftAdmin){
   for(const product of data.products.nodes){
    if(!product.request?.value)continue;
    const savedRequest=JSON.parse(product.request.value);
-   if(!product.requester?.value&&savedRequest.customerId){const collector=await findCollectorProfileByCustomerId(admin,savedRequest.customerId);if(collector){const fields=quoteCollectorFields(collector).filter(f=>!product.owner?.value||f.key==='quote_requester_name');await query(admin,'mutation($metafields:[MetafieldsSetInput!]!){metafieldsSet(metafields:$metafields){userErrors{message}}}',{metafields:fields.map(f=>({...f,ownerId:product.id}))});}}
+   if(savedRequest.customerId){const collector=await findCollectorProfileByCustomerId(admin,savedRequest.customerId);if(collector){const fields=quoteCollectorFields(collector).filter(f=>!product.owner?.value||product.owner.value===collector.handle||f.key==='quote_requester_name');await query(admin,'mutation($metafields:[MetafieldsSetInput!]!){metafieldsSet(metafields:$metafields){userErrors{message}}}',{metafields:fields.map(f=>({...f,ownerId:product.id}))});}}
    if(product.source?.value)continue;
    let source='';try{const saved=JSON.parse(product.request.value);if(saved.sourceUrl)source=productUrl(saved.sourceUrl).href;}catch{continue;}
    if(source)await query(admin,'mutation($metafields:[MetafieldsSetInput!]!){metafieldsSet(metafields:$metafields){metafields{id} userErrors{message}}}',{metafields:[{ownerId:product.id,namespace:'custom',key:'quote_source_url',type:'url',value:source}]});
@@ -89,5 +89,5 @@ export async function backfillQuoteSourceUrls(admin:DraftAdmin){
 }
 
 function quoteCollectorFields(collector:NonNullable<Awaited<ReturnType<typeof findCollectorProfileByCustomerId>>>){
- return Object.entries({quote_requester_name:collector.fields.displayName,collector_tag:collector.handle,influencer_handle:collector.handle,host_handle:collector.fields.publicHandle||collector.handle,host_name:collector.fields.displayName}).map(([key,value])=>({namespace:'custom',key,type:'single_line_text_field',value}));
+ return Object.entries({quote_requester_name:collector.fields.displayName,collector_tag:collector.fields.displayName,influencer_handle:collector.handle,host_handle:collector.fields.publicHandle||collector.handle,host_name:collector.fields.displayName}).map(([key,value])=>({namespace:'custom',key,type:'single_line_text_field',value}));
 }
