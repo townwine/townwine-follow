@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {calculateDemandQuote} from '../app/services/demand-quote.ts';
+import {allowedProductAddress,productUrl,parseDemandProduct} from '../app/services/demand-product.server.ts';
+const rates={date:'2026-10-09',EUR:1,KRW:1600,USD:1.1,HKD:8.6,GBP:.85,JPY:170};
+const input={country:'HK',bottlePrice:700,bottles:6,localShipping:120,origin:'OTHER',ftaConfirmed:false,germanyVatRefund:false,ukLocalTax:2.67};
+test('HK quote matches workbook arithmetic including local shipping split and fees',()=>{const q=calculateDemandQuote(input,rates);const goods=700*1600/8.6;const base=goods+Math.min(13*1600/1.1,22000);const liquor=Math.round(base*.3);const education=Math.round(liquor*.1);const sum=goods+20*1600/8.6+liquor+education+23900+8000;assert.equal(q.duty,0);assert.equal(q.vat,0);assert.equal(q.unitKrw,sum+Math.round(sum*.04+2.35*1600/8.6));});
+test('FTA cannot silently apply to US wine without confirmation',()=>{const x={...input,country:'US',bottlePrice:200,origin:'US'};assert.ok(calculateDemandQuote(x,rates).duty>0);assert.equal(calculateDemandQuote({...x,ftaConfirmed:true},rates).duty,0);});
+test('invalid money and quantities rejected',()=>{for(const v of [0,-1,NaN,Infinity])assert.throws(()=>calculateDemandQuote({...input,bottlePrice:v},rates));assert.throws(()=>calculateDemandQuote({...input,bottles:0},rates));});
+test('private and metadata destinations rejected',()=>{for(const ip of ['127.0.0.1','10.0.0.1','169.254.169.254','172.16.0.1','192.168.1.1','100.64.0.1','::1'])assert.equal(allowedProductAddress(ip),false);assert.equal(allowedProductAddress('8.8.8.8'),true);assert.throws(()=>productUrl('http://example.com'));assert.throws(()=>productUrl('https://user:password@example.com'));});
+test('extract product and explicit shipping; never invent missing shipping',()=>{const p=parseDemandProduct('<script type="application/ld+json">{"@type":"Product","name":"Wine","image":"/wine.jpg","offers":{"price":"80","priceCurrency":"HKD"}}</script>','https://example.com/wine');assert.equal(p.price,80);assert.equal(p.image,'https://example.com/wine.jpg');assert.deepEqual(p.shipping,[]);});
+test('multiple offers do not choose a potentially wrong bottle price',()=>{const p=parseDemandProduct('<script type="application/ld+json">{"@type":"Product","name":"Wine","offers":[{"price":80},{"price":400}]}</script>','https://example.com/wine');assert.equal(p.price,null);assert.equal(p.multipleOffers,true);});
