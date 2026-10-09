@@ -185,7 +185,7 @@ test("page escapes user/provider HTML and shows source, bottle units and externa
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(html.includes("750ml"));
   assert.ok(html.includes('rel="noopener noreferrer"'));
-  assert.ok(html.includes("Wine-Searcher"));
+  assert.ok(!html.includes("Wine-Searcher"));
 });
 test("unconfigured page cannot imply live offers and disables submission", () => {
   const html = renderWineSearchPage({ available: false });
@@ -296,7 +296,7 @@ function isolatedSearch(crawlWineOffers) {
     ).outputText,
     {
       exports: mod.exports,
-      require: () => ({ ...crawl, crawlWineOffers }),
+      require: (path) => path.endsWith(".json") ? { default: [] } : ({ ...crawl, crawlWineOffers }),
       process: { env: { WINE_SEARCHER_MODE: "crawl" } },
       URL,
       Date,
@@ -348,4 +348,14 @@ test("Liquid theme rendering cannot execute query or provider Liquid tags", () =
   assert.ok(
     html.includes("{% render 'townwine-header', current: 'wine-search' %}"),
   );
+});
+
+test("storefront does not expose discovery providers or forwarding centers", () => {
+  const html = renderWineSearchPage({
+    available: true,
+    query,
+    error: "Wine-Searcher에서 자동 수집을 제한했습니다. 원문 검색",
+  });
+  assert.ok(!/Wine-Searcher|wine-searcher\.com|훗타운/.test(html));
+  assert.ok(!html.includes('value="UK"'));
 });

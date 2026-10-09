@@ -2,20 +2,13 @@ import merchantRegistry from "../data/wine-merchants.json" with { type: "json" }
 /** Wine-Searcher Market price API. Field names: https://www.wine-searcher.com/trade/ws-api */
 export const LOCATIONS = [
   "USA",
-  "UK",
   "France",
-  "Italy",
   "Germany",
   "Hong Kong",
   "Japan",
-  "Australia",
   "China",
   "Taiwan",
   "Thailand",
-  "Singapore",
-  "Switzerland",
-  "Belgium",
-  "Denmark",
 ] as const;
 export const COUNTRY_LABELS: Record<string, string> = {
   USA: "미국",
@@ -46,7 +39,9 @@ export const FORWARDING_CENTERS: Record<string, string> = {
   Taiwan: "대만",
   Thailand: "태국",
 };
-export const MERCHANT_DIRECTORY = merchantRegistry;
+export const MERCHANT_DIRECTORY = merchantRegistry.filter((m) =>
+  (LOCATIONS as readonly string[]).includes(m.country),
+);
 export type WineQuery = { name: string; vintage: string; location: string };
 export type WineOffer = {
   merchant: string;

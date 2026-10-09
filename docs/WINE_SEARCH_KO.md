@@ -53,3 +53,7 @@
 훗타운 `https://www.hoottown.com/deliveryAgency`에서 2026-10-09 확인한 해외센터 국가(미국 OR/DE/NJ/CA, 독일, 프랑스, 일본, 중국, 홍콩, 대만, 태국)를 국가 선택에서 구분한다. 센터 존재는 주류 취급이나 판매처의 해당 센터 배송을 보증하지 않으므로 확정 배송 가능 표시를 하지 않는다. 한국센터는 해외 구매 국가에서 제외했다.
 
 검증: `npm run test:wine-search`, `npm run typecheck`, `npm run build`. 개발환경 Node 22. 선택적 실제 판매처 확인은 `LIVE_MERCHANT_CHECK=1 LIVE_COUNTRY=USA node --experimental-strip-types --test tests/wine-merchants.test.mjs` (France/UK 가능).
+
+2026-10-09 추가 요청: 훗타운 명칭과 센터 문구는 공개 화면에서 제거했다. 해외센터 운영 국가 8개만 국가 선택 및 공개 판매처 목록에 포함한다. 수집 원장은 49개 그대로 보존하며 영국 등은 공개 검색에서 제외한다.
+
+고객 화면에는 검색 원천 서비스 명칭이나 원천 링크를 표시하지 않는다. 출처 기록은 내부 원장에 보존하고 공개 판매처 목록은 실제 상점 주소가 확인된 경우만 제공한다.
