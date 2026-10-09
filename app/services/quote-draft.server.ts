@@ -1,3 +1,4 @@
+import {findCollectorProfileByCustomerId} from './collector-profiles.server';
 import {createHash} from 'node:crypto';
 import {prisma} from '../db.server';
 import {productUrl} from './demand-product.server';
@@ -52,13 +53,15 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    const quote=JSON.parse(row.quoteJson);const price=found.shop.currencyCode==='HKD'?quote.unitHkd:found.shop.currencyCode==='KRW'?quote.unitKrw:null;
    if(!price||!Number.isFinite(price))throw new Error('스토어 결제 통화를 확인해 주세요.');
    if(bytes)imageUrl=await uploadImage(admin,bytes);
+   const collector=await findCollectorProfileByCustomerId(admin,customerId);if(!collector)throw new Error('마이페이지에서 컬렉터 프로필을 등록한 후 승인 요청을 보내주세요.');
+   const collectorFields=quoteCollectorFields(collector);
    const country=registrationCountries[input.country];
-   const metadata={customerId,country:input.country,sourceUrl,quantity:input.bottles,shippingNote:note,quote,requestId:id};
+   const metadata={customerId,collectorName:collector.fields.displayName,collectorHandle:collector.handle,country:input.country,sourceUrl,quantity:input.bottles,shippingNote:note,quote,requestId:id};
    const data=await query(admin,'mutation($input:ProductSetInput!){productSet(input:$input,synchronous:true){product{id status handle} userErrors{message}}}',{input:{
     title,handle,status:'DRAFT',productType:'Wine',vendor:'TOWN WINE',tags:['공구등록요청','승인대기',country,'customer-'+customerId],
     descriptionHtml:'<h2>'+escape(title)+'</h2><p>750ml · 모집 수량 '+input.bottles+'병</p><p>배송센터: '+escape(country)+'</p>'+(note?'<p>'+escape(note)+'</p>':''),
     productOptions:[{name:'Title',values:[{name:'Default Title'}]}],variants:[{optionValues:[{optionName:'Title',name:'Default Title'}],price:Number(price).toFixed(2),inventoryPolicy:'DENY'}],
-    metafields:[{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)},...(sourceUrl?[{namespace:'custom',key:'quote_source_url',type:'url',value:sourceUrl}]:[])],
+    metafields:[...collectorFields,{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)},...(sourceUrl?[{namespace:'custom',key:'quote_source_url',type:'url',value:sourceUrl}]:[])],
     ...(imageUrl?{files:[{originalSource:imageUrl,contentType:'IMAGE',alt:title}]}:{})
    }});product=data.productSet.product;
    if(!product?.id)throw new Error('초안 상품 생성 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
@@ -72,12 +75,19 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
 export async function backfillQuoteSourceUrls(admin:DraftAdmin){
  let after:string|null=null;
  do{
-  const data=await query(admin,'query($after:String){products(first:50,after:$after,query:"tag:공구등록요청"){nodes{id source:metafield(namespace:"custom",key:"quote_source_url"){value} request:metafield(namespace:"townwine",key:"registration_request"){value}} pageInfo{hasNextPage endCursor}}}',{after});
+  const data=await query(admin,'query($after:String){products(first:50,after:$after,query:"tag:공구등록요청"){nodes{id owner:metafield(namespace:"custom",key:"influencer_handle"){value} requester:metafield(namespace:"custom",key:"quote_requester_name"){value} source:metafield(namespace:"custom",key:"quote_source_url"){value} request:metafield(namespace:"townwine",key:"registration_request"){value}} pageInfo{hasNextPage endCursor}}}',{after});
   for(const product of data.products.nodes){
-   if(product.source?.value||!product.request?.value)continue;
+   if(!product.request?.value)continue;
+   const savedRequest=JSON.parse(product.request.value);
+   if(!product.requester?.value&&savedRequest.customerId){const collector=await findCollectorProfileByCustomerId(admin,savedRequest.customerId);if(collector){const fields=quoteCollectorFields(collector).filter(f=>!product.owner?.value||f.key==='quote_requester_name');await query(admin,'mutation($metafields:[MetafieldsSetInput!]!){metafieldsSet(metafields:$metafields){userErrors{message}}}',{metafields:fields.map(f=>({...f,ownerId:product.id}))});}}
+   if(product.source?.value)continue;
    let source='';try{const saved=JSON.parse(product.request.value);if(saved.sourceUrl)source=productUrl(saved.sourceUrl).href;}catch{continue;}
    if(source)await query(admin,'mutation($metafields:[MetafieldsSetInput!]!){metafieldsSet(metafields:$metafields){metafields{id} userErrors{message}}}',{metafields:[{ownerId:product.id,namespace:'custom',key:'quote_source_url',type:'url',value:source}]});
   }
   after=data.products.pageInfo.hasNextPage?data.products.pageInfo.endCursor:null;
  }while(after);
+}
+
+function quoteCollectorFields(collector:NonNullable<Awaited<ReturnType<typeof findCollectorProfileByCustomerId>>>){
+ return Object.entries({quote_requester_name:collector.fields.displayName,collector_tag:collector.handle,influencer_handle:collector.handle,host_handle:collector.fields.publicHandle||collector.handle,host_name:collector.fields.displayName}).map(([key,value])=>({namespace:'custom',key,type:'single_line_text_field',value}));
 }

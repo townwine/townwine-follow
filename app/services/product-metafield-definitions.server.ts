@@ -43,6 +43,7 @@ const PRODUCT_OWNER_TYPE = "PRODUCT";
 const METAFIELD_NAMESPACE = "custom";
 
 const PRODUCT_METAFIELD_DEFINITIONS: ProductMetafieldDefinition[] = [
+  {key:"quote_requester_name",name:"등록 요청 컬렉터 닉네임",description:"로그인한 요청자의 컬렉터 프로필 닉네임입니다. 공구 등록 시점 기준으로 저장합니다.",type:"single_line_text_field",shouldPin:true,storefront:"NONE"},
   {key:"quote_source_url",name:"원본 상품 URL",description:"고객이 견적 요청 시 입력한 해외 판매처 원본 상품 링크입니다. 운영자 검토용이며 고객 화면에는 표시하지 않습니다.",type:"url",shouldPin:true,storefront:"NONE"},
   {
     key: "collector_tag",
