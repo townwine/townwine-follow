@@ -345,12 +345,26 @@ async function searchMerchant(
     if (url && matchesProduct(decodeURIComponent(url.pathname), query))
       candidates.add(url.href);
   }
+  const fetchProduct = async (url: string) => {
+    const html = await readShop(new URL(url), signal, fetcher);
+    return (
+      merchant.adapter === "y18-html" ? parseY18Product : parseMerchantProduct
+    )(html, url, { ...merchant, origin }, query);
+  };
+  // Known exact products should not wait for a slow discovery page.
+  const seeded = new Map(
+    [...candidates].slice(0, 6).map((url) => [url, fetchProduct(url)]),
+  );
+  for (const task of seeded.values()) void task.catch(() => {});
   let searchFailed = false;
   try {
-    const html = await readShop(
-      merchantSearch(merchant, query),
-      AbortSignal.any([signal, AbortSignal.timeout(7000)]),
-      fetcher,
+    const html = await withDeadline(
+      readShop(
+        merchantSearch(merchant, query),
+        AbortSignal.any([signal, AbortSignal.timeout(6500)]),
+        fetcher,
+      ),
+      7000,
     );
     const $ = load(html);
     if (
@@ -392,12 +406,7 @@ async function searchMerchant(
     throw new Error("merchant search unavailable");
   const products = [...candidates].slice(0, 6);
   const results = await Promise.allSettled(
-    products.map(async (url) => {
-      const html = await readShop(new URL(url), signal, fetcher);
-      return (
-        merchant.adapter === "y18-html" ? parseY18Product : parseMerchantProduct
-      )(html, url, { ...merchant, origin }, query);
-    }),
+    products.map((url) => seeded.get(url) || fetchProduct(url)),
   );
   if (searchFailed && results.every((r) => r.status === "rejected"))
     throw new Error("merchant products unavailable");

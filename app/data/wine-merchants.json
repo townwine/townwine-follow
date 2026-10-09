@@ -57,7 +57,9 @@
     "searchTemplate": "https://www.saratogawine.com/?s={query}&post_type=product",
     "productUrls": [
       "https://www.saratogawine.com/product/frederic-savart-champagne-premier-cru-laccomplie-nv-1-5ltr/",
-      "https://www.saratogawine.com/product/frederic-savart-champagne-premier-cru-laccomplie-nv-750ml/"
+      "https://www.saratogawine.com/product/frederic-savart-champagne-premier-cru-laccomplie-nv-750ml/",
+      "https://www.saratogawine.com/product/hubert-lamy-saint-aubin-1er-cru-les-frionnes-blanc-2019-750ml/",
+      "https://www.saratogawine.com/product/hubert-lamy-saint-aubin-1er-cru-les-frionnes-blanc-2019-1-5ltr/"
     ]
   },
   {
@@ -605,9 +607,7 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": [
-      "https://www.laywheeler.com/product-detail?id=0419063A"
-    ]
+    "productUrls": ["https://www.laywheeler.com/product-detail?id=0419063A"]
   },
   {
     "id": "2914",
@@ -619,9 +619,7 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": [
-      "https://www.finewineexperience.com"
-    ]
+    "productUrls": ["https://www.finewineexperience.com"]
   },
   {
     "id": "47149",
@@ -633,9 +631,7 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": [
-      "https://skysunwines.com"
-    ],
+    "productUrls": ["https://skysunwines.com"],
     "searchTemplate": "https://skysunwines.com/?s={query}&post_type=product"
   },
   {
@@ -664,7 +660,9 @@
     "adapter": "shopify-html",
     "status": "enabled",
     "productUrls": [
-      "https://www.cellarselect.co.uk/products/saint-aubin-1er-cru-les-frionnes-2019-hubert-lamy-1x1500ml"
+      "https://www.cellarselect.co.uk/products/saint-aubin-1er-cru-les-frionnes-2019-hubert-lamy-1x1500ml",
+      "https://www.cellarselect.co.uk/products/saint-aubin-1er-cru-les-frionnes-2019-hubert-lamy-1x1500ml?variant=54028812747080",
+      "https://www.cellarselect.co.uk/products/saint-aubin-1er-cru-les-frionnes-2019-hubert-lamy-1x1500ml?variant=54028812779848"
     ],
     "searchTemplate": "https://www.cellarselect.co.uk/search?type=product&q={query}"
   },
@@ -678,9 +676,7 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": [
-      "https://www.winecavehk.com"
-    ]
+    "productUrls": ["https://www.winecavehk.com"]
   },
   {
     "id": "205",
