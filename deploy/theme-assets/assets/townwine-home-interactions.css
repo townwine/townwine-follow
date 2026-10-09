@@ -1,0 +1,16 @@
+.tw-home-interactive .btn,.tw-home-interactive .sh__more{transition:transform .18s ease,background-color .18s ease,box-shadow .18s ease}
+.tw-home-interactive .inf-card,.tw-home-interactive .dc{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.tw-home-interactive .dc__m{overflow:hidden}
+.tw-home-interactive .dc__m img{transition:transform .4s ease}
+.tw-home-interactive a:focus-visible,.tw-home-interactive button:focus-visible{outline:2px solid #987746;outline-offset:4px}
+@media(hover:hover) and (pointer:fine){
+ .tw-home-interactive .inf-card:hover,.tw-home-interactive .dc:hover{transform:translateY(-4px);box-shadow:0 12px 28px #43332215;border-color:#bfa986}
+ .tw-home-interactive .dc:hover .dc__m img{transform:scale(1.035)}
+ .tw-home-interactive .btn:hover{transform:translateY(-2px);box-shadow:0 5px 13px #43332218}
+ .tw-home-interactive .sh__more:hover{transform:translateX(4px)}
+}
+.tw-home-interactive .btn:active{transform:scale(.98)}
+.tw-home-top{position:fixed;right:24px;bottom:24px;z-index:35;display:flex;align-items:center;gap:7px;background:#fffdf8;color:#493c2c;border:1px solid #d9cebd;border-radius:24px;padding:12px 16px;min-height:44px;box-shadow:0 4px 18px #43332212;font:inherit;font-size:12px;cursor:pointer;transition:background .2s,transform .2s}
+.tw-home-top[hidden]{display:none!important}.tw-home-top:hover{background:#f1e9dc}.tw-home-top:focus-visible{outline:2px solid #987746;outline-offset:3px}
+@media(max-width:640px){.tw-home-top{right:16px;bottom:calc(16px + env(safe-area-inset-bottom));padding:11px 14px}}
+@media(prefers-reduced-motion:reduce){.tw-home-interactive *,.tw-home-top{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
