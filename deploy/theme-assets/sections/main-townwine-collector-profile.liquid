@@ -534,31 +534,52 @@
   #collector-history .sh{align-items:center;gap:12px;margin-bottom:12px}
   #collector-history [data-history-status]{font-size:13px;color:#827568;margin:0 0 16px}
   .tw-history-order{font-size:12px;color:#827568;white-space:nowrap}
-  .tw-history-head,.tw-history-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;align-items:center;gap:20px;padding:16px 20px}
-  .tw-history-head{font-size:12px;color:#8b7d6b;border-bottom:1px solid var(--history-border)}
-  .tw-history-list{background:#fffdf9;border:1px solid var(--history-border);border-radius:10px;overflow:hidden}
-  .tw-history-list:empty{display:none}
-  .tw-history-row{min-height:74px;text-decoration:none;color:inherit;border-bottom:1px solid var(--history-border)}
-  .tw-history-row:last-child{border-bottom:0}
-  .tw-history-row:hover{background:#f1eadf}
-  .tw-history-row:focus-visible{outline:2px solid #987a4f;outline-offset:-3px}
-  .tw-history-title{font-size:15px;font-weight:600;line-height:1.55;overflow-wrap:anywhere}
+  #collector-history .tw-history-tools{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:18px 0 12px}
+  #collector-history [data-history-status]{margin:0}
+  .tw-history-size{display:flex;align-items:center;gap:8px;font-size:12px;color:#756958;white-space:nowrap}
+  #collector-history select{font:inherit;color:#493e30;background:#fffdf9;border:1px solid #d9d0c2;border-radius:6px;min-height:40px;padding:0 26px 0 10px;width:auto}
+  .tw-history-table{border:1px solid var(--history-border);border-radius:10px;overflow:hidden;background:#fffdf9}
+  #collector-history .tw-history-head,#collector-history .tw-history-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 110px;align-items:center;gap:24px;padding:16px 22px;margin:0;box-sizing:border-box}
+  #collector-history .tw-history-head{background:#f1ebe1;color:#776957;font-size:12px;border-bottom:1px solid var(--history-border)}
+  #collector-history a.tw-history-row,#collector-history a.tw-history-row:hover,#collector-history a.tw-history-row:visited{text-decoration:none!important;color:#342e26;background-image:none;box-shadow:none;border:0;border-bottom:1px solid var(--history-border);border-radius:0;min-height:104px}
+  #collector-history a.tw-history-row:last-child{border-bottom:0}
+  #collector-history a.tw-history-row:hover{background-color:#f8f3eb}
+  #collector-history .tw-history-row *{text-decoration:none!important}
+  #collector-history .tw-history-row:focus-visible{outline:2px solid #987a4f;outline-offset:-3px}
+  .tw-history-main{display:flex;align-items:center;gap:18px;min-width:0}
+  .tw-history-thumb{display:flex;align-items:center;justify-content:center;width:64px;height:72px;flex:0 0 64px;overflow:hidden;border:1px solid #eee7dc;border-radius:6px;background:#faf7f1}
+  .tw-history-thumb img{display:block;width:100%;height:100%;object-fit:contain}
+  .tw-history-no-image{font-size:10px;color:#938674}
+  .tw-history-title{font-size:14px;font-weight:600;line-height:1.6;overflow-wrap:anywhere}
   .tw-history-country,.tw-history-date{font-size:12px;color:#7c6e5c;white-space:nowrap}
-  #collector-history [data-history-more]{display:block;margin:20px auto 0;min-height:44px}
+  #collector-history .tw-history-pagination{display:flex;justify-content:center;align-items:center;gap:5px;margin:22px 0 0;flex-wrap:wrap}
+  #collector-history .tw-history-page{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:40px;padding:0 10px;margin:0;border:1px solid #ddd3c4;border-radius:6px;background:#fffdf9;color:#625340;font:inherit;font-size:13px;cursor:pointer}
+  #collector-history .tw-history-page[aria-current="page"]{background:#382f25;border-color:#382f25;color:white}
+  #collector-history .tw-history-page:disabled{opacity:.4;cursor:default}
+  #collector-history .tw-history-page:focus-visible{outline:2px solid #987a4f;outline-offset:2px}
+  .tw-history-ellipsis{font-size:12px;color:#8c7b65}
   #collector-library,#collector-live,.tw-collector-page [aria-label="컬렉터 현황"]{display:none}
   @media(max-width:640px){
     .tw-collector-page .ph__name{font-size:27px}.tw-collector-page .ph__stats{gap:16px;flex-wrap:wrap}
     .tw-collector-page .sh__t{font-size:21px}.tw-collector-page .sec{padding-top:26px;padding-bottom:26px}
-    .tw-history-head{display:none}.tw-history-row{grid-template-columns:1fr auto;gap:8px 16px;padding:17px 16px}
-    .tw-history-title{grid-column:1/-1;font-size:14px}.tw-history-date{text-align:right}
+    #collector-history .tw-history-head{display:none}
+    #collector-history .tw-history-row{grid-template-columns:1fr auto;gap:9px 12px;padding:16px;min-height:112px}
+    .tw-history-main{grid-column:1/-1;gap:13px;align-items:center}
+    .tw-history-thumb{width:52px;height:60px;flex-basis:52px}.tw-history-title{font-size:13px;line-height:1.6}
+    .tw-history-country{padding-left:65px}.tw-history-date{text-align:right;font-size:11px}
+    #collector-history .tw-history-tools{gap:8px;align-items:center}.tw-history-size>span{display:none}
+    #collector-history [data-history-status]{font-size:12px}
+    #collector-history .tw-history-page{min-width:34px;height:40px;padding:0 8px;font-size:12px}
+    #collector-history .tw-history-pagination{gap:4px}
+
   }
   </style>
   <section class="sec sec--alt" id="collector-history" aria-label="{{ display_name | escape }}의 공구 내역" data-collector-history data-collector-handle="{{ collector_handle | escape }}" data-currency="{{ shop.currency }}">
     <div class="container">
       <div class="sh"><div><div class="sh__sub">공구 내역</div><h2 class="sh__t">{{ display_name }}의 공구 모아보기</h2></div><span class="tw-history-order">최신순</span></div>
-      <p data-history-status role="status">공구 내역을 불러오는 중입니다.</p>
-      <div class="tw-history-head" aria-hidden="true"><span>공구 타이틀</span><span>국가</span><span>날짜</span></div><div class="tw-history-list" data-history-list></div>
-      <button class="btn btn--gh" type="button" data-history-more hidden>공구 내역 더 보기</button>
+      <div class="tw-history-tools"><p data-history-status role="status">공구 내역을 불러오는 중입니다.</p><label class="tw-history-size"><span>페이지당</span><select data-history-page-size aria-label="페이지당 공구 수"><option value="10">10개씩</option><option value="20">20개씩</option><option value="50">50개씩</option></select></label></div>
+      <div class="tw-history-table"><div class="tw-history-head" aria-hidden="true"><span>공구</span><span>국가</span><span>날짜</span></div><div class="tw-history-list" data-history-list></div></div>
+      <nav class="tw-history-pagination" data-history-pagination aria-label="공구 내역 페이지" hidden></nav>
     </div>
   </section>
   <script src="{{ 'townwine-catalog-feed.js' | asset_url }}" defer></script>
