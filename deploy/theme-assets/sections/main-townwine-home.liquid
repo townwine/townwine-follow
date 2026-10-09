@@ -1,0 +1,2822 @@
+<script src="{{ 'townwine-catalog-feed.js' | asset_url }}" defer></script>
+{% liquid
+  assign hero_script_slide_count = 0
+  assign should_load_hero_slider = false
+  for block in section.blocks
+    if block.type == 'hero_slide' and block.settings.image != blank
+      assign hero_script_slide_count = hero_script_slide_count | plus: 1
+      if hero_script_slide_count > 1
+        assign should_load_hero_slider = true
+        break
+      endif
+    endif
+  endfor
+%}
+
+{% comment %}townwine nav rollback cache bust 20260602{% endcomment %}
+
+{{ 'townwine.css' | asset_url | append: '&cb=20260602-progress42251d' | stylesheet_tag }}
+
+<script>
+  window.TownWineExchangeRateConfig = Object.assign({}, window.TownWineExchangeRateConfig, {
+    rate: {{ settings.townwine_hkd_to_krw_rate | default: 193.2755 | plus: 0 | json }},
+    source: {{ settings.townwine_exchange_rate_source_label | default: 'Google Finance HKD/KRW' | json }},
+    referenceDate: {{ settings.townwine_exchange_rate_reference_date | default: '' | json }},
+    referenceUrl: 'https://www.google.com/finance/beta/quote/HKD-KRW?hl=ko',
+    proxyBase: '/apps/townwine-follow',
+    shop: {{ shop.permanent_domain | json }}
+  });
+</script>
+<script
+  src="{{ 'townwine-exchange-rate.js' | asset_url }}"
+  defer
+></script>
+
+<script
+  src="{{ 'townwine-home-search.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'townwine-home-live-feed-20260602-stock-rules.js' | asset_url }}"
+  defer
+></script>
+<script>
+  document.documentElement.classList.add('tw-home-live-feed-js');
+</script>
+<script>
+  (function () {
+    function removeUpcomingAlertButtons(root) {
+      Array.prototype.slice
+        .call((root || document).querySelectorAll('[data-townwine-open-alert-section] .up__a'))
+        .forEach(function (node) {
+          node.remove();
+        });
+    }
+
+    function bootUpcomingAlertButtonCleanup() {
+      var section = document.querySelector('[data-townwine-open-alert-section]');
+
+      removeUpcomingAlertButtons(document);
+
+      if (!(section instanceof HTMLElement) || section.dataset.alertButtonCleanup === 'true') {
+        return;
+      }
+
+      section.dataset.alertButtonCleanup = 'true';
+      new MutationObserver(function () {
+        removeUpcomingAlertButtons(section);
+      }).observe(section, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootUpcomingAlertButtonCleanup, { once: true });
+    } else {
+      bootUpcomingAlertButtonCleanup();
+    }
+  })();
+</script>
+
+{% if should_load_hero_slider %}
+  <script
+    src="{{ 'townwine-hero-slider.js' | asset_url }}"
+    defer
+  ></script>
+{% endif %}
+
+{% liquid
+  assign collectors_page_url = pages['collectors'].url | default: '/pages/collectors'
+  assign active_collectors_more_url = section.settings.active_collectors_more_url | default: collectors_page_url
+  assign active_collectors_eyebrow = section.settings.active_collectors_eyebrow | default: '최근 공구'
+  assign active_collectors_heading = section.settings.active_collectors_heading | default: '지금 공구 중인 컬렉터'
+  assign active_collectors_more_label = section.settings.active_collectors_more_label | default: '전체 보기 →'
+  assign active_collectors_empty_label = section.settings.active_collectors_empty_label | default: '지금 공구 중인 컬렉터가 없습니다.'
+  assign collector_live_label = section.settings.collector_live_label | default: '진행 중'
+  assign collector_loading_followers_label = section.settings.collector_loading_followers_label | default: '집계 중'
+  assign collector_loading_deals_label = section.settings.collector_loading_deals_label | default: '집계 중'
+  assign follow_label = section.settings.follow_label | default: '팔로우'
+  assign following_label = section.settings.following_label | default: '팔로잉'
+
+  assign deals_search_placeholder = section.settings.deals_search_placeholder | default: '와인, 산지, 컬렉터, 스타일로 검색'
+  assign deals_search_submit_label = section.settings.deals_search_submit_label | default: '검색'
+  assign deals_filter_link_label = section.settings.deals_filter_link_label | default: '상세 필터'
+  assign deals_eyebrow = section.settings.deals_eyebrow | default: '진행 중'
+  assign deals_heading = section.settings.deals_heading | default: '진행 중 공구'
+  assign deals_more_suffix_label = section.settings.deals_more_suffix_label | default: '보기 →'
+  assign deals_all_label = section.settings.deals_all_label | default: '전체'
+  assign deals_red_label = section.settings.deals_red_label | default: '레드'
+  assign deals_white_label = section.settings.deals_white_label | default: '화이트'
+  assign deals_sparkling_label = section.settings.deals_sparkling_label | default: '스파클링'
+  assign deals_natural_label = section.settings.deals_natural_label | default: '내추럴'
+  assign deals_ready_label = section.settings.deals_ready_label | default: '바로배송'
+  assign filtered_deals_empty_title = '상품을 준비중입니다'
+  assign deals_live_empty_title = section.settings.deals_live_empty_title | default: '현재 진행 중인 공구를 준비 중입니다.'
+  assign deals_live_empty_body = section.settings.deals_live_empty_body | default: '아래 예정 공구 일정에 등록된 상품은 설정한 오픈 시각이 되면 이 영역으로 자동 이동합니다.'
+  assign deals_red_empty_title = section.settings.deals_red_empty_title | default: '레드 태그 상품을 준비 중입니다.'
+  assign deals_red_empty_body = section.settings.deals_red_empty_body | default: '상품에 레드 태그를 연결하면 이 영역에 자동으로 노출됩니다.'
+  assign deals_white_empty_title = section.settings.deals_white_empty_title | default: '화이트 태그 상품을 준비 중입니다.'
+  assign deals_white_empty_body = section.settings.deals_white_empty_body | default: '상품에 화이트 태그를 연결하면 이 영역에 자동으로 노출됩니다.'
+  assign deals_sparkling_empty_title = section.settings.deals_sparkling_empty_title | default: '스파클링 태그 상품을 준비 중입니다.'
+  assign deals_sparkling_empty_body = section.settings.deals_sparkling_empty_body | default: '상품에 스파클링 태그를 연결하면 이 영역에 자동으로 노출됩니다.'
+  assign deals_natural_empty_title = section.settings.deals_natural_empty_title | default: '내추럴 태그 상품을 준비 중입니다.'
+  assign deals_natural_empty_body = section.settings.deals_natural_empty_body | default: '상품에 내추럴 태그를 연결하면 이 영역에 자동으로 노출됩니다.'
+  assign deals_ready_empty_title = section.settings.deals_ready_empty_title | default: '바로배송 태그 상품을 준비 중입니다.'
+  assign deals_ready_empty_body = section.settings.deals_ready_empty_body | default: '상품에 바로배송 태그를 연결하면 이 영역에 자동으로 노출됩니다.'
+  assign deals_setup_badge_label = section.settings.deals_setup_badge_label | default: '다음 단계'
+  assign deals_setup_value_label = section.settings.deals_setup_value_label | default: '컬렉션 연결'
+  assign deals_setup_title = section.settings.deals_setup_title | default: '섹션 설정에서 홈 컬렉션을 선택해 주세요'
+  assign deals_setup_body = section.settings.deals_setup_body | default: '진행 중인 공구 컬렉션을 연결하면 여기에 상품 카드가 자동으로 노출됩니다.'
+  assign deals_setup_caption = section.settings.deals_setup_caption | default: '상품 제목, 가격, 이미지, 판매 상태를 바로 반영하도록 연결해 두었습니다.'
+  assign deals_unassigned_collector_label = section.settings.deals_unassigned_collector_label | default: '컬렉터 미지정'
+  assign deals_inventory_summary_loading_label = section.settings.deals_inventory_summary_loading_label | default: '판매 수량 확인 중'
+  assign deals_inventory_caption_loading_label = section.settings.deals_inventory_caption_loading_label | default: '재고 정보 확인 중'
+  assign deals_cta_label = section.settings.deals_cta_label | default: '딜 자세히 보기'
+
+  assign upcoming_bulk_label = section.settings.upcoming_bulk_label | default: '전체 일괄 알림 받기'
+  assign upcoming_bulk_active_label = section.settings.upcoming_bulk_active_label | default: '전체 알림 신청됨'
+  assign upcoming_empty_label = section.settings.upcoming_empty_label | default: '등록된 예약 공구가 없습니다.'
+
+  assign quote_eyebrow = section.settings.quote_eyebrow | default: '국가별 와인 견적'
+  assign quote_heading = section.settings.quote_heading | default: '국가별 와인 견적 확인하기'
+  assign quote_body = section.settings.quote_body | default: '해외 와인, 얼마에 살 수 있을까요?\n배송비와 세금까지 포함한 예상 금액을 확인해보세요.'
+  assign quote_cta_label = section.settings.quote_cta_label | default: '예상 금액 계산하기'
+  assign quote_cta_url = section.settings.quote_cta_url | default: '#quote-calculator'
+  assign quote_panel_label = section.settings.quote_panel_label | default: '포함 항목'
+  assign quote_item_1_title = section.settings.quote_item_1_title | default: '국가별 예상 견적'
+  assign quote_item_1_body = section.settings.quote_item_1_body | default: '주요 국가 기준으로 예상 구매 금액을 가볍게 비교해볼 수 있어요.'
+  assign quote_item_2_title = section.settings.quote_item_2_title | default: '배송비 포함'
+  assign quote_item_2_body = section.settings.quote_item_2_body | default: '해외 배송에 들어가는 기본 비용까지 함께 반영합니다.'
+  assign quote_item_3_title = section.settings.quote_item_3_title | default: '세금 포함'
+  assign quote_item_3_body = section.settings.quote_item_3_body | default: '구매 전에 최종 체감 금액을 더 가깝게 확인할 수 있습니다.'
+
+  assign style_eyebrow = section.settings.style_eyebrow | default: '스타일 탐색'
+  assign style_heading = section.settings.style_heading | default: '스타일로 찾는 와인'
+
+  assign guide_more_url = section.settings.guide_more_url | default: pages['guide'].url | default: pages['policy'].url | default: '#'
+  assign guide_eyebrow = section.settings.guide_eyebrow | default: '서비스 안내'
+  assign guide_heading = section.settings.guide_heading | default: '팔로우하고, 알림 받고, 함께 사고'
+  assign guide_more_label = section.settings.guide_more_label | default: '자세한 가이드 →'
+  assign guide_step_1_label = section.settings.guide_step_1_label | default: '단계 01'
+  assign guide_step_1_title = section.settings.guide_step_1_title | default: '취향이 맞는 컬렉터를 팔로우'
+  assign guide_step_1_body = section.settings.guide_step_1_body | default: '와인 큐레이터부터 셰프, 에디터까지. 입맛이 비슷한 사람을 찾으면 와인 고르는 일이 훨씬 쉬워집니다.'
+  assign guide_step_2_label = section.settings.guide_step_2_label | default: '단계 02'
+  assign guide_step_2_title = section.settings.guide_step_2_title | default: '새 공구가 열리면 가장 먼저 알림'
+  assign guide_step_2_body = section.settings.guide_step_2_body | default: '한정 수량은 빠르게 마감되니까. 알림을 켜두면 좋은 자리를 놓치지 않을 수 있어요.'
+  assign guide_step_3_label = section.settings.guide_step_3_label | default: '단계 03'
+  assign guide_step_3_title = section.settings.guide_step_3_title | default: '목표 인원이 모이면 자동 확정'
+  assign guide_step_3_body = section.settings.guide_step_3_body | default: '미달 시 결제는 자동 취소. 확정 후 평균 14일 이내 안전 포장으로 받아보실 수 있습니다.'
+
+  assign notify_heading = section.settings.notify_heading | default: '다음 와인은, 알림으로 먼저 받아보세요'
+  assign notify_body = section.settings.notify_body | default: '내 취향에 맞는 컬렉터를 팔로우해두면, 새 와인 공구 소식을 더 빠르게 받아볼 수 있어요.'
+  assign notify_cta_label = section.settings.notify_cta_label | default: '알림받을 컬렉터 찾기'
+  assign notify_cta_url = section.settings.notify_cta_url | default: collectors_page_url
+
+  assign community_heading = section.settings.community_heading | default: '와인 좋아하는 사람들, 여기 다 모였어요'
+  assign community_body = section.settings.community_body | default: '실제 후기부터 추천 와인, 직구 정보까지\n네이버 카페에서 함께 이야기해보세요.'
+  assign community_cta_label = section.settings.community_cta_label | default: '카페 구경하기'
+  assign community_cta_url = section.settings.community_cta_url | default: 'https://cafe.naver.com/townwine'
+%}
+
+<style>
+  #header-group,
+  body > footer {
+    display: none !important;
+  }
+
+  .inf-card {
+    justify-content: space-between;
+  }
+
+  .inf-card__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .inf-card__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .inf-card__meta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .inf-card__handle {
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 10px;
+    color: var(--c-text-2);
+    min-width: 0;
+  }
+
+  .inf-card__follow {
+    margin-top: 8px;
+  }
+
+  .tw-home-live-feed-js [data-home-live-recommendations][data-live-feed-ready='false'] {
+    position: relative;
+    overflow: hidden;
+    min-height: 180px;
+  }
+
+  .tw-home-live-feed-js [data-home-live-recommendations][data-live-feed-ready='false'] > * {
+    display: none;
+  }
+
+  .tw-home-live-feed-js [data-home-live-recommendations][data-live-feed-ready='false']::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--c-line);
+    border-radius: 24px;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(247, 242, 231, 0.96) 0%,
+        rgba(255, 255, 255, 0.98) 48%,
+        rgba(247, 242, 231, 0.96) 100%
+      );
+  }
+
+  .tw-home-live-feed-js [data-home-live-recommendations][data-live-feed-ready='false']::after {
+    content: '최신 공구를 불러오는 중입니다';
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: 24px;
+    font-size: 12px;
+    color: var(--c-text-2);
+    letter-spacing: 0.01em;
+  }
+
+  .inf-empty {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--c-text-2);
+    white-space: nowrap;
+  }
+
+  .follow[disabled] {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  @media (max-width: 767px) {
+    .inf-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .inf-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px 10px;
+      padding: 14px 12px;
+      text-align: left;
+    }
+
+    .inf-card__body {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      align-items: center;
+      gap: 0 10px;
+      text-align: left;
+    }
+
+    .inf-card .av {
+      grid-row: 1 / span 2;
+      width: 42px;
+      height: 42px;
+      font-size: 14px;
+    }
+
+    .inf-card__copy {
+      align-items: flex-start;
+      gap: 3px;
+    }
+
+    .inf-card__n {
+      margin-top: 0;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .inf-card__live {
+      display: none;
+    }
+
+    .inf-card__meta {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 5px;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    .inf-card__handle,
+    .inf-card__f {
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .inf-card__f {
+      justify-content: flex-start;
+      flex-wrap: nowrap;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .inf-card__follow {
+      margin-top: 0 !important;
+      padding: 7px 11px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+  }
+
+  .deal-grid[hidden] {
+    display: none !important;
+  }
+
+  .deal-empty {
+    min-height: 240px;
+    justify-content: center;
+  }
+
+  .up {
+    display: grid;
+    gap: 0;
+    grid-template-columns: 1fr;
+    border-top: 1px solid var(--c-line);
+  }
+
+  .up__r {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 28px !important;
+    padding: 28px 6px !important;
+    border-bottom: 1px solid var(--c-line) !important;
+    text-align: left !important;
+  }
+
+  .up__main {
+    display: grid !important;
+    grid-template-columns: 94px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 24px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  .up__d {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 94px !important;
+    min-width: 94px !important;
+    min-height: 88px !important;
+    padding: 10px 0 !important;
+    border: 1px solid var(--c-line) !important;
+    border-radius: var(--r-sm) !important;
+    background: var(--c-bg-alt) !important;
+    box-sizing: border-box !important;
+  }
+
+  .up__d__m {
+    font-size: 15px !important;
+    color: var(--c-text-2) !important;
+    letter-spacing: -0.02em !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
+  }
+
+  .up__d__day {
+    margin-top: 4px !important;
+    font-size: 24px !important;
+    line-height: 1 !important;
+    font-weight: 600 !important;
+    color: var(--c-text) !important;
+    letter-spacing: -0.03em !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  .up__bd {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .up__bd__t {
+    min-width: 0 !important;
+    font-size: 18px !important;
+    line-height: 1.35 !important;
+    font-weight: 600 !important;
+    color: var(--c-text) !important;
+    letter-spacing: -0.03em !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .up__bd__sub {
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+    color: var(--c-text-2) !important;
+    white-space: normal !important;
+  }
+
+  .up__bd__meta {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px 12px !important;
+    flex-wrap: wrap !important;
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+    color: var(--c-text-2) !important;
+    margin-top: 0 !important;
+    white-space: normal !important;
+    min-width: 0 !important;
+  }
+
+  .up__bd__meta b {
+    color: var(--c-text) !important;
+    font-weight: 600 !important;
+  }
+
+  .up__a {
+    display: flex !important;
+    align-items: center !important;
+    justify-self: end !important;
+    flex-shrink: 0 !important;
+  }
+
+  .up__a .bell {
+    min-width: 128px;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .quote-strip {
+    display: grid;
+    gap: 24px;
+    padding: 28px;
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-sm);
+    background: var(--c-bg);
+  }
+
+  .quote-strip__copy {
+    max-width: 640px;
+  }
+
+  .quote-strip__title {
+    font-size: 28px;
+    line-height: 1.18;
+    letter-spacing: -0.04em;
+    color: var(--c-text);
+    font-weight: 500;
+  }
+
+  .quote-strip__body {
+    margin-top: 14px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--c-text-2);
+    max-width: 520px;
+  }
+
+  .quote-strip__actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+
+  .quote-strip__panel {
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-sm);
+    background: var(--c-bg-alt);
+    padding: 22px 20px;
+  }
+
+  .quote-strip__panel-label {
+    font-size: 11px;
+    color: var(--c-text-2);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .quote-strip__list {
+    margin-top: 14px;
+    display: grid;
+    gap: 0;
+  }
+
+  .quote-strip__item {
+    padding: 14px 0;
+    border-top: 1px solid var(--c-line);
+  }
+
+  .quote-strip__item:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .quote-strip__item-title {
+    font-size: 15px;
+    line-height: 1.4;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+    font-weight: 500;
+  }
+
+  .quote-strip__item-copy {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--c-text-2);
+  }
+
+  @media (min-width: 900px) {
+    .quote-strip {
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      align-items: center;
+      padding: 34px 38px;
+    }
+
+    .quote-strip__title {
+      font-size: 34px;
+    }
+
+    .quote-strip__item-copy {
+      font-size: 11px;
+      white-space: nowrap;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .up__r {
+      gap: 18px !important;
+      padding: 24px 0 !important;
+    }
+
+    .up__main {
+      grid-template-columns: 78px minmax(0, 1fr) !important;
+      gap: 16px !important;
+    }
+
+    .up__d {
+      width: 78px !important;
+      min-width: 78px !important;
+      min-height: 78px !important;
+    }
+
+    .up__d__m {
+      font-size: 13px !important;
+    }
+
+    .up__d__day {
+      font-size: 20px !important;
+    }
+
+    .up__bd__t {
+      font-size: 16px !important;
+    }
+
+    .up__bd__sub,
+    .up__bd__meta {
+      font-size: 13px !important;
+    }
+
+    .up__a {
+      justify-self: end !important;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .up__r {
+      grid-template-columns: 1fr !important;
+      gap: 14px !important;
+      padding: 18px 0 !important;
+    }
+
+    .up__main {
+      grid-template-columns: 64px minmax(0, 1fr) !important;
+      gap: 12px !important;
+      align-items: start !important;
+    }
+
+    .up__d {
+      width: 64px !important;
+      min-width: 64px !important;
+      min-height: 64px !important;
+      padding: 8px 0 !important;
+    }
+
+    .up__d__m {
+      font-size: 12px !important;
+    }
+
+    .up__d__day {
+      font-size: 18px !important;
+    }
+
+    .up__bd {
+      gap: 6px !important;
+    }
+
+    .up__bd__t {
+      font-size: 14px !important;
+    }
+
+    .up__bd__sub,
+    .up__bd__meta {
+      font-size: 12px !important;
+    }
+
+    .up__bd__meta {
+      gap: 6px 10px !important;
+    }
+
+    .up__a {
+      grid-column: 1 / -1 !important;
+      justify-self: stretch !important;
+      width: 100% !important;
+      padding-top: 16px !important;
+      border-top: 1px dashed var(--c-line) !important;
+      justify-content: flex-end !important;
+    }
+
+    .up__a .bell {
+      min-width: 116px !important;
+      padding: 9px 18px !important;
+    }
+  }
+</style>
+
+{% liquid
+  assign deal_collection = section.settings.deals_collection
+  assign upcoming_collection = section.settings.upcoming_collection
+  assign deal_source_collection = blank
+  assign upcoming_source_collection = blank
+  assign hero_slide_count = 0
+  assign portable_hero_asset = 'townwine-live-home-hero.jpg'
+
+  for block in section.blocks
+    if block.type == 'hero_slide' and block.settings.image != blank
+      assign hero_slide_count = hero_slide_count | plus: 1
+    endif
+  endfor
+
+  if deal_collection == blank or deal_collection.products_count == 0
+    assign deal_collection = upcoming_collection
+  endif
+
+  if deal_collection == blank or deal_collection.products_count == 0
+    assign deal_collection = collections['all']
+  endif
+
+  assign deal_source_collection = collections['all']
+
+  assign deal_results_base_url = pages['deals-latest-20260529'].url | default: '/pages/deals-latest-20260529'
+  capture deal_results_red_url
+    echo deal_results_base_url
+    echo '?tag='
+    echo '레드' | url_encode
+  endcapture
+  capture deal_results_white_url
+    echo deal_results_base_url
+    echo '?tag='
+    echo '화이트' | url_encode
+  endcapture
+  capture deal_results_sparkling_url
+    echo deal_results_base_url
+    echo '?tag='
+    echo '스파클링' | url_encode
+  endcapture
+  capture deal_results_natural_url
+    echo deal_results_base_url
+    echo '?tag='
+    echo '내추럴' | url_encode
+  endcapture
+  capture deal_results_ready_url
+    echo deal_results_base_url
+    echo '?tag='
+    echo '바로배송' | url_encode
+  endcapture
+  if upcoming_collection == blank or upcoming_collection.products_count == 0
+    assign upcoming_collection = deal_collection
+  endif
+  if upcoming_collection == blank or upcoming_collection.products_count == 0
+    assign upcoming_collection = collections['all']
+  endif
+  assign upcoming_source_collection = upcoming_collection
+  assign style_link_collection = section.settings.style_link_collection
+  if style_link_collection == blank
+    assign style_link_collection = deal_collection
+  endif
+  assign current_timestamp = 'now' | date: '%s' | plus: 0
+  assign upcoming_window_seconds = 2419200
+  assign upcoming_window_end_timestamp = current_timestamp | plus: upcoming_window_seconds
+  assign upcoming_limit = section.settings.upcoming_limit | default: 4 | plus: 0
+  if upcoming_source_collection != blank and upcoming_source_collection.products_count > 0
+    assign home_upcoming_products = upcoming_source_collection.products | where: 'published_at' | sort: 'published_at' | reverse
+    assign home_upcoming_products = home_upcoming_products | sort: 'created_at' | reverse
+  endif
+  assign home_upcoming_display_products = home_upcoming_products
+  assign upcoming_display_has_future_product = false
+  if home_upcoming_display_products != blank and home_upcoming_display_products.size > 0
+    for product in home_upcoming_display_products
+      capture upcoming_display_product_open_at_ts_raw
+        render 'townwine-deal-open-timestamp', product: product
+      endcapture
+      assign upcoming_display_product_open_at_ts = upcoming_display_product_open_at_ts_raw | strip | plus: 0
+      if upcoming_display_product_open_at_ts > current_timestamp and upcoming_display_product_open_at_ts <= upcoming_window_end_timestamp
+        assign upcoming_display_has_future_product = true
+        break
+      endif
+    endfor
+  endif
+  if upcoming_display_has_future_product == false and collections['all'] != blank and collections['all'].products_count > 0
+    assign home_upcoming_display_products = collections['all'].products | where: 'published_at' | sort: 'published_at' | reverse
+    assign home_upcoming_display_products = home_upcoming_display_products | sort: 'created_at' | reverse
+  endif
+  if deal_source_collection != blank and deal_source_collection.products_count > 0
+    assign home_deal_products = deal_source_collection.products | where: 'published_at' | sort: 'published_at' | reverse
+    assign home_deal_products = home_deal_products | sort: 'created_at' | reverse
+  endif
+%}
+
+{% render 'townwine-header', current: 'home' %}
+
+<section class="hero" aria-label="메인 히어로">
+  <div class="hero__bg" aria-hidden="true">
+    {% if hero_slide_count > 0 %}
+      <div
+        class="hero__slides"
+        data-hero-slider
+        data-autoplay-ms="{{ section.settings.hero_slide_interval | times: 1000 }}"
+      >
+        <div class="hero__slides-track" data-hero-slider-track>
+          {% assign rendered_hero_slide_count = 0 %}
+          {% for block in section.blocks %}
+            {% if block.type == 'hero_slide' and block.settings.image != blank %}
+              {% assign rendered_hero_slide_count = rendered_hero_slide_count | plus: 1 %}
+              <div class="hero__slide" {{ block.shopify_attributes }}>
+                {% if rendered_hero_slide_count == 1 %}
+                  {{ block.settings.image | image_url: width: 2400 | image_tag: class: 'hero__slide-image', widths: '768, 1200, 1600, 2000, 2400', sizes: '100vw', loading: 'eager', fetchpriority: 'high', alt: block.settings.image.alt | default: shop.name }}
+                {% else %}
+                  {{ block.settings.image | image_url: width: 2400 | image_tag: class: 'hero__slide-image', widths: '768, 1200, 1600, 2000, 2400', sizes: '100vw', loading: 'lazy', alt: block.settings.image.alt | default: shop.name }}
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <img
+        src="{{ portable_hero_asset | asset_url }}"
+        class="hero__slide-image"
+        alt="{{ section.settings.hero_heading | strip_html | default: shop.name | escape }}"
+        loading="eager"
+        fetchpriority="high"
+      >
+    {% endif %}
+  </div>
+  <div class="hero__ov" aria-hidden="true"></div>
+  <div class="hero__in">
+    <div class="container">
+      <div class="hero__c">
+        {% if section.settings.hero_eyebrow != blank %}
+          <div class="eb" style="color: {{ section.settings.hero_eyebrow_color }};">{{ section.settings.hero_eyebrow }}</div>
+        {% endif %}
+        {% if section.settings.hero_heading != blank %}
+          {% assign hero_heading_lines = section.settings.hero_heading | newline_to_br | split: '<br />' %}
+          <h1 class="h1" style="color: {{ section.settings.hero_heading_color }}; line-height: {{ section.settings.hero_heading_line_height | divided_by: 100.0 }};">
+            {% for hero_heading_line in hero_heading_lines %}
+              <span class="h1__line">{{ hero_heading_line | strip | escape }}</span>
+            {% endfor %}
+          </h1>
+        {% endif %}
+        {% if section.settings.hero_body != blank %}
+          <p class="lede" style="color: {{ section.settings.hero_body_color }};">{{ section.settings.hero_body | escape | newline_to_br }}</p>
+        {% endif %}
+        {% if section.settings.hero_primary_label != blank or section.settings.hero_secondary_label != blank %}
+          <div class="hcta">
+            {% if section.settings.hero_primary_label != blank %}
+              <a class="btn btn--ivory btn--lg" href="{{ section.settings.hero_primary_url | default: '#deals' }}">{{ section.settings.hero_primary_label }}</a>
+            {% endif %}
+            {% if section.settings.hero_secondary_label != blank %}
+              <a class="btn btn--gh btn--lg" href="{{ section.settings.hero_secondary_url | default: '#influencers' }}">{{ section.settings.hero_secondary_label }}</a>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="influencers" aria-label="진행 중인 컬렉터">
+  <div class="container">
+    <div class="sh">
+      <div>
+        <div class="sh__sub">{{ active_collectors_eyebrow }}</div>
+        <h2 class="sh__t">{{ active_collectors_heading }}</h2>
+      </div>
+      <a class="sh__more" href="{{ active_collectors_more_url }}">{{ active_collectors_more_label }}</a>
+    </div>
+    <div
+      class="inf-grid"
+      data-home-live-collectors
+      data-proxy-base="{{ section.settings.follow_proxy_base | escape }}"
+      data-empty-label="{{ active_collectors_empty_label | escape }}"
+      data-live-label="{{ collector_live_label | escape }}"
+      data-loading-followers-label="{{ collector_loading_followers_label | escape }}"
+      data-loading-deals-label="{{ collector_loading_deals_label | escape }}"
+      data-follow-label="{{ follow_label | escape }}"
+      data-following-label="{{ following_label | escape }}"
+      data-collectors-page-url="{{ active_collectors_more_url | escape }}"
+    >
+      {% assign rendered_live_collector_tokens = '|' %}
+      {% assign rendered_live_collector_count = 0 %}
+
+      {% if home_upcoming_products != blank and home_upcoming_products.size > 0 %}
+        {% for product in home_upcoming_products %}
+          {% if rendered_live_collector_count >= 6 %}
+            {% break %}
+          {% endif %}
+
+          {% capture product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+          {% assign product_open_at_ts = product_open_at_ts_raw | strip | plus: 0 %}
+          {% assign is_live_collector_product = false %}
+
+          {% if product_open_at_ts > 0 %}
+            {% if product_open_at_ts <= current_timestamp %}
+              {% assign is_live_collector_product = true %}
+            {% endif %}
+          {% elsif product.available %}
+            {% assign is_live_collector_product = true %}
+          {% endif %}
+
+          {% if is_live_collector_product %}
+            {% assign live_collector_tag = product.metafields.custom.collector_tag.value | default: product.metafields.custom.collector_tag | strip %}
+            {% assign live_host_name = product.metafields.custom.host_name.value | default: product.metafields.custom.host_name | strip %}
+            {% assign live_host_handle = product.metafields.custom.host_handle.value | default: product.metafields.custom.host_handle | strip %}
+            {% assign live_collector_fallback_handle = live_host_handle | default: live_collector_tag | default: live_host_name %}
+
+            {% if live_collector_tag != blank or live_host_name != blank or live_host_handle != blank %}
+              {% capture live_collector_handle_raw %}{% render 'townwine-resolve-product-influencer-handle', product: product, fallback: live_collector_fallback_handle %}{% endcapture %}
+              {% assign live_collector_handle = live_collector_handle_raw | strip | handleize %}
+
+              {% if live_collector_handle != blank %}
+                {% assign collector_profile = metaobjects.collector_profile[live_collector_handle] %}
+
+                {% if collector_profile == blank and metaobjects.collector_profile != blank %}
+                  {% assign live_collector_handle_from_host = live_host_handle | remove: '@' | handleize %}
+                  {% assign live_collector_handle_from_tag = live_collector_tag | handleize %}
+                  {% assign live_collector_handle_from_name = live_host_name | handleize %}
+                  {% if live_collector_handle_from_host != blank %}
+                    {% assign collector_profile = metaobjects.collector_profile[live_collector_handle_from_host] %}
+                    {% if collector_profile != blank %}
+                      {% assign live_collector_handle = live_collector_handle_from_host %}
+                    {% endif %}
+                  {% endif %}
+                  {% if collector_profile == blank and live_collector_handle_from_tag != blank %}
+                    {% assign collector_profile = metaobjects.collector_profile[live_collector_handle_from_tag] %}
+                    {% if collector_profile != blank %}
+                      {% assign live_collector_handle = live_collector_handle_from_tag %}
+                    {% endif %}
+                  {% endif %}
+                  {% if collector_profile == blank and live_collector_handle_from_name != blank %}
+                    {% assign collector_profile = metaobjects.collector_profile[live_collector_handle_from_name] %}
+                    {% if collector_profile != blank %}
+                      {% assign live_collector_handle = live_collector_handle_from_name %}
+                    {% endif %}
+                  {% endif %}
+                {% endif %}
+
+                {% assign collector_name = live_collector_tag | default: live_host_name | default: live_collector_handle %}
+                {% assign collector_public_handle = live_host_handle %}
+
+                {% if collector_profile != blank %}
+                  {% assign live_collector_handle = collector_profile.system.handle | default: live_collector_handle | handleize %}
+                  {% assign collector_name = collector_profile.display_name.value | default: collector_profile.customer_name.value | default: collector_name %}
+                  {% assign collector_public_handle = collector_profile.public_handle.value | strip | default: collector_public_handle %}
+                {% endif %}
+
+                {% assign live_collector_token_key = live_collector_handle %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = collector_public_handle | remove: '@' | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = live_host_handle | remove: '@' | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = live_collector_tag | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = live_host_name | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = collector_name | handleize %}
+                {% endif %}
+                {% capture live_collector_token %}|{{ live_collector_token_key }}|{% endcapture %}
+
+                {% unless rendered_live_collector_tokens contains live_collector_token %}
+                  {% assign rendered_live_collector_tokens = rendered_live_collector_tokens | append: live_collector_token %}
+                  {% assign rendered_live_collector_count = rendered_live_collector_count | plus: 1 %}
+                  {% capture live_collector_match_handles %}
+                    {{ live_collector_handle | strip }},
+                    {{ collector_public_handle | strip }},
+                    {% if collector_profile != blank %}{{ collector_profile.system.handle | strip }},{% endif %}
+                    {% if collector_profile != blank %}{{ collector_profile.customer_name.value | strip }},{% endif %}
+                    {{ collector_name | strip }},
+                    {{ live_collector_tag | strip }},
+                    {{ live_host_name | strip }},
+                    {{ live_host_handle | strip }}
+                  {% endcapture %}
+                  {% capture influencer_profile_url %}
+                    {% render 'townwine-collector-url',
+                      collector_handle: live_collector_handle,
+                      fallback_url: pages['collectors'].url
+                    %}
+                  {% endcapture %}
+
+                  {% assign collector_handle_label = collector_public_handle | default: live_host_handle | strip %}
+                  {% if collector_handle_label == blank and live_collector_handle != blank %}
+                    {% assign collector_handle_label = '@' | append: live_collector_handle %}
+                  {% endif %}
+                  {% capture collector_handle_label_display %}
+                    {% render 'townwine-display-collector-handle', collector_handle: collector_handle_label %}
+                  {% endcapture %}
+                  {% assign collector_handle_label = collector_handle_label_display | strip %}
+
+                  <article class="inf-card">
+                    <a class="inf-card__body" href="{{ influencer_profile_url | strip }}#collector-history">
+                      <div class="av av--live">{{ collector_name | slice: 0 }}</div>
+                      <div class="inf-card__copy">
+                        <div class="inf-card__n">{{ collector_name }}</div>
+                        <div class="inf-card__live">{{ collector_live_label }}</div>
+                        <div class="inf-card__meta">
+                          {% if collector_handle_label != blank %}
+                            <span class="inf-card__handle">{{ collector_handle_label }}</span>
+                          {% endif %}
+                          <div
+                            class="inf-card__f"
+                            data-townwine-collector-summary
+                            data-influencer-handle="{{ live_collector_handle | escape }}"
+                            data-collector-match-handles="{{ live_collector_match_handles | escape }}"
+                            data-proxy-base="{{ section.settings.follow_proxy_base }}"
+                            data-loading-followers-label="{{ collector_loading_followers_label | escape }}"
+                            data-loading-deals-label="{{ collector_loading_deals_label | escape }}"
+                          >
+                            <span data-collector-followers>{{ collector_loading_followers_label }}</span>
+                            <span aria-hidden="true">·</span>
+                            <span data-collector-deals>{{ collector_loading_deals_label }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </a>
+                    {% render 'townwine-follow-button',
+                      influencer_handle: live_collector_handle,
+                      influencer_name: collector_name,
+                      match_handles: live_collector_match_handles,
+                      proxy_base: section.settings.follow_proxy_base,
+                      follow_label: follow_label,
+                      following_label: following_label,
+                      button_class: 'follow inf-card__follow'
+                    %}
+                  </article>
+                {% endunless %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+      {% if home_deal_products != blank and home_deal_products.size > 0 %}
+        {% for product in home_deal_products %}
+          {% if rendered_live_collector_count >= 6 %}
+            {% break %}
+          {% endif %}
+
+          {% capture product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+          {% assign product_open_at_ts = product_open_at_ts_raw | strip | plus: 0 %}
+          {% assign is_live_collector_product = false %}
+
+          {% if product_open_at_ts > 0 %}
+            {% if product_open_at_ts <= current_timestamp %}
+              {% assign is_live_collector_product = true %}
+            {% endif %}
+          {% elsif product.available %}
+            {% assign is_live_collector_product = true %}
+          {% endif %}
+
+          {% if is_live_collector_product %}
+            {% assign live_collector_tag = product.metafields.custom.collector_tag.value | default: product.metafields.custom.collector_tag | strip %}
+            {% assign live_host_name = product.metafields.custom.host_name.value | default: product.metafields.custom.host_name | strip %}
+            {% assign live_host_handle = product.metafields.custom.host_handle.value | default: product.metafields.custom.host_handle | strip %}
+            {% assign live_collector_fallback_handle = live_host_handle | default: live_collector_tag | default: live_host_name %}
+
+            {% if live_collector_tag != blank or live_host_name != blank or live_host_handle != blank %}
+              {% capture live_collector_handle_raw %}{% render 'townwine-resolve-product-influencer-handle', product: product, fallback: live_collector_fallback_handle %}{% endcapture %}
+              {% assign live_collector_handle = live_collector_handle_raw | strip | handleize %}
+
+              {% if live_collector_handle != blank %}
+                {% assign collector_profile = metaobjects.collector_profile[live_collector_handle] %}
+
+                {% if collector_profile == blank and metaobjects.collector_profile != blank %}
+                  {% assign live_collector_handle_from_host = live_host_handle | remove: '@' | handleize %}
+                  {% assign live_collector_handle_from_tag = live_collector_tag | handleize %}
+                  {% assign live_collector_handle_from_name = live_host_name | handleize %}
+                  {% if live_collector_handle_from_host != blank %}
+                    {% assign collector_profile = metaobjects.collector_profile[live_collector_handle_from_host] %}
+                    {% if collector_profile != blank %}
+                      {% assign live_collector_handle = live_collector_handle_from_host %}
+                    {% endif %}
+                  {% endif %}
+                  {% if collector_profile == blank and live_collector_handle_from_tag != blank %}
+                    {% assign collector_profile = metaobjects.collector_profile[live_collector_handle_from_tag] %}
+                    {% if collector_profile != blank %}
+                      {% assign live_collector_handle = live_collector_handle_from_tag %}
+                    {% endif %}
+                  {% endif %}
+                  {% if collector_profile == blank and live_collector_handle_from_name != blank %}
+                    {% assign collector_profile = metaobjects.collector_profile[live_collector_handle_from_name] %}
+                    {% if collector_profile != blank %}
+                      {% assign live_collector_handle = live_collector_handle_from_name %}
+                    {% endif %}
+                  {% endif %}
+                {% endif %}
+
+                {% assign collector_name = live_collector_tag | default: live_host_name | default: live_collector_handle %}
+                {% assign collector_public_handle = live_host_handle %}
+
+                {% if collector_profile != blank %}
+                  {% assign live_collector_handle = collector_profile.system.handle | default: live_collector_handle | handleize %}
+                  {% assign collector_name = collector_profile.display_name.value | default: collector_profile.customer_name.value | default: collector_name %}
+                  {% assign collector_public_handle = collector_profile.public_handle.value | strip | default: collector_public_handle %}
+                {% endif %}
+
+                {% assign live_collector_token_key = live_collector_handle %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = collector_public_handle | remove: '@' | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = live_host_handle | remove: '@' | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = live_collector_tag | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = live_host_name | handleize %}
+                {% endif %}
+                {% if live_collector_token_key == blank %}
+                  {% assign live_collector_token_key = collector_name | handleize %}
+                {% endif %}
+                {% capture live_collector_token %}|{{ live_collector_token_key }}|{% endcapture %}
+
+                {% unless rendered_live_collector_tokens contains live_collector_token %}
+                  {% assign rendered_live_collector_tokens = rendered_live_collector_tokens | append: live_collector_token %}
+                  {% assign rendered_live_collector_count = rendered_live_collector_count | plus: 1 %}
+                  {% capture live_collector_match_handles %}
+                    {{ live_collector_handle | strip }},
+                    {{ collector_public_handle | strip }},
+                    {% if collector_profile != blank %}{{ collector_profile.system.handle | strip }},{% endif %}
+                    {% if collector_profile != blank %}{{ collector_profile.customer_name.value | strip }},{% endif %}
+                    {{ collector_name | strip }},
+                    {{ live_collector_tag | strip }},
+                    {{ live_host_name | strip }},
+                    {{ live_host_handle | strip }}
+                  {% endcapture %}
+                  {% capture influencer_profile_url %}
+                    {% render 'townwine-collector-url',
+                      collector_handle: live_collector_handle,
+                      fallback_url: pages['collectors'].url
+                    %}
+                  {% endcapture %}
+
+                  {% assign collector_handle_label = collector_public_handle | default: live_host_handle | strip %}
+                  {% if collector_handle_label == blank and live_collector_handle != blank %}
+                    {% assign collector_handle_label = '@' | append: live_collector_handle %}
+                  {% endif %}
+                  {% capture collector_handle_label_display %}
+                    {% render 'townwine-display-collector-handle', collector_handle: collector_handle_label %}
+                  {% endcapture %}
+                  {% assign collector_handle_label = collector_handle_label_display | strip %}
+
+                  <article class="inf-card">
+                    <a class="inf-card__body" href="{{ influencer_profile_url | strip }}#collector-history">
+                      <div class="av av--live">{{ collector_name | slice: 0 }}</div>
+                      <div class="inf-card__copy">
+                        <div class="inf-card__n">{{ collector_name }}</div>
+                        <div class="inf-card__live">{{ collector_live_label }}</div>
+                        <div class="inf-card__meta">
+                          {% if collector_handle_label != blank %}
+                            <span class="inf-card__handle">{{ collector_handle_label }}</span>
+                          {% endif %}
+                          <div
+                            class="inf-card__f"
+                            data-townwine-collector-summary
+                            data-influencer-handle="{{ live_collector_handle | escape }}"
+                            data-collector-match-handles="{{ live_collector_match_handles | escape }}"
+                            data-proxy-base="{{ section.settings.follow_proxy_base }}"
+                            data-loading-followers-label="{{ collector_loading_followers_label | escape }}"
+                            data-loading-deals-label="{{ collector_loading_deals_label | escape }}"
+                          >
+                            <span data-collector-followers>{{ collector_loading_followers_label }}</span>
+                            <span aria-hidden="true">·</span>
+                            <span data-collector-deals>{{ collector_loading_deals_label }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </a>
+                    {% render 'townwine-follow-button',
+                      influencer_handle: live_collector_handle,
+                      influencer_name: collector_name,
+                      match_handles: live_collector_match_handles,
+                      proxy_base: section.settings.follow_proxy_base,
+                      follow_label: follow_label,
+                      following_label: following_label,
+                      button_class: 'follow inf-card__follow'
+                    %}
+                  </article>
+                {% endunless %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+      {% if rendered_live_collector_count == 0 %}
+        <p class="inf-empty">
+          {{ active_collectors_empty_label }}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="sec sec--alt" id="deals" aria-label="진행 중인 공구">
+  <div class="container">
+    <townwine-home-search>
+      <form class="sb" action="{{ routes.search_url }}" method="get" role="search">
+        <label class="sb__in">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input
+            type="search"
+            name="q"
+            placeholder="{{ deals_search_placeholder | escape }}"
+            data-home-search-input
+          >
+        </label>
+        <input type="hidden" name="type" value="product">
+        <input type="hidden" name="options[prefix]" value="last">
+        <input type="hidden" name="filter.p.tag" value="" data-home-search-tag-input>
+        <input type="hidden" name="filter.v.availability" value="1" data-home-stock-input>
+        <button type="submit" hidden aria-hidden="true" tabindex="-1">{{ deals_search_submit_label }}</button>
+        <a class="btn btn--gh hide-mobile" style="padding:8px 14px;font-size:12px" href="{{ deal_results_base_url }}">{{ deals_filter_link_label }}</a>
+      </form>
+      <div class="fil">
+        <button
+          type="button"
+          class="chip is-on"
+          data-home-search-tag=""
+          data-home-search-label="{{ deals_all_label | escape }}"
+          data-collection-url="{{ deal_results_base_url }}"
+          aria-pressed="true"
+        >
+          {{ deals_all_label }}
+        </button>
+        <button
+          type="button"
+          class="chip"
+          data-home-search-tag="레드"
+          data-home-search-label="{{ deals_red_label | escape }}"
+          data-collection-url="{{ deal_results_red_url }}"
+          aria-pressed="false"
+        >
+          {{ deals_red_label }}
+        </button>
+        <button
+          type="button"
+          class="chip"
+          data-home-search-tag="화이트"
+          data-home-search-label="{{ deals_white_label | escape }}"
+          data-collection-url="{{ deal_results_white_url }}"
+          aria-pressed="false"
+        >
+          {{ deals_white_label }}
+        </button>
+        <button
+          type="button"
+          class="chip"
+          data-home-search-tag="스파클링"
+          data-home-search-label="{{ deals_sparkling_label | escape }}"
+          data-collection-url="{{ deal_results_sparkling_url }}"
+          aria-pressed="false"
+        >
+          {{ deals_sparkling_label }}
+        </button>
+        <button
+          type="button"
+          class="chip"
+          data-home-search-tag="내추럴"
+          data-home-search-label="{{ deals_natural_label | escape }}"
+          data-collection-url="{{ deal_results_natural_url }}"
+          aria-pressed="false"
+        >
+          {{ deals_natural_label }}
+        </button>
+        <button
+          type="button"
+          class="chip"
+          data-home-search-tag="바로배송"
+          data-home-search-label="{{ deals_ready_label | escape }}"
+          data-collection-url="{{ deal_results_ready_url }}"
+          aria-pressed="false"
+        >
+          {{ deals_ready_label }}
+        </button>
+      </div>
+    </townwine-home-search>
+
+    <div class="sh" style="margin-top:36px">
+      <div>
+        <div class="sh__sub">{{ deals_eyebrow }}</div>
+        <h2 class="sh__t">{{ deals_heading }}</h2>
+      </div>
+      {% if home_deal_products != blank %}
+        <a class="sh__more" href="{{ deal_results_base_url }}" data-home-results-link><span data-home-results-label>{{ deals_all_label }}</span> {{ deals_more_suffix_label }}</a>
+      {% endif %}
+    </div>
+
+    {% if deal_source_collection != blank and deal_source_collection.products_count > 0 %}
+      {% paginate deal_source_collection.products by 250 %}
+        {% assign home_deal_products = deal_source_collection.products | where: 'published_at' | sort: 'published_at' | reverse %}
+        {% assign home_deal_products = home_deal_products | sort: 'created_at' | reverse %}
+        {% assign home_upcoming_products = home_deal_products %}
+        {% assign live_deal_count = 0 %}
+        {% assign red_count = 0 %}
+        {% assign white_count = 0 %}
+        {% assign sparkling_count = 0 %}
+        {% assign natural_count = 0 %}
+        {% assign ready_count = 0 %}
+        {% assign counted_live_product_tokens = '|' %}
+
+        {% for product in home_upcoming_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+          {% capture counted_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+          {% assign counted_product_open_at_ts = counted_product_open_at_ts_raw | strip | plus: 0 %}
+          {% assign is_live_product = false %}
+          {% if counted_product_open_at_ts > 0 and counted_product_open_at_ts <= current_timestamp %}
+            {% assign is_live_product = true %}
+          {% endif %}
+
+          {% if is_live_product %}
+            {% capture counted_live_product_token %}|{{ product.id }}|{% endcapture %}
+            {% unless counted_live_product_tokens contains counted_live_product_token %}
+              {% assign counted_live_product_tokens = counted_live_product_tokens | append: counted_live_product_token %}
+              {% assign live_deal_count = live_deal_count | plus: 1 %}
+              {% if product.tags contains '레드' %}
+                {% assign red_count = red_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '화이트' %}
+                {% assign white_count = white_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '스파클링' %}
+                {% assign sparkling_count = sparkling_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '내추럴' %}
+                {% assign natural_count = natural_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '바로배송' %}
+                {% assign ready_count = ready_count | plus: 1 %}
+              {% endif %}
+            {% endunless %}
+          {% endif %}
+        {% endfor %}
+
+        {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+          {% capture counted_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+          {% assign counted_product_open_at_ts = counted_product_open_at_ts_raw | strip | plus: 0 %}
+          {% assign is_live_product = false %}
+          {% if counted_product_open_at_ts > 0 %}
+            {% if counted_product_open_at_ts <= current_timestamp %}
+              {% assign is_live_product = true %}
+            {% endif %}
+          {% else %}
+            {% assign is_live_product = true %}
+          {% endif %}
+
+          {% if is_live_product %}
+            {% capture counted_live_product_token %}|{{ product.id }}|{% endcapture %}
+            {% unless counted_live_product_tokens contains counted_live_product_token %}
+              {% assign counted_live_product_tokens = counted_live_product_tokens | append: counted_live_product_token %}
+              {% assign live_deal_count = live_deal_count | plus: 1 %}
+              {% if product.tags contains '레드' %}
+                {% assign red_count = red_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '화이트' %}
+                {% assign white_count = white_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '스파클링' %}
+                {% assign sparkling_count = sparkling_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '내추럴' %}
+                {% assign natural_count = natural_count | plus: 1 %}
+              {% endif %}
+              {% if product.tags contains '바로배송' %}
+                {% assign ready_count = ready_count | plus: 1 %}
+              {% endif %}
+            {% endunless %}
+          {% endif %}
+        {% endfor %}
+
+        {% assign recommendation_total_count = 0 %}
+        {% assign counted_recommendation_product_tokens = '|' %}
+        {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+          {% capture recommendation_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+          {% assign recommendation_product_open_at_ts = recommendation_product_open_at_ts_raw | strip | plus: 0 %}
+          {% assign recommendation_is_live_product = false %}
+          {% if recommendation_product_open_at_ts > 0 %}
+            {% if recommendation_product_open_at_ts <= current_timestamp %}
+              {% assign recommendation_is_live_product = true %}
+            {% endif %}
+          {% else %}
+            {% assign recommendation_is_live_product = true %}
+          {% endif %}
+          {% if recommendation_is_live_product %}
+            {% capture counted_recommendation_product_token %}|{{ product.id }}|{% endcapture %}
+            {% unless counted_recommendation_product_tokens contains counted_recommendation_product_token %}
+              {% assign counted_recommendation_product_tokens = counted_recommendation_product_tokens | append: counted_recommendation_product_token %}
+              {% assign recommendation_total_count = recommendation_total_count | plus: 1 %}
+            {% endunless %}
+          {% endif %}
+        {% endfor %}
+
+        <div
+          class="deal-grid"
+          data-home-results-panel=""
+          data-home-live-recommendations
+          data-proxy-base="{{ section.settings.follow_proxy_base | escape }}"
+          data-follow-label="{{ follow_label | escape }}"
+          data-following-label="{{ following_label | escape }}"
+          data-unassigned-collector-label="{{ deals_unassigned_collector_label | escape }}"
+          data-inventory-summary-loading-label="{{ deals_inventory_summary_loading_label | escape }}"
+          data-inventory-caption-loading-label="{{ deals_inventory_caption_loading_label | escape }}"
+          data-cta-label="{{ deals_cta_label | escape }}"
+          data-result-count="{{ recommendation_total_count }}"
+          data-results-url="{{ deal_results_base_url }}"
+          data-live-feed-ready="false"
+          aria-hidden="false"
+          aria-busy="true"
+        >
+          {% if recommendation_total_count > 0 %}
+            {% assign rendered_recommendation_count = 0 %}
+            {% assign rendered_recommendation_product_tokens = '|' %}
+            {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_recommendation_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% assign is_recommendation_product = false %}
+              {% if rendered_product_open_at_ts > 0 %}
+                {% if rendered_product_open_at_ts <= current_timestamp %}
+                  {% assign is_recommendation_product = true %}
+                {% endif %}
+              {% else %}
+                {% assign is_recommendation_product = true %}
+              {% endif %}
+              {% if is_recommendation_product %}
+                {% capture rendered_recommendation_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_recommendation_product_tokens contains rendered_recommendation_product_token %}
+                  {% assign rendered_recommendation_product_tokens = rendered_recommendation_product_tokens | append: rendered_recommendation_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_recommendation_count = rendered_recommendation_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <article class="dc dc--preview deal-empty">
+              <div class="dc__bd">
+                <div>
+                  <h3 class="dc__t">{{ deals_live_empty_title }}</h3>
+                  <p style="font-size:12px;color:var(--c-text-2);line-height:1.6;margin-top:6px">{{ deals_live_empty_body }}</p>
+                </div>
+              </div>
+            </article>
+          {% endif %}
+        </div>
+
+        <div
+          class="deal-grid"
+          data-home-results-panel="레드"
+          data-result-count="{{ red_count }}"
+          data-results-url="{{ deal_results_red_url }}"
+          hidden
+          aria-hidden="true"
+        >
+          {% if red_count > 0 %}
+            {% assign rendered_red_count = 0 %}
+            {% assign rendered_red_product_tokens = '|' %}
+            {% for product in home_upcoming_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_red_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% if rendered_product_open_at_ts > 0 and rendered_product_open_at_ts <= current_timestamp and product.tags contains '레드' %}
+                {% capture rendered_red_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_red_product_tokens contains rendered_red_product_token %}
+                  {% assign rendered_red_product_tokens = rendered_red_product_tokens | append: rendered_red_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_red_count = rendered_red_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+            {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_red_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% assign is_live_product = false %}
+              {% if rendered_product_open_at_ts > 0 %}
+                {% if rendered_product_open_at_ts <= current_timestamp %}
+                  {% assign is_live_product = true %}
+                {% endif %}
+              {% else %}
+                {% assign is_live_product = true %}
+              {% endif %}
+              {% if is_live_product and product.tags contains '레드' %}
+                {% capture rendered_red_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_red_product_tokens contains rendered_red_product_token %}
+                  {% assign rendered_red_product_tokens = rendered_red_product_tokens | append: rendered_red_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_red_count = rendered_red_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <article class="dc dc--preview deal-empty">
+              <div class="dc__bd">
+                <div>
+                  <h3 class="dc__t">{{ filtered_deals_empty_title }}</h3>
+                </div>
+              </div>
+            </article>
+          {% endif %}
+        </div>
+
+        <div
+          class="deal-grid"
+          data-home-results-panel="화이트"
+          data-result-count="{{ white_count }}"
+          data-results-url="{{ deal_results_white_url }}"
+          hidden
+          aria-hidden="true"
+        >
+          {% if white_count > 0 %}
+            {% assign rendered_white_count = 0 %}
+            {% assign rendered_white_product_tokens = '|' %}
+            {% for product in home_upcoming_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_white_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% if rendered_product_open_at_ts > 0 and rendered_product_open_at_ts <= current_timestamp and product.tags contains '화이트' %}
+                {% capture rendered_white_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_white_product_tokens contains rendered_white_product_token %}
+                  {% assign rendered_white_product_tokens = rendered_white_product_tokens | append: rendered_white_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_white_count = rendered_white_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+            {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_white_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% assign is_live_product = false %}
+              {% if rendered_product_open_at_ts > 0 %}
+                {% if rendered_product_open_at_ts <= current_timestamp %}
+                  {% assign is_live_product = true %}
+                {% endif %}
+              {% else %}
+                {% assign is_live_product = true %}
+              {% endif %}
+              {% if is_live_product and product.tags contains '화이트' %}
+                {% capture rendered_white_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_white_product_tokens contains rendered_white_product_token %}
+                  {% assign rendered_white_product_tokens = rendered_white_product_tokens | append: rendered_white_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_white_count = rendered_white_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <article class="dc dc--preview deal-empty">
+              <div class="dc__bd">
+                <div>
+                  <h3 class="dc__t">{{ filtered_deals_empty_title }}</h3>
+                </div>
+              </div>
+            </article>
+          {% endif %}
+        </div>
+
+        <div
+          class="deal-grid"
+          data-home-results-panel="스파클링"
+          data-result-count="{{ sparkling_count }}"
+          data-results-url="{{ deal_results_sparkling_url }}"
+          hidden
+          aria-hidden="true"
+        >
+          {% if sparkling_count > 0 %}
+            {% assign rendered_sparkling_count = 0 %}
+            {% assign rendered_sparkling_product_tokens = '|' %}
+            {% for product in home_upcoming_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_sparkling_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% if rendered_product_open_at_ts > 0 and rendered_product_open_at_ts <= current_timestamp and product.tags contains '스파클링' %}
+                {% capture rendered_sparkling_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_sparkling_product_tokens contains rendered_sparkling_product_token %}
+                  {% assign rendered_sparkling_product_tokens = rendered_sparkling_product_tokens | append: rendered_sparkling_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_sparkling_count = rendered_sparkling_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+            {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_sparkling_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% assign is_live_product = false %}
+              {% if rendered_product_open_at_ts > 0 %}
+                {% if rendered_product_open_at_ts <= current_timestamp %}
+                  {% assign is_live_product = true %}
+                {% endif %}
+              {% else %}
+                {% assign is_live_product = true %}
+              {% endif %}
+              {% if is_live_product and product.tags contains '스파클링' %}
+                {% capture rendered_sparkling_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_sparkling_product_tokens contains rendered_sparkling_product_token %}
+                  {% assign rendered_sparkling_product_tokens = rendered_sparkling_product_tokens | append: rendered_sparkling_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_sparkling_count = rendered_sparkling_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <article class="dc dc--preview deal-empty">
+              <div class="dc__bd">
+                <div>
+                  <h3 class="dc__t">{{ filtered_deals_empty_title }}</h3>
+                </div>
+              </div>
+            </article>
+          {% endif %}
+        </div>
+
+        <div
+          class="deal-grid"
+          data-home-results-panel="내추럴"
+          data-result-count="{{ natural_count }}"
+          data-results-url="{{ deal_results_natural_url }}"
+          hidden
+          aria-hidden="true"
+        >
+          {% if natural_count > 0 %}
+            {% assign rendered_natural_count = 0 %}
+            {% assign rendered_natural_product_tokens = '|' %}
+            {% for product in home_upcoming_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_natural_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% if rendered_product_open_at_ts > 0 and rendered_product_open_at_ts <= current_timestamp and product.tags contains '내추럴' %}
+                {% capture rendered_natural_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_natural_product_tokens contains rendered_natural_product_token %}
+                  {% assign rendered_natural_product_tokens = rendered_natural_product_tokens | append: rendered_natural_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_natural_count = rendered_natural_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+            {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_natural_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% assign is_live_product = false %}
+              {% if rendered_product_open_at_ts > 0 %}
+                {% if rendered_product_open_at_ts <= current_timestamp %}
+                  {% assign is_live_product = true %}
+                {% endif %}
+              {% else %}
+                {% assign is_live_product = true %}
+              {% endif %}
+              {% if is_live_product and product.tags contains '내추럴' %}
+                {% capture rendered_natural_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_natural_product_tokens contains rendered_natural_product_token %}
+                  {% assign rendered_natural_product_tokens = rendered_natural_product_tokens | append: rendered_natural_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_natural_count = rendered_natural_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <article class="dc dc--preview deal-empty">
+              <div class="dc__bd">
+                <div>
+                  <h3 class="dc__t">{{ filtered_deals_empty_title }}</h3>
+                </div>
+              </div>
+            </article>
+          {% endif %}
+        </div>
+
+        <div
+          class="deal-grid"
+          data-home-results-panel="바로배송"
+          data-result-count="{{ ready_count }}"
+          data-results-url="{{ deal_results_ready_url }}"
+          hidden
+          aria-hidden="true"
+        >
+          {% if ready_count > 0 %}
+            {% assign rendered_ready_count = 0 %}
+            {% assign rendered_ready_product_tokens = '|' %}
+            {% for product in home_upcoming_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_ready_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% if rendered_product_open_at_ts > 0 and rendered_product_open_at_ts <= current_timestamp and product.tags contains '바로배송' %}
+                {% capture rendered_ready_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_ready_product_tokens contains rendered_ready_product_token %}
+                  {% assign rendered_ready_product_tokens = rendered_ready_product_tokens | append: rendered_ready_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_ready_count = rendered_ready_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+            {% for product in home_deal_products %}
+              {% unless product.available %}{% continue %}{% endunless %}
+              {% if rendered_ready_count >= 12 %}{% break %}{% endif %}
+              {% capture rendered_product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+              {% assign rendered_product_open_at_ts = rendered_product_open_at_ts_raw | strip | plus: 0 %}
+              {% assign is_live_product = false %}
+              {% if rendered_product_open_at_ts > 0 %}
+                {% if rendered_product_open_at_ts <= current_timestamp %}
+                  {% assign is_live_product = true %}
+                {% endif %}
+              {% else %}
+                {% assign is_live_product = true %}
+              {% endif %}
+              {% if is_live_product and product.tags contains '바로배송' %}
+                {% capture rendered_ready_product_token %}|{{ product.id }}|{% endcapture %}
+                {% unless rendered_ready_product_tokens contains rendered_ready_product_token %}
+                  {% assign rendered_ready_product_tokens = rendered_ready_product_tokens | append: rendered_ready_product_token %}
+                  {% render 'townwine-product-card', product: product, proxy_base: section.settings.follow_proxy_base, closed_deal_label: '공구 종료', closed_cta_label: '종료 딜 보기' %}
+                  {% assign rendered_ready_count = rendered_ready_count | plus: 1 %}
+                {% endunless %}
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <article class="dc dc--preview deal-empty">
+              <div class="dc__bd">
+                <div>
+                  <h3 class="dc__t">{{ filtered_deals_empty_title }}</h3>
+                </div>
+              </div>
+            </article>
+          {% endif %}
+        </div>
+
+        {% if paginate.pages > 1 %}
+          <noscript>{{ paginate | default_pagination }}</noscript>
+        {% endif %}
+      {% endpaginate %}
+    {% else %}
+      <div class="deal-grid" data-home-results-panel="" data-result-count="0" data-results-url="{{ deal_results_base_url }}">
+        <article class="dc dc--preview">
+          <div class="dc__m">
+            <div class="dc__preview-bd">
+              <div class="l">{{ deals_setup_badge_label }}</div>
+              <div class="v">{{ deals_setup_value_label }}</div>
+              <div class="t">{{ deals_setup_title }}</div>
+            </div>
+          </div>
+          <div class="dc__bd">
+            <div>
+              <h3 class="dc__t">{{ deals_setup_body }}</h3>
+              <p style="font-size:12px;color:var(--c-text-2);line-height:1.6;margin-top:6px">{{ deals_setup_caption }}</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    {% endif %}
+
+    {% assign upcoming_deal_count = 0 %}
+    {% for product in home_upcoming_display_products %}
+      {% capture product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+      {% assign product_open_at_ts = product_open_at_ts_raw | strip | plus: 0 %}
+      {% if product_open_at_ts > current_timestamp and product_open_at_ts <= upcoming_window_end_timestamp %}
+        {% assign upcoming_deal_count = upcoming_deal_count | plus: 1 %}
+      {% endif %}
+    {% endfor %}
+
+    <div
+      data-townwine-open-alert-section
+      data-proxy-base="{{ section.settings.follow_proxy_base | default: '/apps/townwine-follow' }}"
+      data-upcoming-price-prefix="{{ section.settings.upcoming_price_prefix | default: '예상' | escape }}"
+      data-upcoming-limited-stock-suffix="{{ section.settings.upcoming_limited_stock_suffix | default: '병 한정' | escape }}"
+      data-upcoming-open-suffix="{{ section.settings.upcoming_open_suffix | default: '오픈' | escape }}"
+      data-upcoming-alert-label="{{ section.settings.upcoming_alert_label | default: '오픈 알림' | escape }}"
+      data-upcoming-alerted-label="{{ section.settings.upcoming_alerted_label | default: '알림 ✓' | escape }}"
+    >
+      <div class="sh" style="margin-top:48px">
+        <div>
+          <div class="sh__sub">{{ section.settings.upcoming_eyebrow | default: '예정 공구' }}</div>
+          <h2 class="sh__t">{{ section.settings.upcoming_heading | default: '앞으로 4주 동안 열릴 와인' }}</h2>
+        </div>
+      </div>
+
+      <div class="up">
+        {% if upcoming_deal_count > 0 %}
+          {% assign rendered_upcoming_count = 0 %}
+          {% for product in home_upcoming_display_products %}
+            {% capture product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+            {% assign product_open_at_ts = product_open_at_ts_raw | strip | plus: 0 %}
+            {% if product_open_at_ts > current_timestamp and product_open_at_ts <= upcoming_window_end_timestamp and rendered_upcoming_count < upcoming_limit %}
+              {% render 'townwine-upcoming-product-row', product: product, proxy_base: section.settings.follow_proxy_base %}
+              {% assign rendered_upcoming_count = rendered_upcoming_count | plus: 1 %}
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          <div class="up__r" aria-hidden="true" style="cursor:default">
+            <div class="up__bd">
+              <div class="up__bd__t">{{ upcoming_empty_label }}</div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="quote-calculator" aria-label="와인 견적 계산기" data-nosnippet>
+  <div class="container">
+    <div class="quote-strip">
+      <div class="quote-strip__copy">
+        <div class="sh__sub">{{ quote_eyebrow }}</div>
+        <h2 class="quote-strip__title">{{ quote_heading }}</h2>
+        <p class="quote-strip__body">{{ quote_body | newline_to_br }}</p>
+        <div class="quote-strip__actions">
+          <a
+            class="btn btn--dark btn--lg"
+            href="{{ quote_cta_url }}"
+            {% if section.settings.quote_cta_url == blank %}data-quote-dock-open{% endif %}
+          >
+            {{ quote_cta_label }}
+          </a>
+        </div>
+      </div>
+      <div class="quote-strip__panel">
+        <div class="quote-strip__panel-label">{{ quote_panel_label }}</div>
+        <div class="quote-strip__list">
+          <div class="quote-strip__item">
+            <div class="quote-strip__item-title">{{ quote_item_1_title }}</div>
+            <div class="quote-strip__item-copy">{{ quote_item_1_body }}</div>
+          </div>
+          <div class="quote-strip__item">
+            <div class="quote-strip__item-title">{{ quote_item_2_title }}</div>
+            <div class="quote-strip__item-copy">{{ quote_item_2_body }}</div>
+          </div>
+          <div class="quote-strip__item">
+            <div class="quote-strip__item-title">{{ quote_item_3_title }}</div>
+            <div class="quote-strip__item-copy">{{ quote_item_3_body }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="style-guide" aria-label="스타일 탐색">
+  <div class="container">
+    <div class="sh">
+      <div>
+        <div class="sh__sub">{{ style_eyebrow }}</div>
+        <h2 class="sh__t">{{ style_heading }}</h2>
+      </div>
+    </div>
+    <div class="cat-grid">
+      {% assign rendered_style_card_count = 0 %}
+      {% for block in section.blocks %}
+        {% if block.type == 'style_card' %}
+          {% assign rendered_style_card_count = rendered_style_card_count | plus: 1 %}
+          {% liquid
+            assign style_card_link = block.settings.link
+            assign style_card_tag = block.settings.filter_tag | strip
+            assign style_card_number = rendered_style_card_count
+            assign portable_style_card_asset = ''
+            if rendered_style_card_count < 10
+              assign style_card_number = '0' | append: rendered_style_card_count
+            endif
+            case rendered_style_card_count
+              when 1
+                assign portable_style_card_asset = 'townwine-live-style-01.png'
+              when 2
+                assign portable_style_card_asset = 'townwine-live-style-02.png'
+              when 3
+                assign portable_style_card_asset = 'townwine-live-style-03.png'
+              when 4
+                assign portable_style_card_asset = 'townwine-live-style-04.png'
+            endcase
+            if style_card_tag != blank
+              capture style_card_link
+                echo deal_results_base_url
+                echo '?tag='
+                echo style_card_tag | url_encode
+              endcapture
+            endif
+            if style_card_link == blank
+              assign style_card_link = deal_results_base_url
+            endif
+          %}
+          <a class="ct" href="{{ style_card_link }}" {{ block.shopify_attributes }}>
+            <div class="ct__num">{{ style_card_number }}</div>
+            <div class="ct__media">
+              {% if block.settings.image != blank %}
+                {{ block.settings.image | image_url: width: 1200 | image_tag: class: 'ct__image', widths: '360, 560, 760, 960, 1200', sizes: '(min-width: 700px) 25vw, 50vw', loading: 'lazy', alt: block.settings.title | default: block.settings.image.alt | default: shop.name }}
+              {% elsif portable_style_card_asset != blank %}
+                <img
+                  src="{{ portable_style_card_asset | asset_url }}"
+                  class="ct__image"
+                  alt="{{ block.settings.title | default: shop.name | escape }}"
+                  loading="lazy"
+                >
+              {% endif %}
+            </div>
+            <div class="ct__content">
+              <div class="ct__nm">{{ block.settings.title }}</div>
+              {% if block.settings.description != blank %}
+                <div class="ct__d">{{ block.settings.description }}</div>
+              {% endif %}
+            </div>
+          </a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="sec sec--alt" aria-label="서비스 안내">
+  <div class="container">
+      <div class="sh">
+        <div>
+          <div class="sh__sub">{{ guide_eyebrow }}</div>
+          <h2 class="sh__t">{{ guide_heading }}</h2>
+        </div>
+      <a class="sh__more" href="{{ guide_more_url }}">{{ guide_more_label }}</a>
+    </div>
+    <div class="hw">
+      <div class="hs">
+        <span class="hs__n">{{ guide_step_1_label }}</span>
+        <h3 class="hs__t">{{ guide_step_1_title }}</h3>
+        <p class="hs__d">{{ guide_step_1_body }}</p>
+      </div>
+      <div class="hs">
+        <span class="hs__n">{{ guide_step_2_label }}</span>
+        <h3 class="hs__t">{{ guide_step_2_title }}</h3>
+        <p class="hs__d">{{ guide_step_2_body }}</p>
+      </div>
+      <div class="hs">
+        <span class="hs__n">{{ guide_step_3_label }}</span>
+        <h3 class="hs__t">{{ guide_step_3_title }}</h3>
+        <p class="hs__d">{{ guide_step_3_body }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="notify-banner" aria-label="알림 받기">
+  <div class="container">
+    <div class="nb">
+      <div>
+        <h3>{{ notify_heading }}</h3>
+        <p>{{ notify_body | newline_to_br }}</p>
+      </div>
+      <div class="nb__c">
+        <a class="btn btn--ivory btn--lg" href="{{ notify_cta_url }}">{{ notify_cta_label }}</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="community-banner" aria-label="커뮤니티 배너">
+  <div class="container">
+    <div class="nb">
+      <div>
+        <h3>{{ community_heading }}</h3>
+        <p>{{ community_body | newline_to_br }}</p>
+      </div>
+      <div class="nb__c">
+        <a
+          class="btn btn--ivory btn--lg"
+          href="{{ community_cta_url }}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ community_cta_label }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% render 'townwine-footer' %}
+{% render 'townwine-follow-boot' %}
+{% render 'townwine-open-alert-boot' %}
+
+{% schema %}
+{
+  "name": "TownWine Home",
+  "settings": [
+    {
+      "type": "header",
+      "content": "메인 배너"
+    },
+    {
+      "type": "text",
+      "id": "hero_eyebrow",
+      "label": "상단 문구",
+      "default": "Curated by people you trust"
+    },
+    {
+      "type": "color",
+      "id": "hero_eyebrow_color",
+      "label": "상단 문구 색상",
+      "default": "#F7F2E7"
+    },
+    {
+      "type": "textarea",
+      "id": "hero_heading",
+      "label": "제목",
+      "default": "좋아하는\n사람의 테이블 위\n그 와인."
+    },
+    {
+      "type": "color",
+      "id": "hero_heading_color",
+      "label": "제목 색상",
+      "default": "#F7F2E7"
+    },
+    {
+      "type": "range",
+      "id": "hero_heading_line_height",
+      "label": "제목 줄 간격",
+      "min": 80,
+      "max": 140,
+      "step": 2,
+      "unit": "%",
+      "default": 104
+    },
+    {
+      "type": "textarea",
+      "id": "hero_body",
+      "label": "설명",
+      "default": "셀러가 아니라 사람이 추천하는 와인. 팔로우한 컬렉터의 새 공동구매가 열리면 가장 먼저 알려드립니다. 매주 화·금, 새 테이블이 시작됩니다."
+    },
+    {
+      "type": "color",
+      "id": "hero_body_color",
+      "label": "설명 색상",
+      "default": "#F7F2E7"
+    },
+    {
+      "type": "text",
+      "id": "hero_primary_label",
+      "label": "첫 번째 버튼 문구",
+      "default": "진행 중인 공구 보기"
+    },
+    {
+      "type": "url",
+      "id": "hero_primary_url",
+      "label": "첫 번째 버튼 링크"
+    },
+    {
+      "type": "text",
+      "id": "hero_secondary_label",
+      "label": "두 번째 버튼 문구",
+      "default": "컬렉터 찾기"
+    },
+    {
+      "type": "url",
+      "id": "hero_secondary_url",
+      "label": "두 번째 버튼 링크"
+    },
+    {
+      "type": "header",
+      "content": "배너 슬라이드"
+    },
+    {
+      "type": "range",
+      "id": "hero_slide_interval",
+      "label": "배너 전환 간격",
+      "min": 3,
+      "max": 10,
+      "step": 1,
+      "unit": "초",
+      "default": 5
+    },
+    {
+      "type": "header",
+      "content": "공통 라벨"
+    },
+    {
+      "type": "text",
+      "id": "follow_label",
+      "label": "팔로우 버튼 문구",
+      "default": "팔로우"
+    },
+    {
+      "type": "text",
+      "id": "following_label",
+      "label": "팔로잉 버튼 문구",
+      "default": "팔로잉"
+    },
+    {
+      "type": "header",
+      "content": "지금 공구 중인 컬렉터"
+    },
+    {
+      "type": "text",
+      "id": "active_collectors_eyebrow",
+      "label": "상단 문구",
+      "default": "최근 공구"
+    },
+    {
+      "type": "text",
+      "id": "active_collectors_heading",
+      "label": "제목",
+      "default": "지금 공구 중인 컬렉터"
+    },
+    {
+      "type": "text",
+      "id": "active_collectors_more_label",
+      "label": "더보기 문구",
+      "default": "전체 보기 →"
+    },
+    {
+      "type": "url",
+      "id": "active_collectors_more_url",
+      "label": "더보기 링크"
+    },
+    {
+      "type": "text",
+      "id": "active_collectors_empty_label",
+      "label": "빈 상태 문구",
+      "default": "지금 공구 중인 컬렉터가 없습니다."
+    },
+    {
+      "type": "text",
+      "id": "collector_live_label",
+      "label": "진행 상태 문구",
+      "default": "진행 중"
+    },
+    {
+      "type": "text",
+      "id": "collector_loading_followers_label",
+      "label": "팔로워 집계 중 문구",
+      "default": "집계 중"
+    },
+    {
+      "type": "text",
+      "id": "collector_loading_deals_label",
+      "label": "공구 집계 중 문구",
+      "default": "집계 중"
+    },
+    {
+      "type": "header",
+      "content": "공구 영역"
+    },
+    {
+      "type": "collection",
+      "id": "deals_collection",
+      "label": "진행 중인 공구 컬렉션"
+    },
+    {
+      "type": "collection",
+      "id": "upcoming_collection",
+      "label": "예약 공구 컬렉션"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_eyebrow",
+      "label": "예정 공구 상단 문구",
+      "default": "예정 공구"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_heading",
+      "label": "예정 공구 제목",
+      "default": "앞으로 4주 동안 열릴 와인"
+    },
+    {
+      "type": "range",
+      "id": "upcoming_limit",
+      "label": "예정 공구 최대 노출 수",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "text",
+      "id": "deals_search_placeholder",
+      "label": "검색창 안내 문구",
+      "default": "와인, 산지, 컬렉터, 스타일로 검색"
+    },
+    {
+      "type": "text",
+      "id": "deals_search_submit_label",
+      "label": "검색 버튼 문구",
+      "default": "검색"
+    },
+    {
+      "type": "text",
+      "id": "deals_filter_link_label",
+      "label": "상세 필터 문구",
+      "default": "상세 필터"
+    },
+    {
+      "type": "text",
+      "id": "deals_eyebrow",
+      "label": "진행 중 공구 상단 문구",
+      "default": "진행 중"
+    },
+    {
+      "type": "text",
+      "id": "deals_heading",
+      "label": "진행 중 공구 제목",
+      "default": "진행 중 공구"
+    },
+    {
+      "type": "text",
+      "id": "deals_more_suffix_label",
+      "label": "진행 중 공구 더보기 뒤 문구",
+      "default": "보기 →"
+    },
+    {
+      "type": "text",
+      "id": "deals_all_label",
+      "label": "전체 탭 문구",
+      "default": "전체"
+    },
+    {
+      "type": "text",
+      "id": "deals_red_label",
+      "label": "레드 탭 문구",
+      "default": "레드"
+    },
+    {
+      "type": "text",
+      "id": "deals_white_label",
+      "label": "화이트 탭 문구",
+      "default": "화이트"
+    },
+    {
+      "type": "text",
+      "id": "deals_sparkling_label",
+      "label": "스파클링 탭 문구",
+      "default": "스파클링"
+    },
+    {
+      "type": "text",
+      "id": "deals_natural_label",
+      "label": "내추럴 탭 문구",
+      "default": "내추럴"
+    },
+    {
+      "type": "text",
+      "id": "deals_ready_label",
+      "label": "바로배송 탭 문구",
+      "default": "바로배송"
+    },
+    {
+      "type": "text",
+      "id": "deals_live_empty_title",
+      "label": "진행 중 공구 빈 상태 제목",
+      "default": "현재 진행 중인 공구를 준비 중입니다."
+    },
+    {
+      "type": "textarea",
+      "id": "deals_live_empty_body",
+      "label": "진행 중 공구 빈 상태 설명",
+      "default": "아래 예정 공구 일정에 등록된 상품은 설정한 오픈 시각이 되면 이 영역으로 자동 이동합니다."
+    },
+    {
+      "type": "text",
+      "id": "deals_red_empty_title",
+      "label": "레드 빈 상태 제목",
+      "default": "레드 태그 상품을 준비 중입니다."
+    },
+    {
+      "type": "textarea",
+      "id": "deals_red_empty_body",
+      "label": "레드 빈 상태 설명",
+      "default": "상품에 레드 태그를 연결하면 이 영역에 자동으로 노출됩니다."
+    },
+    {
+      "type": "text",
+      "id": "deals_white_empty_title",
+      "label": "화이트 빈 상태 제목",
+      "default": "화이트 태그 상품을 준비 중입니다."
+    },
+    {
+      "type": "textarea",
+      "id": "deals_white_empty_body",
+      "label": "화이트 빈 상태 설명",
+      "default": "상품에 화이트 태그를 연결하면 이 영역에 자동으로 노출됩니다."
+    },
+    {
+      "type": "text",
+      "id": "deals_sparkling_empty_title",
+      "label": "스파클링 빈 상태 제목",
+      "default": "스파클링 태그 상품을 준비 중입니다."
+    },
+    {
+      "type": "textarea",
+      "id": "deals_sparkling_empty_body",
+      "label": "스파클링 빈 상태 설명",
+      "default": "상품에 스파클링 태그를 연결하면 이 영역에 자동으로 노출됩니다."
+    },
+    {
+      "type": "text",
+      "id": "deals_natural_empty_title",
+      "label": "내추럴 빈 상태 제목",
+      "default": "내추럴 태그 상품을 준비 중입니다."
+    },
+    {
+      "type": "textarea",
+      "id": "deals_natural_empty_body",
+      "label": "내추럴 빈 상태 설명",
+      "default": "상품에 내추럴 태그를 연결하면 이 영역에 자동으로 노출됩니다."
+    },
+    {
+      "type": "text",
+      "id": "deals_ready_empty_title",
+      "label": "바로배송 빈 상태 제목",
+      "default": "바로배송 태그 상품을 준비 중입니다."
+    },
+    {
+      "type": "textarea",
+      "id": "deals_ready_empty_body",
+      "label": "바로배송 빈 상태 설명",
+      "default": "상품에 바로배송 태그를 연결하면 이 영역에 자동으로 노출됩니다."
+    },
+    {
+      "type": "text",
+      "id": "deals_setup_badge_label",
+      "label": "컬렉션 미연결 상단 문구",
+      "default": "다음 단계"
+    },
+    {
+      "type": "text",
+      "id": "deals_setup_value_label",
+      "label": "컬렉션 미연결 강조 문구",
+      "default": "컬렉션 연결"
+    },
+    {
+      "type": "text",
+      "id": "deals_setup_title",
+      "label": "컬렉션 미연결 안내 제목",
+      "default": "섹션 설정에서 홈 컬렉션을 선택해 주세요"
+    },
+    {
+      "type": "textarea",
+      "id": "deals_setup_body",
+      "label": "컬렉션 미연결 설명 제목",
+      "default": "진행 중인 공구 컬렉션을 연결하면 여기에 상품 카드가 자동으로 노출됩니다."
+    },
+    {
+      "type": "textarea",
+      "id": "deals_setup_caption",
+      "label": "컬렉션 미연결 설명 문구",
+      "default": "상품 제목, 가격, 이미지, 판매 상태를 바로 반영하도록 연결해 두었습니다."
+    },
+    {
+      "type": "text",
+      "id": "deals_unassigned_collector_label",
+      "label": "컬렉터 미지정 문구",
+      "default": "컬렉터 미지정"
+    },
+    {
+      "type": "text",
+      "id": "deals_inventory_summary_loading_label",
+      "label": "판매 수량 로딩 문구",
+      "default": "판매 수량 확인 중"
+    },
+    {
+      "type": "text",
+      "id": "deals_inventory_caption_loading_label",
+      "label": "재고 로딩 문구",
+      "default": "재고 정보 확인 중"
+    },
+    {
+      "type": "text",
+      "id": "deals_cta_label",
+      "label": "진행 중 공구 버튼 문구",
+      "default": "딜 자세히 보기"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_bulk_label",
+      "label": "예정 공구 일괄 알림 문구",
+      "default": "전체 일괄 알림 받기"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_bulk_active_label",
+      "label": "예정 공구 일괄 알림 완료 문구",
+      "default": "전체 알림 신청됨"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_empty_label",
+      "label": "예정 공구 빈 상태 문구",
+      "default": "등록된 예약 공구가 없습니다."
+    },
+    {
+      "type": "text",
+      "id": "upcoming_alert_label",
+      "label": "예정 공구 알림 버튼 문구",
+      "default": "오픈 알림"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_alerted_label",
+      "label": "예정 공구 알림 완료 문구",
+      "default": "알림 ✓"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_price_prefix",
+      "label": "예정 공구 가격 앞 문구",
+      "default": "예상"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_limited_stock_suffix",
+      "label": "예정 공구 수량 문구",
+      "default": "병 한정"
+    },
+    {
+      "type": "text",
+      "id": "upcoming_open_suffix",
+      "label": "예정 공구 오픈 문구",
+      "default": "오픈"
+    },
+    {
+      "type": "header",
+      "content": "스타일 탐색"
+    },
+    {
+      "type": "collection",
+      "id": "style_link_collection",
+      "label": "스타일 카드 태그 링크용 컬렉션"
+    },
+    {
+      "type": "text",
+      "id": "style_eyebrow",
+      "label": "스타일 섹션 상단 문구",
+      "default": "스타일 탐색"
+    },
+    {
+      "type": "text",
+      "id": "style_heading",
+      "label": "스타일 섹션 제목",
+      "default": "스타일로 찾는 와인"
+    },
+    {
+      "type": "header",
+      "content": "국가별 와인 견적"
+    },
+    {
+      "type": "text",
+      "id": "quote_eyebrow",
+      "label": "상단 문구",
+      "default": "국가별 와인 견적"
+    },
+    {
+      "type": "text",
+      "id": "quote_heading",
+      "label": "제목",
+      "default": "국가별 와인 견적 확인하기"
+    },
+    {
+      "type": "textarea",
+      "id": "quote_body",
+      "label": "설명",
+      "default": "해외 와인, 얼마에 살 수 있을까요?\n배송비와 세금까지 포함한 예상 금액을 확인해보세요."
+    },
+    {
+      "type": "text",
+      "id": "quote_cta_label",
+      "label": "버튼 문구",
+      "default": "예상 금액 계산하기"
+    },
+    {
+      "type": "url",
+      "id": "quote_cta_url",
+      "label": "버튼 링크",
+      "info": "비워두면 현재 페이지 계산기 열기로 동작합니다."
+    },
+    {
+      "type": "text",
+      "id": "quote_panel_label",
+      "label": "오른쪽 패널 상단 문구",
+      "default": "포함 항목"
+    },
+    {
+      "type": "text",
+      "id": "quote_item_1_title",
+      "label": "항목 1 제목",
+      "default": "국가별 예상 견적"
+    },
+    {
+      "type": "textarea",
+      "id": "quote_item_1_body",
+      "label": "항목 1 설명",
+      "default": "주요 국가 기준으로 예상 구매 금액을 가볍게 비교해볼 수 있어요."
+    },
+    {
+      "type": "text",
+      "id": "quote_item_2_title",
+      "label": "항목 2 제목",
+      "default": "배송비 포함"
+    },
+    {
+      "type": "textarea",
+      "id": "quote_item_2_body",
+      "label": "항목 2 설명",
+      "default": "해외 배송에 들어가는 기본 비용까지 함께 반영합니다."
+    },
+    {
+      "type": "text",
+      "id": "quote_item_3_title",
+      "label": "항목 3 제목",
+      "default": "세금 포함"
+    },
+    {
+      "type": "textarea",
+      "id": "quote_item_3_body",
+      "label": "항목 3 설명",
+      "default": "구매 전에 최종 체감 금액을 더 가깝게 확인할 수 있습니다."
+    },
+    {
+      "type": "header",
+      "content": "서비스 안내"
+    },
+    {
+      "type": "text",
+      "id": "guide_eyebrow",
+      "label": "상단 문구",
+      "default": "서비스 안내"
+    },
+    {
+      "type": "text",
+      "id": "guide_heading",
+      "label": "제목",
+      "default": "팔로우하고, 알림 받고, 함께 사고"
+    },
+    {
+      "type": "text",
+      "id": "guide_more_label",
+      "label": "더보기 문구",
+      "default": "자세한 가이드 →"
+    },
+    {
+      "type": "url",
+      "id": "guide_more_url",
+      "label": "더보기 링크"
+    },
+    {
+      "type": "text",
+      "id": "guide_step_1_label",
+      "label": "1단계 번호 문구",
+      "default": "단계 01"
+    },
+    {
+      "type": "text",
+      "id": "guide_step_1_title",
+      "label": "1단계 제목",
+      "default": "취향이 맞는 컬렉터를 팔로우"
+    },
+    {
+      "type": "textarea",
+      "id": "guide_step_1_body",
+      "label": "1단계 설명",
+      "default": "와인 큐레이터부터 셰프, 에디터까지. 입맛이 비슷한 사람을 찾으면 와인 고르는 일이 훨씬 쉬워집니다."
+    },
+    {
+      "type": "text",
+      "id": "guide_step_2_label",
+      "label": "2단계 번호 문구",
+      "default": "단계 02"
+    },
+    {
+      "type": "text",
+      "id": "guide_step_2_title",
+      "label": "2단계 제목",
+      "default": "새 공구가 열리면 가장 먼저 알림"
+    },
+    {
+      "type": "textarea",
+      "id": "guide_step_2_body",
+      "label": "2단계 설명",
+      "default": "한정 수량은 빠르게 마감되니까. 알림을 켜두면 좋은 자리를 놓치지 않을 수 있어요."
+    },
+    {
+      "type": "text",
+      "id": "guide_step_3_label",
+      "label": "3단계 번호 문구",
+      "default": "단계 03"
+    },
+    {
+      "type": "text",
+      "id": "guide_step_3_title",
+      "label": "3단계 제목",
+      "default": "목표 인원이 모이면 자동 확정"
+    },
+    {
+      "type": "textarea",
+      "id": "guide_step_3_body",
+      "label": "3단계 설명",
+      "default": "미달 시 결제는 자동 취소. 확정 후 평균 14일 이내 안전 포장으로 받아보실 수 있습니다."
+    },
+    {
+      "type": "header",
+      "content": "하단 배너"
+    },
+    {
+      "type": "text",
+      "id": "notify_heading",
+      "label": "알림 배너 제목",
+      "default": "다음 와인은, 알림으로 먼저 받아보세요"
+    },
+    {
+      "type": "textarea",
+      "id": "notify_body",
+      "label": "알림 배너 설명",
+      "default": "내 취향에 맞는 컬렉터를 팔로우해두면, 새 와인 공구 소식을 더 빠르게 받아볼 수 있어요."
+    },
+    {
+      "type": "text",
+      "id": "notify_cta_label",
+      "label": "알림 배너 버튼 문구",
+      "default": "알림받을 컬렉터 찾기"
+    },
+    {
+      "type": "url",
+      "id": "notify_cta_url",
+      "label": "알림 배너 버튼 링크"
+    },
+    {
+      "type": "text",
+      "id": "community_heading",
+      "label": "커뮤니티 배너 제목",
+      "default": "와인 좋아하는 사람들, 여기 다 모였어요"
+    },
+    {
+      "type": "textarea",
+      "id": "community_body",
+      "label": "커뮤니티 배너 설명",
+      "default": "실제 후기부터 추천 와인, 직구 정보까지\n네이버 카페에서 함께 이야기해보세요."
+    },
+    {
+      "type": "text",
+      "id": "community_cta_label",
+      "label": "커뮤니티 배너 버튼 문구",
+      "default": "카페 구경하기"
+    },
+    {
+      "type": "url",
+      "id": "community_cta_url",
+      "label": "커뮤니티 배너 버튼 링크"
+    },
+    {
+      "type": "header",
+      "content": "연동"
+    },
+    {
+      "type": "text",
+      "id": "follow_proxy_base",
+      "label": "팔로우 앱 프록시 경로",
+      "default": "/apps/townwine-follow"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "hero_slide",
+      "name": "메인 배너 슬라이드",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "배너 이미지"
+        }
+      ]
+    },
+    {
+      "type": "style_card",
+      "name": "스타일 카드",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "대표 이미지"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "제목",
+          "default": "묵직한 레드"
+        },
+        {
+          "type": "text",
+          "id": "description",
+          "label": "설명",
+          "default": "스테이크와, 추운 저녁에"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "직접 링크",
+          "info": "값이 있으면 이 링크를 우선 사용합니다."
+        },
+        {
+          "type": "text",
+          "id": "filter_tag",
+          "label": "태그 링크",
+          "info": "직접 링크가 비어 있으면 이 태그로 컬렉션 필터 링크를 만듭니다. 예: 레드"
+        }
+      ]
+    },
+    {
+      "type": "influencer",
+      "name": "컬렉터",
+      "settings": [
+        {
+          "type": "text",
+          "id": "name",
+          "label": "이름",
+          "default": "소믈리에 윤지"
+        },
+        {
+          "type": "text",
+          "id": "initial",
+          "label": "이니셜",
+          "default": "소"
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "label": "보조 문구",
+          "default": "@yunji.wine"
+        },
+        {
+          "type": "text",
+          "id": "followers",
+          "label": "기본 팔로워 문구",
+          "info": "실제 집계값을 불러오기 전 잠깐 보이는 기본 문구입니다.",
+          "default": "12.4k 팔로워"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "링크"
+        },
+        {
+          "type": "text",
+          "id": "influencer_handle",
+          "label": "컬렉터 handle",
+          "info": "예: yunji. 앱에서 팔로우/알림 연결에 사용하는 고유값입니다.",
+          "default": "yunji"
+        },
+        {
+          "type": "checkbox",
+          "id": "live",
+          "label": "진행 중 표시",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "following",
+          "label": "팔로잉 상태",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "TownWine Home",
+      "blocks": [
+        {
+          "type": "style_card",
+          "settings": {
+            "title": "묵직한 레드",
+            "description": "스테이크와, 추운 저녁에",
+            "filter_tag": "레드"
+          }
+        },
+        {
+          "type": "style_card",
+          "settings": {
+            "title": "상큼한 화이트",
+            "description": "해산물·샐러드와 잘 맞아요",
+            "filter_tag": "화이트"
+          }
+        },
+        {
+          "type": "style_card",
+          "settings": {
+            "title": "내추럴 와인",
+            "description": "생동감, 그리고 사람의 손맛",
+            "filter_tag": "내추럴"
+          }
+        },
+        {
+          "type": "style_card",
+          "settings": {
+            "title": "축하의 스파클링",
+            "description": "기념일을 잊을 수 없게",
+            "filter_tag": "스파클링"
+          }
+        },
+        {
+          "type": "influencer"
+        },
+        {
+          "type": "influencer",
+          "settings": {
+            "name": "민호의 셀러",
+            "initial": "민",
+            "subtitle": "@minho.cellar",
+            "influencer_handle": "minho-cellar",
+            "followers": "8.7k 팔로워",
+            "following": true
+          }
+        },
+        {
+          "type": "influencer",
+          "settings": {
+            "name": "에디터 한슬",
+            "initial": "에",
+            "subtitle": "@hansul.edit",
+            "influencer_handle": "hansul-edit",
+            "followers": "23.1k 팔로워"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,1537 @@
+{{ 'townwine.css' | asset_url | stylesheet_tag }}
+
+<style>
+  #header-group,
+  body > footer {
+    display: none !important;
+  }
+
+  .ph {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ph__avwrap,
+  .ph__av {
+    display: none !important;
+  }
+
+  @media (min-width: 880px) {
+    .ph {
+      grid-template-columns: 1fr !important;
+      gap: 36px !important;
+    }
+  }
+
+  #collector-live,
+  #collector-upcoming,
+  #collector-library {
+    scroll-margin-top: 24px;
+  }
+
+  .tw-library-image,
+  .tw-live-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .phi__pp .pp__d {
+    font-size: clamp(22px, 2.2vw, 30px);
+    line-height: 1.28;
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: -0.03em;
+  }
+
+  .cc {
+    display: grid;
+    gap: 24px;
+  }
+
+  .cc__panel {
+    display: grid;
+    gap: 0;
+  }
+
+  .cc__composer,
+  .cc__panel {
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-sm);
+    background: var(--c-bg);
+    padding: 24px;
+  }
+
+  .cc__count {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--c-text-2);
+  }
+
+  .cc__count strong {
+    color: var(--c-text);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .cc__eyebrow {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--c-text-2);
+  }
+
+  .cc__label {
+    display: block;
+    margin-top: 14px;
+    font-size: 15px;
+    line-height: 1.5;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+
+  .cc__textarea {
+    width: 100%;
+    min-height: 148px;
+    margin-top: 12px;
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-sm);
+    background: transparent;
+    padding: 16px 18px;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--c-text);
+    resize: vertical;
+  }
+
+  .cc__textarea::placeholder {
+    color: var(--c-text-2);
+  }
+
+  .cc__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .cc__hint {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--c-text-2);
+  }
+
+  .cc__status {
+    margin: 14px 0 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--c-text-2);
+  }
+
+  .cc__status[data-tone='error'] {
+    color: #8c3b2e;
+  }
+
+  .cc__status[data-tone='success'] {
+    color: #2f5d44;
+  }
+
+  .cc__login {
+    display: grid;
+    gap: 16px;
+  }
+
+  .cc__login-title {
+    font-size: 20px;
+    line-height: 1.32;
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: -0.03em;
+  }
+
+  .cc__login-copy {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--c-text-2);
+  }
+
+  .cc__list {
+    display: grid;
+    gap: 0;
+  }
+
+  .cc__empty {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--c-text-2);
+  }
+
+  .cc__item {
+    padding: 20px 0;
+    border-top: 1px solid var(--c-line);
+  }
+
+  .cc__item:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .cc__item:last-child {
+    padding-bottom: 0;
+  }
+
+  .cc__item-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .cc__item-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .cc__item-name {
+    font-size: 15px;
+    line-height: 1.5;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+
+  .cc__item-date {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--c-text-2);
+  }
+
+  .cc__item-actions,
+  .cc__edit-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .cc__item-actions {
+    justify-content: flex-end;
+  }
+
+  .cc__action,
+  .cc__edit-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-sm);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 500;
+    color: var(--c-text);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .cc__action:hover,
+  .cc__edit-button:hover {
+    background: rgba(47, 44, 40, 0.04);
+  }
+
+  .cc__edit-button--primary {
+    border-color: var(--c-dark);
+    background: var(--c-dark);
+    color: var(--c-ivory);
+  }
+
+  .cc__edit-button--primary:hover {
+    border-color: var(--c-dark-h);
+    background: var(--c-dark-h);
+  }
+
+  .cc__item-body {
+    margin-top: 12px;
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--c-text);
+    white-space: pre-line;
+    word-break: keep-all;
+  }
+
+  .cc__edit {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .cc__edit-textarea {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-sm);
+    background: transparent;
+    padding: 14px 16px;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--c-text);
+    resize: vertical;
+  }
+
+  @media (max-width: 767px) {
+    .cc__actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .cc__count {
+      margin-top: 12px;
+    }
+
+    .cc__item-head,
+    .cc__item-actions,
+    .cc__edit-actions {
+      align-items: stretch;
+    }
+  }
+</style>
+
+{% liquid
+  assign collector_handle = metaobject.system.handle | default: ''
+  assign collector_url = metaobject.system.url | default: request.path
+  assign display_name = metaobject.display_name.value | default: metaobject.customer_name.value | default: collector_handle
+  assign collector_profile_definition = metaobjects.collector_profile
+  assign current_customer_display_name = ''
+  assign current_customer_gid = ''
+  assign public_handle = metaobject.public_handle.value | strip
+  assign collector_customer_name = metaobject.customer_name.value | strip
+  assign role_label = metaobject.role_label.value | strip
+  assign bio = metaobject.bio.value | strip
+  assign introduction = metaobject.introduction.value | strip
+  assign featured_collection_handle = metaobject.featured_collection_handle.value | default: '' | handleize
+  assign featured_collection = collections[featured_collection_handle]
+  assign specialties_text = metaobject.specialties.value | default: ''
+  assign regions_text = metaobject.preferred_regions.value | default: ''
+  assign styles_text = metaobject.preferred_styles.value | default: ''
+  assign grapes_text = metaobject.preferred_grapes.value | default: ''
+  assign price_band = metaobject.price_band.value | default: ''
+  assign taste_body = metaobject.taste_body.value | default: 0 | plus: 0
+  assign taste_tannin = metaobject.taste_tannin.value | default: 0 | plus: 0
+  assign taste_acidity = metaobject.taste_acidity.value | default: 0 | plus: 0
+  assign taste_sweetness = metaobject.taste_sweetness.value | default: 0 | plus: 0
+  assign taste_alcohol = metaobject.taste_alcohol.value | default: 0 | plus: 0
+  assign collector_initial = display_name | strip | slice: 0
+  assign collector_match_handles = collector_handle
+  assign collector_public_handle_key = public_handle | remove_first: '@' | strip
+  if collector_public_handle_key != blank
+    assign collector_match_handles = collector_match_handles | append: ',' | append: collector_public_handle_key
+  endif
+  if display_name != blank
+    assign collector_match_handles = collector_match_handles | append: ',' | append: display_name
+  endif
+  if collector_customer_name != blank
+    assign collector_match_handles = collector_match_handles | append: ',' | append: collector_customer_name
+  endif
+  assign current_timestamp = 'now' | date: '%s' | plus: 0
+  assign live_product_count = 0
+  assign upcoming_product_count = 0
+  assign tracked_product_count = 0
+  assign first_live_title = ''
+  assign first_upcoming_title = ''
+  assign first_upcoming_month = 0
+  assign first_upcoming_day = 0
+  assign first_upcoming_hour = 0
+  assign first_upcoming_minute = 0
+
+  if customer
+    assign current_customer_display_name = customer.first_name | default: customer.name
+    assign current_customer_gid = 'gid://shopify/Customer/' | append: customer.id
+
+    if collector_profile_definition != blank
+      for current_customer_profile in collector_profile_definition.values
+        if current_customer_profile.customer_id.value == current_customer_gid
+          assign current_customer_profile_display_name = current_customer_profile.display_name.value | strip
+          if current_customer_profile_display_name != blank
+            assign current_customer_display_name = current_customer_profile_display_name
+          endif
+          break
+        endif
+      endfor
+    endif
+  endif
+
+  if featured_collection != blank
+    for product in featured_collection.products
+      assign tracked_product_count = tracked_product_count | plus: 1
+      capture product_open_at_ts_raw
+        render 'townwine-deal-open-timestamp', product: product
+      endcapture
+      assign product_open_at_ts = product_open_at_ts_raw | strip | plus: 0
+
+      if product_open_at_ts > current_timestamp
+        assign upcoming_product_count = upcoming_product_count | plus: 1
+        if first_upcoming_title == blank
+          assign first_upcoming_title = product.title
+          assign first_upcoming_month = product.metafields.custom.deal_open_month | default: product.metafields.custom.deal_open_month.value | default: 0 | plus: 0
+          assign first_upcoming_day = product.metafields.custom.deal_open_day | default: product.metafields.custom.deal_open_day.value | default: 0 | plus: 0
+          assign first_upcoming_hour = product.metafields.custom.deal_open_hour | default: product.metafields.custom.deal_open_hour.value | default: 0 | plus: 0
+          assign first_upcoming_minute = product.metafields.custom.deal_open_minute | default: product.metafields.custom.deal_open_minute.value | default: 0 | plus: 0
+        endif
+      elsif product.available
+        assign live_product_count = live_product_count | plus: 1
+        if first_live_title == blank
+          assign first_live_title = product.title
+        endif
+      endif
+    endfor
+  endif
+
+  assign specialties = specialties_text | split: ','
+  assign first_upcoming_day_text = first_upcoming_day | prepend: '0' | slice: -2, 2
+  assign first_upcoming_hour_text = first_upcoming_hour | prepend: '0' | slice: -2, 2
+  assign first_upcoming_minute_text = first_upcoming_minute | prepend: '0' | slice: -2, 2
+  assign has_taste_profile = false
+  assign has_specialties = false
+  assign has_regions = false
+  assign has_styles = false
+  assign has_grapes = false
+  assign has_price_band = false
+  assign has_preference_profile = false
+  assign has_profile_section = false
+  assign has_philosophy_section = false
+
+  if taste_body > 0 or taste_tannin > 0 or taste_acidity > 0 or taste_sweetness > 0 or taste_alcohol > 0
+    assign has_taste_profile = true
+  endif
+
+  if regions_text != blank
+    assign has_regions = true
+  endif
+
+  if styles_text != blank
+    assign has_styles = true
+  endif
+
+  if grapes_text != blank
+    assign has_grapes = true
+  endif
+
+  if price_band != blank
+    assign has_price_band = true
+  endif
+
+  for tag in specialties
+    assign tag_label = tag | strip
+    if tag_label != blank
+      assign has_specialties = true
+      break
+    endif
+  endfor
+
+  if has_regions or has_styles or has_grapes or has_price_band or has_specialties
+    assign has_preference_profile = true
+  endif
+
+  if has_taste_profile or has_preference_profile
+    assign has_profile_section = true
+  endif
+
+  if introduction != blank
+    assign has_philosophy_section = true
+  endif
+%}
+
+{% render 'townwine-header', current: 'influencer' %}
+
+<main>
+  <div class="container">
+    <nav class="bc" aria-label="현재 위치">
+      <a href="{{ pages['collectors'].url | default: routes.root_url }}">컬렉터</a>
+      <span class="bc__sep">/</span>
+      <span class="bc__cur">{{ display_name }}</span>
+    </nav>
+
+    <section class="ph" aria-label="컬렉터 대표 영역">
+      <div class="ph__avwrap">
+        <div class="ph__av" aria-hidden="true">{{ collector_initial }}</div>
+      </div>
+      <div class="ph__content">
+        {% if role_label != blank %}
+          <div class="ph__role">{{ role_label }}</div>
+        {% endif %}
+        <h1 class="ph__name">{{ display_name }}</h1>
+        {% if public_handle != blank %}
+          <div class="ph__h">{{ public_handle }}</div>
+        {% endif %}
+        {% if bio != blank %}
+          <p class="ph__bio">{{ bio }}</p>
+        {% endif %}
+        <div
+          class="ph__stats"
+          data-townwine-collector-summary
+          data-influencer-handle="{{ collector_handle | escape }}"
+          data-collector-match-handles="{{ collector_match_handles | escape }}"
+          data-proxy-base="/apps/townwine-follow"
+          data-deals-format="총 공구 {count}회"
+          data-loading-followers-label="집계 중"
+          data-loading-deals-label="총 공구 집계 중"
+        >
+          <div>
+            <strong data-collector-followers>0 팔로워</strong>
+            실시간 팔로워
+          </div>
+          <div>
+            <strong data-collector-deals>총 공구 0회</strong>
+            누적 공구
+          </div>
+          <div>
+            <strong data-collector-live-deals>{{ live_product_count }}</strong>
+            진행 중 공구
+          </div>
+          <div>
+            <strong data-collector-upcoming-deals>{{ upcoming_product_count }}</strong>
+            예정 공구
+          </div>
+        </div>
+        <div class="ph__cta">
+          {% render 'townwine-follow-button',
+            influencer_handle: collector_handle,
+            influencer_name: display_name,
+            proxy_base: '/apps/townwine-follow',
+            follow_label: '팔로우',
+            following_label: '팔로잉',
+            button_class: 'btn btn--dark btn--xl ph__follow-btn'
+          %}
+          {% if upcoming_product_count > 0 %}
+            <a class="btn btn--gh btn--xl" href="#collector-upcoming">예정 공구 보기</a>
+          {% elsif featured_collection != blank %}
+            <a class="btn btn--gh btn--xl" href="#collector-library">지난 추천 보기</a>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <style>#collector-history{scroll-margin-top:100px}#collector-history [hidden]{display:none!important}</style>
+  <section class="sec sec--alt" id="collector-history" aria-label="{{ display_name | escape }}의 공구 내역" data-collector-history data-collector-handle="{{ collector_handle | escape }}" data-currency="{{ shop.currency }}">
+    <div class="container">
+      <div class="sh"><div><div class="sh__sub">공구 내역</div><h2 class="sh__t">{{ display_name }}의 공구 모아보기</h2></div><span>최신순 · 진행 중 / 종료</span></div>
+      <p data-history-status role="status">공구 내역을 불러오는 중입니다.</p>
+      <div class="lib" data-history-list></div>
+      <button class="btn btn--gh" type="button" data-history-more hidden>공구 내역 더 보기</button>
+    </div>
+  </section>
+  <script src="{{ 'townwine-catalog-feed.js' | asset_url }}" defer></script>
+  <script src="{{ 'townwine-collector-history.js' | asset_url }}" defer></script>
+
+  {% if has_profile_section %}
+    <section class="sec sec--alt" aria-label="취향 프로필">
+      <div class="container">
+        <div class="sh">
+          <div>
+            <div class="sh__sub">취향 프로필</div>
+            <h2 class="sh__t">{{ display_name }}의 큐레이션 축</h2>
+          </div>
+        </div>
+
+        <div class="taste">
+          {% if has_taste_profile %}
+            <div class="card">
+              <div class="card__h">선호 테이스팅 프로파일</div>
+              <div class="tlist">
+                {% if taste_body > 0 %}
+                  <div class="trow"><span class="trow__l">바디</span><div class="trow__t"><div class="trow__f" style="width:{{ taste_body | times: 10 }}%"></div></div><span class="trow__v">{{ taste_body }}</span></div>
+                {% endif %}
+                {% if taste_tannin > 0 %}
+                  <div class="trow"><span class="trow__l">탄닌</span><div class="trow__t"><div class="trow__f" style="width:{{ taste_tannin | times: 10 }}%"></div></div><span class="trow__v">{{ taste_tannin }}</span></div>
+                {% endif %}
+                {% if taste_acidity > 0 %}
+                  <div class="trow"><span class="trow__l">산도</span><div class="trow__t"><div class="trow__f" style="width:{{ taste_acidity | times: 10 }}%"></div></div><span class="trow__v">{{ taste_acidity }}</span></div>
+                {% endif %}
+                {% if taste_sweetness > 0 %}
+                  <div class="trow"><span class="trow__l">당도</span><div class="trow__t"><div class="trow__f" style="width:{{ taste_sweetness | times: 10 }}%"></div></div><span class="trow__v">{{ taste_sweetness }}</span></div>
+                {% endif %}
+                {% if taste_alcohol > 0 %}
+                  <div class="trow"><span class="trow__l">알코올</span><div class="trow__t"><div class="trow__f" style="width:{{ taste_alcohol | times: 10 }}%"></div></div><span class="trow__v">{{ taste_alcohol }}</span></div>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+
+          {% if has_preference_profile %}
+            <div class="card">
+              {% if has_regions or has_styles or has_grapes or has_price_band %}
+                <dl class="info-grid">
+                  {% if has_regions %}
+                    <div>
+                      <dt>주요 산지</dt>
+                      <dd>{{ regions_text }}</dd>
+                    </div>
+                  {% endif %}
+                  {% if has_styles %}
+                    <div>
+                      <dt>선호 스타일</dt>
+                      <dd>{{ styles_text }}</dd>
+                    </div>
+                  {% endif %}
+                  {% if has_grapes %}
+                    <div>
+                      <dt>주요 품종</dt>
+                      <dd>{{ grapes_text }}</dd>
+                    </div>
+                  {% endif %}
+                  {% if has_price_band %}
+                    <div>
+                      <dt>선호 가격대</dt>
+                      <dd>{{ price_band }}</dd>
+                    </div>
+                  {% endif %}
+                </dl>
+              {% endif %}
+
+              {% if has_specialties %}
+                <div class="tag-cloud">
+                  {% for tag in specialties limit: 6 %}
+                    {% assign tag_label = tag | strip %}
+                    {% if tag_label != blank %}
+                      <span class="chip">{{ tag_label }}</span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if tracked_product_count > 0 %}
+    <section class="sec" aria-label="컬렉터 현황">
+    <div class="container">
+      <div class="sh">
+        <div>
+          <div class="sh__sub">컬렉터 현황</div>
+          <h2 class="sh__t">{{ display_name }}의 공구 스냅샷</h2>
+        </div>
+      </div>
+
+      <div class="trust">
+        <div class="mc">
+          <div class="mc__l">대표 컬렉션</div>
+          <div class="mc__v">{{ tracked_product_count }}</div>
+          <div class="mc__d">컬렉션에 연결된 전체 와인 수</div>
+        </div>
+        <div class="mc">
+          <div class="mc__l">진행 중</div>
+          <div class="mc__v" data-collector-live-deals>{{ live_product_count }}</div>
+          <div class="mc__d">지금 바로 참여 가능한 공구</div>
+        </div>
+        <div class="mc">
+          <div class="mc__l">예정</div>
+          <div class="mc__v" data-collector-upcoming-deals>{{ upcoming_product_count }}</div>
+          <div class="mc__d">오픈 전 대기 중인 공구</div>
+        </div>
+        <div class="mc">
+          <div class="mc__l">대표 컬렉션명</div>
+          <div class="mc__v" style="font-size:22px">{{ featured_collection.title | default: '미등록' }}</div>
+        </div>
+      </div>
+    </div>
+    </section>
+  {% endif %}
+
+  {% if live_product_count > 0 %}
+    <section class="sec sec--alt" id="collector-live" aria-label="{{ display_name }}의 공구">
+    <div class="container">
+      <div class="sh" style="margin-bottom:24px">
+        <div>
+          <div class="sh__sub">{{ display_name }}의 공구</div>
+          <h2 class="sh__t">진행 중 · 예정 · 지난 추천</h2>
+        </div>
+      </div>
+
+      <nav class="tabs" aria-label="{{ display_name }} 섹션 바로가기" data-collector-section-nav>
+        <a
+          class="tab is-on"
+          href="#collector-live"
+          aria-current="true"
+          data-collector-section-link
+        >
+          진행 중<span class="tab__c" data-collector-live-deals>{{ live_product_count }}</span>
+        </a>
+        {% if upcoming_product_count > 0 %}
+          <a class="tab" href="#collector-upcoming" data-collector-section-link>
+            예정<span class="tab__c" data-collector-upcoming-deals>{{ upcoming_product_count }}</span>
+          </a>
+        {% else %}
+          <span class="tab tab--disabled" aria-disabled="true">
+            예정<span class="tab__c" data-collector-upcoming-deals>{{ upcoming_product_count }}</span>
+          </span>
+        {% endif %}
+        <a class="tab" href="#collector-library" data-collector-section-link>
+          지난 추천<span class="tab__c">{{ tracked_product_count }}</span>
+        </a>
+      </nav>
+
+      <div class="deal-grid">
+        {% if featured_collection != blank and live_product_count > 0 %}
+          {% assign rendered_live_products = 0 %}
+          {% for product in featured_collection.products %}
+            {% capture product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+            {% assign product_open_at_ts = product_open_at_ts_raw | strip | plus: 0 %}
+            {% if product.available and product_open_at_ts <= current_timestamp and rendered_live_products < 3 %}
+              {% render 'townwine-product-card', product: product %}
+              {% assign rendered_live_products = rendered_live_products | plus: 1 %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+    </section>
+  {% endif %}
+
+  {% if upcoming_product_count > 0 %}
+    <section class="sec" id="collector-upcoming" aria-label="{{ display_name }}의 예정 공구">
+    <div class="container" data-townwine-open-alert-section>
+      <div class="sh">
+        <div>
+          <div class="sh__sub">{{ display_name }}의 예정 공구</div>
+          <h2 class="sh__t">앞으로 열릴 와인</h2>
+        </div>
+      </div>
+
+      <div class="up">
+        {% for product in featured_collection.products %}
+          {% capture product_open_at_ts_raw %}{% render 'townwine-deal-open-timestamp', product: product %}{% endcapture %}
+          {% assign product_open_at_ts = product_open_at_ts_raw | strip | plus: 0 %}
+          {% if product_open_at_ts > current_timestamp %}
+            {% render 'townwine-upcoming-product-row', product: product, proxy_base: '/apps/townwine-follow' %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    </section>
+  {% endif %}
+
+  {% if tracked_product_count > 0 %}
+    <section class="sec sec--alt" id="collector-library" aria-label="{{ display_name }}의 와인 라이브러리">
+    <div class="container">
+      <div class="sh">
+        <div>
+          <div class="sh__sub">{{ display_name }}의 라이브러리</div>
+          <h2 class="sh__t">지난 추천 와인</h2>
+        </div>
+      </div>
+
+      <div class="lib">
+        {% for product in featured_collection.products limit: 8 %}
+          <a class="lib__r" href="{{ product.url }}">
+            <div class="lib__m">
+              {% if product.featured_image != blank %}
+                {{ product.featured_image | image_url: width: 220 | image_tag: loading: 'lazy', widths: '110, 160, 220', class: 'tw-library-image', alt: product.title }}
+              {% endif %}
+            </div>
+            <div class="lib__bd">
+              <div class="lib__t">{{ product.title }}</div>
+              <div class="lib__sub">{{ product.type | default: 'Curated wine' }} · {{ product.vendor }}</div>
+              <div class="lib__tags">
+                <span class="bd bd--out">{% if product.available %}진행 중{% else %}완판{% endif %}</span>
+              </div>
+            </div>
+            <div class="lib__date">{{ product.created_at | date: '%Y·%m' }}</div>
+            <div class="lib__pr">{{ product.price | money }}</div>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+    </section>
+  {% endif %}
+
+  {% if has_philosophy_section %}
+    <section class="sec" aria-label="큐레이션 철학">
+    <div class="container">
+      <div class="phi">
+        <div>
+          <div class="phi__lab">큐레이션 철학</div>
+          <h2 class="phi__h">와인을 고르는 기준</h2>
+        </div>
+        <div class="phi__bd">
+          {% if introduction != blank %}
+            <p>{{ introduction | escape | newline_to_br }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    </section>
+  {% endif %}
+
+  <section class="sec sec--alt" aria-label="컬렉터 댓글">
+    <div class="container">
+      <div class="sh">
+        <div>
+          <div class="sh__sub">컬렉터 댓글</div>
+          <h2 class="sh__t">{{ display_name }}에게 남기는 한마디</h2>
+        </div>
+        <div class="cc__count"><strong data-collector-comments-count>0</strong>개의 댓글</div>
+      </div>
+
+      <div
+        class="cc"
+        data-collector-comments
+        data-collector-handle="{{ collector_handle | escape }}"
+        data-collector-name="{{ display_name | escape }}"
+        data-proxy-base="/apps/townwine-follow"
+        data-shop-domain="{{ shop.permanent_domain | escape }}"
+        data-customer-id="{% if customer %}{{ customer.id | escape }}{% endif %}"
+        data-customer-name="{% if customer %}{{ current_customer_display_name | escape }}{% endif %}"
+        data-return-to="{{ request.path | default: collector_url | escape }}"
+      >
+        <div class="cc__panel">
+          <div class="cc__list" data-collector-comments-list>
+            <p class="cc__empty">댓글을 불러오는 중입니다.</p>
+          </div>
+        </div>
+
+        <div class="cc__composer">
+          {% if customer %}
+            <div class="cc__eyebrow">{{ current_customer_display_name | default: '로그인 회원' }}님으로 댓글을 남깁니다.</div>
+            <form data-collector-comments-form>
+              <label class="cc__label" for="collector-comment-{{ collector_handle }}">댓글 남기기</label>
+              <textarea
+                id="collector-comment-{{ collector_handle }}"
+                class="cc__textarea"
+                name="body"
+                rows="6"
+                maxlength="500"
+                placeholder="{{ display_name }} 컬렉터에게 응원, 후기, 질문을 남겨보세요."
+                required
+              ></textarea>
+              <div class="cc__actions">
+                <p class="cc__hint">예의를 지켜 댓글을 남겨주세요. 최대 500자까지 입력할 수 있습니다.</p>
+                <button class="btn btn--dark btn--lg" type="submit" data-collector-comments-submit>댓글 등록</button>
+              </div>
+            </form>
+          {% else %}
+            <div class="cc__login">
+              <div>
+                <div class="cc__login-title">로그인 후 댓글을 남길 수 있어요.</div>
+                <p class="cc__login-copy">{{ display_name }} 컬렉터에게 응원이나 질문을 편하게 남겨보세요.</p>
+              </div>
+              <div>
+                <a class="btn btn--dark btn--lg" href="/customer_authentication/login?return_to={{ routes.root_url | url_encode }}">로그인하기</a>
+              </div>
+            </div>
+          {% endif %}
+          <p class="cc__status" data-collector-comments-status hidden></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0" aria-label="팔로우 마지막 안내">
+    <div class="container">
+      <div class="strip strip--dark">
+        <div>
+          <h3>{{ display_name }}의 다음 와인을, 가장 먼저 만나보세요</h3>
+          <p>좋아하는 컬렉터를 팔로우해 두면 다음 공구와 예정 오픈 소식을 같은 계정으로 이어서 받을 수 있습니다.</p>
+        </div>
+        <div class="strip__c">
+          {% render 'townwine-follow-button',
+            influencer_handle: collector_handle,
+            influencer_name: display_name,
+            proxy_base: '/apps/townwine-follow',
+            follow_label: '팔로우하기',
+            following_label: '팔로잉',
+            button_class: 'btn btn--ivory btn--lg'
+          %}
+          <a class="btn btn--gh btn--lg" href="{{ pages['collectors'].url | default: routes.root_url }}">다른 컬렉터 보기</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+{% render 'townwine-footer' %}
+{% render 'townwine-follow-boot' %}
+{% render 'townwine-open-alert-boot' %}
+<script>
+  (function () {
+    var ROOT_SELECTOR = '[data-collector-comments]';
+
+    function toArray(value) {
+      return Array.prototype.slice.call(value || []);
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function buildSearchParams(root) {
+      var params = new URLSearchParams();
+      var collectorHandle = String(root.dataset.collectorHandle || '').trim();
+      var shopDomain = String(root.dataset.shopDomain || '').trim();
+      var customerId = String(root.dataset.customerId || '').trim();
+
+      if (collectorHandle) {
+        params.set('collectorHandle', collectorHandle);
+      }
+
+      if (shopDomain) {
+        params.set('shop', shopDomain);
+      }
+
+      if (customerId) {
+        params.set('logged_in_customer_id', customerId);
+      }
+
+      return params;
+    }
+
+    function getFriendlyMessage(message, status) {
+      if (message === 'COMMENT_BODY_REQUIRED') {
+        return '댓글 내용을 입력해 주세요.';
+      }
+
+      if (message === 'COMMENT_BODY_TOO_LONG') {
+        return '댓글은 500자 이하로 입력해 주세요.';
+      }
+
+      if (message === 'COLLECTOR_HANDLE_REQUIRED') {
+        return '컬렉터 정보가 없어 댓글을 불러올 수 없습니다.';
+      }
+
+      if (message === 'COMMENT_ID_REQUIRED') {
+        return '댓글 정보를 확인할 수 없습니다.';
+      }
+
+      if (message === 'COMMENT_NOT_FOUND') {
+        return '이미 삭제되었거나 찾을 수 없는 댓글입니다.';
+      }
+
+      if (message === 'COMMENT_FORBIDDEN') {
+        return '내가 작성한 댓글만 수정하거나 삭제할 수 있습니다.';
+      }
+
+      if (message === 'LOGIN_REQUIRED') {
+        return '로그인 후 댓글을 남길 수 있습니다.';
+      }
+
+      if (status === 404) {
+        return '댓글 기능을 준비 중입니다.';
+      }
+
+      return '댓글 처리 중 오류가 발생했습니다.';
+    }
+
+    function formatCommentDate(value) {
+      var date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+
+      return date.toLocaleString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    }
+
+    function sortComments(comments) {
+      return toArray(comments).sort(function (left, right) {
+        var leftTime = new Date(left && left.createdAt).getTime();
+        var rightTime = new Date(right && right.createdAt).getTime();
+
+        if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) {
+          return 0;
+        }
+
+        return rightTime - leftTime;
+      });
+    }
+
+    function parseJsonResponse(response) {
+      return response.text().then(function (rawText) {
+        var payload = null;
+
+        try {
+          payload = rawText ? JSON.parse(rawText) : null;
+        } catch (error) {
+          payload = null;
+        }
+
+        return {
+          response: response,
+          payload: payload,
+          rawText: rawText,
+        };
+      });
+    }
+
+    function setStatus(root, message, tone) {
+      var statusNode = root.querySelector('[data-collector-comments-status]');
+
+      if (!(statusNode instanceof HTMLElement)) {
+        return;
+      }
+
+      if (!message) {
+        statusNode.hidden = true;
+        statusNode.textContent = '';
+        statusNode.removeAttribute('data-tone');
+        return;
+      }
+
+      statusNode.hidden = false;
+      statusNode.textContent = message;
+      statusNode.dataset.tone = tone || 'neutral';
+    }
+
+    function setCommentCount(root, count) {
+      toArray(document.querySelectorAll('[data-collector-comments-count]')).forEach(function (node) {
+        node.textContent = String(count);
+      });
+    }
+
+    function renderCommentMarkup(comment, editingCommentId) {
+      var commentId = String((comment && comment.id) || '').trim();
+      var isEditing = commentId && commentId === editingCommentId;
+      var itemActions = '';
+
+      if (comment && comment.isOwner && !isEditing) {
+        itemActions =
+          '<div class="cc__item-actions">' +
+          '<button class="cc__action" type="button" data-collector-comment-action="edit" data-comment-id="' +
+          escapeHtml(commentId) +
+          '">' +
+          '편집' +
+          '</button>' +
+          '<button class="cc__action" type="button" data-collector-comment-action="delete" data-comment-id="' +
+          escapeHtml(commentId) +
+          '">' +
+          '삭제' +
+          '</button>' +
+          '</div>';
+      }
+
+      return (
+        '<article class="cc__item" data-comment-id="' +
+        escapeHtml(commentId) +
+        '">' +
+        '<div class="cc__item-head">' +
+        '<div class="cc__item-meta">' +
+        '<strong class="cc__item-name">' +
+        escapeHtml((comment && comment.customerDisplayName) || '와인러버') +
+        '</strong>' +
+        '<span class="cc__item-date">' +
+        escapeHtml(formatCommentDate(comment && comment.createdAt)) +
+        ((comment && comment.isEdited) ? ' · 수정됨' : '') +
+        '</span>' +
+        '</div>' +
+        itemActions +
+        '</div>' +
+        (isEditing
+          ? '<form class="cc__edit" data-collector-comment-edit-form data-comment-id="' +
+            escapeHtml(commentId) +
+            '">' +
+            '<textarea class="cc__edit-textarea" name="body" rows="5" maxlength="500" aria-label="댓글 수정" required>' +
+            escapeHtml((comment && comment.body) || '') +
+            '</textarea>' +
+            '<div class="cc__edit-actions">' +
+            '<button class="cc__edit-button cc__edit-button--primary" type="submit">저장</button>' +
+            '<button class="cc__edit-button" type="button" data-collector-comment-cancel data-comment-id="' +
+              escapeHtml(commentId) +
+              '">' +
+              '취소' +
+            '</button>' +
+            '</div>' +
+            '</form>'
+          : '<div class="cc__item-body">' + escapeHtml((comment && comment.body) || '') + '</div>') +
+        '</article>'
+      );
+    }
+
+    function renderComments(root, state) {
+      var list = root.querySelector('[data-collector-comments-list]');
+      var comments = sortComments(state && state.comments);
+
+      if (!(list instanceof HTMLElement)) {
+        return;
+      }
+
+      if (!comments.length) {
+        setCommentCount(root, 0);
+        list.innerHTML = '<p class="cc__empty">첫 댓글을 남겨보세요.</p>';
+        return;
+      }
+
+      setCommentCount(root, comments.length);
+      list.innerHTML = comments
+        .map(function (comment) {
+          return renderCommentMarkup(comment, state && state.editingCommentId);
+        })
+        .join('');
+    }
+
+    function redirectToLogin(root) {
+      var returnTo =
+        String(root.dataset.returnTo || '').trim() ||
+        (window.location.pathname + window.location.search + window.location.hash);
+
+      var routes = window.TownWineRoutes || {};
+        var loginUrl = String(
+          routes.storefrontHomeLoginUrl || '/customer_authentication/login?return_to=%2F',
+        ).trim();
+        window.location.href = loginUrl;
+    }
+
+    function buildRequestUrl(root) {
+      var proxyBase = String(root.dataset.proxyBase || '/apps/townwine-follow').trim();
+      var params = buildSearchParams(root);
+
+      return proxyBase + '/collector-comments?' + params.toString();
+    }
+
+    function fetchCommentPayload(root, payload) {
+      return fetch(buildRequestUrl(root), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload || {}),
+      })
+        .then(parseJsonResponse)
+        .then(function (result) {
+          if (result.response.status === 401 || (result.payload && result.payload.message === 'LOGIN_REQUIRED')) {
+            redirectToLogin(root);
+            return null;
+          }
+
+          if (!result.response.ok || !result.payload || result.payload.ok === false) {
+            throw {
+              message: result.payload && result.payload.message,
+              status: result.response.status,
+            };
+          }
+
+          return result.payload;
+        });
+    }
+
+    function loadComments(root, state, options) {
+      var nextOptions = options || {};
+
+      if (!nextOptions.preserveStatus) {
+        setStatus(root, '', '');
+      }
+
+      return fetch(buildRequestUrl(root), {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      })
+        .then(parseJsonResponse)
+        .then(function (result) {
+          if (!result.response.ok || !result.payload || result.payload.ok === false) {
+            throw {
+              message: result.payload && result.payload.message,
+              status: result.response.status,
+            };
+          }
+
+          state.comments = sortComments(result.payload.comments || []);
+
+          if (
+            state.editingCommentId &&
+            !state.comments.some(function (comment) {
+              return String(comment && comment.id) === state.editingCommentId;
+            })
+          ) {
+            state.editingCommentId = '';
+          }
+
+          renderComments(root, state);
+
+          if (nextOptions.successMessage) {
+            setStatus(root, nextOptions.successMessage, 'success');
+          }
+        })
+        .catch(function (error) {
+          var message = getFriendlyMessage(error && error.message, error && error.status);
+
+          if (!nextOptions.keepCommentsOnError) {
+            state.comments = [];
+            state.editingCommentId = '';
+            renderComments(root, state);
+          }
+
+          setStatus(root, message, 'error');
+          throw error;
+        });
+    }
+
+    function focusEditTextarea(root, commentId) {
+      var editForm = toArray(root.querySelectorAll('[data-collector-comment-edit-form]')).find(function (node) {
+        return String(node.getAttribute('data-comment-id') || '') === commentId;
+      });
+
+      if (!(editForm instanceof HTMLFormElement)) {
+        return;
+      }
+
+      var textarea = editForm.querySelector('.cc__edit-textarea');
+
+      if (textarea instanceof HTMLTextAreaElement) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    }
+
+    function initialize(root) {
+      if (!(root instanceof HTMLElement) || root.dataset.collectorCommentsReady === 'true') {
+        return;
+      }
+
+      root.dataset.collectorCommentsReady = 'true';
+      var state = {
+        comments: [],
+        editingCommentId: '',
+      };
+
+      var form = root.querySelector('[data-collector-comments-form]');
+      var textarea = root.querySelector('.cc__textarea');
+      var submitButton = root.querySelector('[data-collector-comments-submit]');
+      var list = root.querySelector('[data-collector-comments-list]');
+
+      loadComments(root, state).catch(function () {});
+
+      if (list instanceof HTMLElement) {
+        list.addEventListener('click', function (event) {
+          var target = event.target;
+
+          if (!(target instanceof Element)) {
+            return;
+          }
+
+          var actionButton = target.closest('[data-collector-comment-action]');
+          var cancelButton = target.closest('[data-collector-comment-cancel]');
+
+          if (cancelButton instanceof HTMLButtonElement) {
+            state.editingCommentId = '';
+            renderComments(root, state);
+            return;
+          }
+
+          if (!(actionButton instanceof HTMLButtonElement)) {
+            return;
+          }
+
+          var action = String(actionButton.dataset.collectorCommentAction || '').trim();
+          var commentId = String(actionButton.dataset.commentId || '').trim();
+
+          if (!commentId) {
+            setStatus(root, '댓글 정보를 확인할 수 없습니다.', 'error');
+            return;
+          }
+
+          if (action === 'edit') {
+            state.editingCommentId = commentId;
+            renderComments(root, state);
+            focusEditTextarea(root, commentId);
+            return;
+          }
+
+          if (action !== 'delete') {
+            return;
+          }
+
+          if (!window.confirm('댓글을 삭제할까요?')) {
+            return;
+          }
+
+          actionButton.disabled = true;
+          setStatus(root, '댓글을 삭제하고 있습니다.', 'neutral');
+
+          fetchCommentPayload(root, {
+            collectorHandle: root.dataset.collectorHandle || '',
+            commentId: commentId,
+            intent: 'delete',
+          })
+            .then(function (payload) {
+              if (!payload) {
+                return null;
+              }
+
+              state.editingCommentId = '';
+              return loadComments(root, state, {
+                preserveStatus: true,
+                keepCommentsOnError: true,
+                successMessage: '댓글이 삭제되었습니다.',
+              });
+            })
+            .catch(function (error) {
+              setStatus(
+                root,
+                getFriendlyMessage(error && error.message, error && error.status),
+                'error',
+              );
+            })
+            .finally(function () {
+              actionButton.disabled = false;
+            });
+        });
+
+        list.addEventListener('submit', function (event) {
+          var target = event.target;
+
+          if (!(target instanceof HTMLFormElement) || !target.matches('[data-collector-comment-edit-form]')) {
+            return;
+          }
+
+          event.preventDefault();
+
+          var commentId = String(target.dataset.commentId || '').trim();
+          var editTextarea = target.querySelector('.cc__edit-textarea');
+          var editButtons = toArray(target.querySelectorAll('button'));
+          var body = editTextarea instanceof HTMLTextAreaElement ? editTextarea.value.trim() : '';
+
+          if (!commentId) {
+            setStatus(root, '댓글 정보를 확인할 수 없습니다.', 'error');
+            return;
+          }
+
+          if (!(editTextarea instanceof HTMLTextAreaElement) || !body) {
+            setStatus(root, '댓글 내용을 입력해 주세요.', 'error');
+            if (editTextarea instanceof HTMLTextAreaElement) {
+              editTextarea.focus();
+            }
+            return;
+          }
+
+          editButtons.forEach(function (button) {
+            if (button instanceof HTMLButtonElement) {
+              button.disabled = true;
+            }
+          });
+          setStatus(root, '댓글을 수정하고 있습니다.', 'neutral');
+
+          fetchCommentPayload(root, {
+            collectorHandle: root.dataset.collectorHandle || '',
+            commentId: commentId,
+            intent: 'update',
+            body: body,
+          })
+            .then(function (payload) {
+              if (!payload) {
+                return null;
+              }
+
+              state.editingCommentId = '';
+              return loadComments(root, state, {
+                preserveStatus: true,
+                keepCommentsOnError: true,
+                successMessage: '댓글이 수정되었습니다.',
+              });
+            })
+            .catch(function (error) {
+              setStatus(
+                root,
+                getFriendlyMessage(error && error.message, error && error.status),
+                'error',
+              );
+            })
+            .finally(function () {
+              editButtons.forEach(function (button) {
+                if (button instanceof HTMLButtonElement) {
+                  button.disabled = false;
+                }
+              });
+            });
+        });
+      }
+
+      if (!(form instanceof HTMLFormElement) || !(textarea instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var body = textarea.value.trim();
+
+        if (!body) {
+          setStatus(root, '댓글 내용을 입력해 주세요.', 'error');
+          textarea.focus();
+          return;
+        }
+
+        var customerName = String(root.dataset.customerName || '').trim();
+
+        if (submitButton instanceof HTMLButtonElement) {
+          submitButton.disabled = true;
+        }
+
+        setStatus(root, '댓글을 등록하고 있습니다.', 'neutral');
+
+        fetchCommentPayload(root, {
+          collectorHandle: root.dataset.collectorHandle || '',
+          body: body,
+          customerDisplayName: customerName,
+        })
+          .then(function (payload) {
+            if (!payload) {
+              return null;
+            }
+
+            textarea.value = '';
+            state.editingCommentId = '';
+            return loadComments(root, state, {
+              preserveStatus: true,
+              keepCommentsOnError: true,
+              successMessage: '댓글이 등록되었습니다.',
+            });
+          })
+          .catch(function (error) {
+            setStatus(
+              root,
+              getFriendlyMessage(error && error.message, error && error.status),
+              'error',
+            );
+          })
+          .finally(function () {
+            if (submitButton instanceof HTMLButtonElement) {
+              submitButton.disabled = false;
+            }
+          });
+      });
+    }
+
+    function boot(root) {
+      toArray((root || document).querySelectorAll(ROOT_SELECTOR)).forEach(function (node) {
+        initialize(node);
+      });
+    }
+
+    document.addEventListener('shopify:section:load', function (event) {
+      boot(event.target);
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        boot(document);
+      });
+    } else {
+      boot(document);
+    }
+  })();
+</script>
+<script>
+  (function () {
+    var NAV_SELECTOR = '[data-collector-section-nav]';
+
+    function toArray(value) {
+      return Array.prototype.slice.call(value || []);
+    }
+
+    function setActiveLink(links, activeId) {
+      var hasMatchingLink = links.some(function (link) {
+        var href = link.getAttribute('href') || '';
+        return href === '#' + activeId;
+      });
+
+      links.forEach(function (link, index) {
+        var href = link.getAttribute('href') || '';
+        var targetId = href.charAt(0) === '#' ? href.slice(1) : '';
+        var isActive = activeId && hasMatchingLink ? targetId === activeId : index === 0;
+
+        link.classList.toggle('is-on', isActive);
+
+        if (isActive) {
+          link.setAttribute('aria-current', 'true');
+        } else {
+          link.removeAttribute('aria-current');
+        }
+      });
+    }
+
+    function initialize(nav) {
+      if (!(nav instanceof HTMLElement) || nav.dataset.collectorSectionNavReady === 'true') {
+        return;
+      }
+
+      nav.dataset.collectorSectionNavReady = 'true';
+
+      var links = toArray(nav.querySelectorAll('[data-collector-section-link]'));
+
+      if (!links.length) {
+        return;
+      }
+
+      function syncFromHash() {
+        var hash = window.location.hash || '';
+        var targetId = hash.charAt(0) === '#' ? hash.slice(1) : '';
+        setActiveLink(links, targetId);
+      }
+
+      links.forEach(function (link) {
+        link.addEventListener('click', function () {
+          var href = link.getAttribute('href') || '';
+          var targetId = href.charAt(0) === '#' ? href.slice(1) : '';
+
+          setActiveLink(links, targetId);
+        });
+      });
+
+      window.addEventListener('hashchange', syncFromHash);
+      syncFromHash();
+    }
+
+    function boot(root) {
+      toArray((root || document).querySelectorAll(NAV_SELECTOR)).forEach(function (nav) {
+        initialize(nav);
+      });
+    }
+
+    document.addEventListener('shopify:section:load', function (event) {
+      boot(event.target);
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        boot(document);
+      });
+    } else {
+      boot(document);
+    }
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Collector Profile",
+  "settings": [],
+  "presets": [
+    {
+      "name": "Collector Profile"
+    }
+  ]
+}
+{% endschema %}
