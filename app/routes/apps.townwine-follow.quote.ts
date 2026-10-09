@@ -251,6 +251,7 @@ function renderQuotePage() {
           <a href="/pages/deals">진행 중인 공구</a>
           <a href="/pages/collectors">컬렉터</a>
           <a href="https://cafe.naver.com/townwine">카페</a>
+          <a href="/apps/townwine-follow/wine-search">해외 와인 검색</a>
           <a class="is-on" href="/apps/townwine-follow/quote">국가별 와인 견적</a>
         </nav>
         <div class="actions">
