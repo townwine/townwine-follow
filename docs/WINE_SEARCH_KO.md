@@ -39,3 +39,17 @@
 `npm run test:wine-search` — DOM 파싱, 가격 단위, 잘못된 링크·통화·빈티지, 오류·차단, 리다이렉트, 기존 API/화면/프록시 인증 테스트.
 `npm run typecheck`
 `npm run build`
+
+## 2026-10-09 판매처 직접 검색 전환
+
+기본 검색은 Wine-Searcher에 실시간 요청하지 않고 확인된 판매처의 공개 검색/상품 페이지를 조회한다. `WINE_SEARCHER_MODE=api`는 기존 API 방식, `crawl`은 기존 Wine-Searcher HTML 방식이다. 미설정 시 직접 검색한다.
+
+`app/data/wine-merchants.json`에는 사바르 L'Ouverture 공개 미국 결과 및 전 세계 결과 1페이지에서 확인한 중복 제거 판매처 49곳과 출처를 저장했다. 전체 Wine-Searcher 판매처 목록이 아니다. 전 세계 결과 2페이지는 사람 확인에 막혀 미수집이다. 13곳에 Shopify HTML 검색 어댑터를 연결했고, 나머지는 `needs-review`로 구분한다. 미국/프랑스/영국 실제 상품 응답을 검증했다.
+
+등록 판매처가 없거나 검색 연동이 없는 국가, 판매처 오류, 재고 상품 미발견을 UI에서 구별한다. 각 상점의 상품명 토큰·빈티지·가격 통화·InStock 상태를 검증한다. 가격은 상품/묶음 단위이며 통화별 정렬한다. 용량이 확인되지 않으면 추정하지 않는다. 원문 상품 링크와 조회 시각을 표시한다. 등록된 origin 외부 리디렉션과 상품 링크는 허용하지 않는다.
+
+조회당 상점별 11초 제한 및 상품 최대 4개, 요청당 본문 3MB 제한, 동일 검색 합치기, 15분 캐시(100개), 분당 검색 6회 및 동시 검색 2개 제한을 적용한다. 목록에 표시되는 '직접 검색 연동'은 각 요청의 성공을 보장하지 않으며 결과의 완료/일부 실패 건수를 별도로 표시한다.
+
+훗타운 `https://www.hoottown.com/deliveryAgency`에서 2026-10-09 확인한 해외센터 국가(미국 OR/DE/NJ/CA, 독일, 프랑스, 일본, 중국, 홍콩, 대만, 태국)를 국가 선택에서 구분한다. 센터 존재는 주류 취급이나 판매처의 해당 센터 배송을 보증하지 않으므로 확정 배송 가능 표시를 하지 않는다. 한국센터는 해외 구매 국가에서 제외했다.
+
+검증: `npm run test:wine-search`, `npm run typecheck`, `npm run build`. 개발환경 Node 22. 선택적 실제 판매처 확인은 `LIVE_MERCHANT_CHECK=1 LIVE_COUNTRY=USA node --experimental-strip-types --test tests/wine-merchants.test.mjs` (France/UK 가능).

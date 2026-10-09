@@ -297,7 +297,7 @@ function isolatedSearch(crawlWineOffers) {
     {
       exports: mod.exports,
       require: () => ({ ...crawl, crawlWineOffers }),
-      process: { env: {} },
+      process: { env: { WINE_SEARCHER_MODE: "crawl" } },
       URL,
       Date,
       fetch,
@@ -305,7 +305,7 @@ function isolatedSearch(crawlWineOffers) {
   );
   return mod.exports;
 }
-test("default crawling needs no API key and caches successful queries", async () => {
+test("explicit crawling needs no API key and caches successful queries", async () => {
   let calls = 0;
   const service = isolatedSearch(async () => {
     calls++;
@@ -337,10 +337,15 @@ test("a provider block stops further crawling but preserves existing valid cache
   assert.equal(calls, 2);
 });
 
-test('Liquid theme rendering cannot execute query or provider Liquid tags', () => {
-  const html = renderWineSearchPage({available:true,query:{...query,name:'{{ shop.name }} {% render "secret" %}'}});
-  assert.ok(!html.includes('{{ shop.name }}'));
-  assert.ok(!html.includes('{% render &quot;secret&quot; %}'));
-  assert.ok(html.includes('&#123;&#123; shop.name &#125;&#125;'));
-  assert.ok(html.includes("{% render 'townwine-header', current: 'wine-search' %}"));
+test("Liquid theme rendering cannot execute query or provider Liquid tags", () => {
+  const html = renderWineSearchPage({
+    available: true,
+    query: { ...query, name: '{{ shop.name }} {% render "secret" %}' },
+  });
+  assert.ok(!html.includes("{{ shop.name }}"));
+  assert.ok(!html.includes("{% render &quot;secret&quot; %}"));
+  assert.ok(html.includes("&#123;&#123; shop.name &#125;&#125;"));
+  assert.ok(
+    html.includes("{% render 'townwine-header', current: 'wine-search' %}"),
+  );
 });

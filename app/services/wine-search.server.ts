@@ -1,3 +1,4 @@
+import merchantRegistry from "../data/wine-merchants.json" with { type: "json" };
 /** Wine-Searcher Market price API. Field names: https://www.wine-searcher.com/trade/ws-api */
 export const LOCATIONS = [
   "USA",
@@ -8,10 +9,50 @@ export const LOCATIONS = [
   "Hong Kong",
   "Japan",
   "Australia",
+  "China",
+  "Taiwan",
+  "Thailand",
+  "Singapore",
+  "Switzerland",
+  "Belgium",
+  "Denmark",
 ] as const;
+export const COUNTRY_LABELS: Record<string, string> = {
+  USA: "미국",
+  UK: "영국",
+  France: "프랑스",
+  Italy: "이탈리아",
+  Germany: "독일",
+  "Hong Kong": "홍콩",
+  Japan: "일본",
+  Australia: "호주",
+  China: "중국",
+  Taiwan: "대만",
+  Thailand: "태국",
+  Singapore: "싱가포르",
+  Switzerland: "스위스",
+  Belgium: "벨기에",
+  Denmark: "덴마크",
+};
+// HootTown deliveryAgency center list, checked 2026-10-09. Center presence
+// does not establish alcohol acceptance or merchant delivery to that center.
+export const FORWARDING_CENTERS: Record<string, string> = {
+  USA: "OR · DE · NJ · CA",
+  Germany: "독일",
+  France: "프랑스",
+  Japan: "일본",
+  China: "중국",
+  "Hong Kong": "홍콩",
+  Taiwan: "대만",
+  Thailand: "태국",
+};
+export const MERCHANT_DIRECTORY = merchantRegistry;
 export type WineQuery = { name: string; vintage: string; location: string };
 export type WineOffer = {
   merchant: string;
+  title?: string;
+  availability?: string;
+  fetchedAt?: string;
   vintage: string;
   price: number;
   currency: string;
@@ -22,6 +63,13 @@ export type WineOffer = {
   tax?: string;
 };
 export type WineResult = {
+  source?: "merchants";
+  coverage?: {
+    registered: number;
+    searched: number;
+    succeeded: number;
+    incomplete: number;
+  };
   state: "ready" | "empty" | "ambiguous";
   offers: WineOffer[];
   fetchedAt: string;
@@ -259,11 +307,14 @@ export async function searchWine(query: WineQuery): Promise<WineResult> {
       "unconfigured",
       "해외 판매처 검색을 준비 중입니다. 데이터 연결이 완료되면 검색할 수 있습니다.",
     );
-  const key = JSON.stringify([crawl, query]);
+  const direct =
+    process.env.WINE_SEARCHER_MODE !== "api" &&
+    process.env.WINE_SEARCHER_MODE !== "crawl";
+  const key = JSON.stringify([direct, crawl, query]);
   const cached = crawlCache.get(key);
   if (crawl && cached && Date.now() - cached.time < 15 * 60_000)
     return cached.result;
-  if (crawl && Date.now() < crawlBlockedUntil)
+  if (crawl && !direct && Date.now() < crawlBlockedUntil)
     throw new WineSearchError(
       "provider",
       "Wine-Searcher에서 자동 수집을 제한하고 있습니다. 원문 검색에서 판매처를 확인해 주세요.",
@@ -274,13 +325,22 @@ export async function searchWine(query: WineQuery): Promise<WineResult> {
     windowStart = Date.now();
     requests = 0;
   }
-  if (requests >= 20 || inFlight.size >= 4)
+  if (requests >= (direct ? 6 : 20) || inFlight.size >= (direct ? 2 : 4))
     throw new WineSearchError(
       "busy",
       "검색 요청이 많습니다. 1분 후 다시 시도해 주세요.",
     );
   requests++;
   const task = (async () => {
+    if (direct) {
+      const { searchMerchants } = await import("./wine-merchants.server");
+      const result = await searchMerchants(query);
+      if (crawlCache.size >= 100)
+        crawlCache.delete(crawlCache.keys().next().value!);
+      if (result.coverage?.succeeded)
+        crawlCache.set(key, { time: Date.now(), result });
+      return result;
+    }
     if (!crawl) return fetchWineOffers(query, config!);
     const { crawlWineOffers, WineCrawlError } =
       await import("./wine-crawl.server");

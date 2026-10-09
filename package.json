@@ -19,7 +19,7 @@
     "vite": "vite",
     "typecheck": "react-router typegen && tsc --noEmit",
     "test:email": "node --experimental-strip-types --test tests/email-delivery.test.mjs",
-    "test:wine-search": "node --experimental-strip-types --test tests/wine-search.test.mjs tests/wine-crawl.test.mjs"
+    "test:wine-search": "node --experimental-strip-types --test tests/wine-search.test.mjs tests/wine-crawl.test.mjs tests/wine-merchants.test.mjs"
   },
   "type": "module",
   "engines": {
