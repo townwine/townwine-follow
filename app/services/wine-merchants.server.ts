@@ -189,6 +189,64 @@ export function parseMerchantProduct(
       /* Unknown theme markup is not a price. */
     }
   });
+  // Older Shopify themes expose variant data instead of Product JSON-LD.
+  // Read only product records and an explicit currency, never infer from "$".
+  if (!found.length && merchant.adapter === "shopify-html") {
+    let currency =
+      $('meta[property="og:price:currency"],meta[itemprop="priceCurrency"]')
+        .first()
+        .attr("content") || "";
+    if (!currency) {
+      try {
+        currency =
+          JSON.parse($("#apple-pay-shop-capabilities").text()).currencyCode ||
+          "";
+      } catch {
+        /* Currency remains unknown. */
+      }
+    }
+    if (/^[A-Z]{3}$/.test(currency)) {
+      $('script[type="application/json"][id^="ProductJson"]').each((_i, el) => {
+        try {
+          const product = JSON.parse($(el).text());
+          if (
+            typeof product.title !== "string" ||
+            !Array.isArray(product.variants)
+          )
+            return;
+          for (const variant of product.variants) {
+            if (
+              variant.available !== true ||
+              !Number.isSafeInteger(variant.price) ||
+              variant.price <= 0 ||
+              !/^\d+$/.test(String(variant.id))
+            )
+              continue;
+            const url = sameShop(pageUrl, merchant.origin);
+            if (!url) continue;
+            url.searchParams.set("variant", String(variant.id));
+            walk({
+              "@type": "Product",
+              name: [
+                product.title,
+                variant.title === "Default Title" ? "" : variant.title,
+              ]
+                .filter(Boolean)
+                .join(" - "),
+              offers: {
+                availability: "https://schema.org/InStock",
+                price: variant.price / 100,
+                priceCurrency: currency,
+                url: url.href,
+              },
+            });
+          }
+        } catch {
+          /* Invalid theme data is not a price. */
+        }
+      });
+    }
+  }
   // WineFetch and several legacy stores publish schema.org microdata rather
   // than JSON-LD. Read values within each Product/Offer scope, never site-wide.
   $('[itemscope][itemtype$="/Product"]').each((_i, el) => {

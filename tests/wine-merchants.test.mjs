@@ -321,3 +321,37 @@ test("deadline settles even if a merchant ignores cancellation", async () => {
   );
   assert.equal(await mod.exports.withDeadline(Promise.resolve(42), 10), 42);
 });
+
+test("Shopify theme variants require explicit currency, availability, and the requested vintage", () => {
+  const html =
+    '<meta property="og:price:currency" content="TWD"><script type="application/json" id="ProductJson-product-template">' +
+    JSON.stringify({
+      title: "Savart Ouverture",
+      variants: [
+        { id: 123, title: "2019 / 750ml", price: 220000, available: true },
+        { id: 124, title: "2020 / 750ml", price: 230000, available: true },
+        { id: 125, title: "2019 / 1500ml", price: 440000, available: false },
+      ],
+    }) +
+    "</script>";
+  const shop = { ...m, adapter: "shopify-html" };
+  const result = parseMerchantProduct(
+    html,
+    m.origin + "/products/savart",
+    shop,
+    { ...q, vintage: "2019" },
+  );
+  assert.equal(result.length, 1);
+  assert.equal(result[0].price, 2200);
+  assert.equal(result[0].currency, "TWD");
+  assert.match(result[0].url, /variant=123/);
+  assert.equal(
+    parseMerchantProduct(
+      html.replace('content="TWD"', 'content="$"'),
+      m.origin + "/products/savart",
+      shop,
+      q,
+    ).length,
+    0,
+  );
+});

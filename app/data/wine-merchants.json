@@ -607,7 +607,9 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://www.laywheeler.com/product-detail?id=0419063A"]
+    "productUrls": [
+      "https://www.laywheeler.com/product-detail?id=0419063A"
+    ]
   },
   {
     "id": "2914",
@@ -619,7 +621,9 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://www.finewineexperience.com"]
+    "productUrls": [
+      "https://www.finewineexperience.com"
+    ]
   },
   {
     "id": "47149",
@@ -631,7 +635,9 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://skysunwines.com"],
+    "productUrls": [
+      "https://skysunwines.com"
+    ],
     "searchTemplate": "https://skysunwines.com/?s={query}&post_type=product"
   },
   {
@@ -676,7 +682,9 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://www.winecavehk.com"]
+    "productUrls": [
+      "https://www.winecavehk.com"
+    ]
   },
   {
     "id": "205",
@@ -1211,9 +1219,13 @@
     "exampleUrl": "https://www.vintagewinemerchants.com",
     "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review",
-    "searchTemplate": "https://www.vintagewinemerchants.com/search?q={query}&type=product%2Carticle%2Cpage"
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.vintagewinemerchants.com/search?q={query}&type=product%2Carticle%2Cpage",
+    "productUrls": [
+      "https://www.vintagewinemerchants.com/products/2021-the-mascot-red",
+      "https://www.vintagewinemerchants.com/products/2022-the-mascot-red"
+    ]
   },
   {
     "id": "hitimewine.net",
@@ -1334,8 +1346,11 @@
     "searchTemplate": "https://domaine.com.tw/search?q={query}&type=product",
     "exampleUrl": "https://domaine.com.tw/",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "productUrls": [
+      "https://domaine.com.tw/products/jean-michel-guillon-fils-bourgogne-pinot-noir-cuvee-du-roi"
+    ]
   },
   {
     "id": "106137",
