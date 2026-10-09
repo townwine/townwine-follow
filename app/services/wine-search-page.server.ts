@@ -39,6 +39,25 @@ export function renderWineSearchPage({
       m.origin &&
       (!query || query.location === "ALL" || m.country === query.location),
   );
+  const merchantLink = (merchant: (typeof MERCHANT_DIRECTORY)[number]) => {
+    const template =
+      "searchTemplate" in merchant ? merchant.searchTemplate : undefined;
+    if (query && template) {
+      const term = [query.name, query.vintage === "2" ? "" : query.vintage]
+        .filter(Boolean)
+        .join(" ");
+      try {
+        const url = new URL(
+          template.replace("{query}", encodeURIComponent(term)),
+        );
+        if (url.origin === merchant.origin && url.protocol === "https:")
+          return url.href;
+      } catch {
+        /* Fall back to the verified shop homepage. */
+      }
+    }
+    return merchant.origin || "";
+  };
   const searchLink = (vintage: string, location: string) =>
     "/apps/townwine-follow/wine-search?" +
     new URLSearchParams({ q: query?.name || "", vintage, location }).toString();
@@ -50,7 +69,7 @@ export function renderWineSearchPage({
       currency: offer.currency,
       currencyDisplay: "code",
     }).format(offer.price);
-    return `<article class="tw-ws-offer"><div class="tw-ws-product"><div class="tw-ws-badges"><span class="tw-ws-country">${e(COUNTRY_LABELS[offer.country] || offer.country || "국가 미확인")}</span>${offer.availability ? '<span class="tw-ws-stock">재고 있음</span>' : ""}</div><h3>${e(offer.title || offer.merchant)}</h3><p class="tw-ws-merchant">${e(offer.merchant)}</p><p class="tw-ws-spec">${e(offer.vintage || "빈티지 미확인")}<span>·</span>${e(offer.bottleSize || "용량은 판매처에서 확인")}</p></div><div class="tw-ws-offer-action"><div class="tw-ws-price">${offer.priceKrw ? `<strong><small>약</small> ${Math.round(offer.priceKrw).toLocaleString("ko-KR")}<small>원</small></strong><span>${e(price)}</span>` : `<strong>${e(price)}</strong>`}</div><a class="tw-ws-button tw-ws-buy" href="${e(offer.url)}" target="_blank" rel="noopener noreferrer">판매처 보기 <span aria-hidden="true">↗</span><span class="tw-ws-sr-only"> (새 창)</span></a>${offer.tax ? `<span class="tw-ws-tax">${e(offer.tax)}</span>` : ""}</div></article>`;
+    return `<article class="tw-ws-offer"><div class="tw-ws-product"><div class="tw-ws-badges"><span class="tw-ws-country">${e(COUNTRY_LABELS[offer.country] || offer.country || "국가 미확인")}</span>${offer.availability ? `<span class="tw-ws-stock">${e(offer.availability)}</span>` : ""}</div><h3>${e(offer.title || offer.merchant)}</h3><p class="tw-ws-merchant">${e(offer.merchant)}</p><p class="tw-ws-spec">${e(offer.vintage || "빈티지 미확인")}<span>·</span>${e(offer.bottleSize || "용량은 판매처에서 확인")}</p></div><div class="tw-ws-offer-action"><div class="tw-ws-price">${offer.priceKrw ? `<strong><small>약</small> ${Math.round(offer.priceKrw).toLocaleString("ko-KR")}<small>원</small></strong><span>${e(price)}</span>` : `<strong>${e(price)}</strong>`}</div><a class="tw-ws-button tw-ws-buy" href="${e(offer.url)}" target="_blank" rel="noopener noreferrer">판매처 보기 <span aria-hidden="true">↗</span><span class="tw-ws-sr-only"> (새 창)</span></a>${offer.tax ? `<span class="tw-ws-tax">${e(offer.tax)}</span>` : ""}</div></article>`;
   }
   const failed =
     result?.source === "merchants" &&
@@ -87,5 +106,5 @@ ${visibleOffers.length ? `<div class="tw-ws-result-meta"><span class="tw-ws-pric
 <div class="tw-ws-footer"><details class="tw-ws-info"><summary>검색·가격 안내</summary><p>연결된 판매처에서 확인한 정보이며 전체 해외 판매처를 포함하지 않습니다.${result.coverage ? ` ${result.coverage.succeeded}곳 조회 완료.${result.coverage.incomplete ? ` ${result.coverage.incomplete}곳은 일부 정보를 확인하지 못했습니다.` : ""}` : ""}</p>${result.fxDate ? `<p>환율 기준 ${e(result.fxDate)}. 원화 금액은 비교를 위한 참고 금액이며 결제 환율에 따라 달라집니다.</p>` : ""}<p>상품 가격은 용량·묶음 단위가 다를 수 있습니다. 배송비와 추가 세금, 최종 재고는 판매처에서 확인해 주세요.</p></details><span class="tw-ws-stamp">${e(new Date(result.fetchedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }))} 확인</span></div></section>`
     : ""
 }
-<details class="tw-ws-directory"><summary>판매처 둘러보기 <span>(${directory.length})</span></summary><div class="tw-ws-directory-grid">${directory.map((m) => `<p><a href="${e(m.origin || "")}" target="_blank" rel="noopener noreferrer">${e(m.name)} ↗</a><span>${e(COUNTRY_LABELS[m.country] || m.country)}</span></p>`).join("")}</div></details></main></body></html>`;
+<details class="tw-ws-directory"><summary>판매처 둘러보기 <span>(${directory.length})</span></summary><div class="tw-ws-directory-grid">${directory.map((m) => `<p><a href="${e(merchantLink(m))}" target="_blank" rel="noopener noreferrer">${e(m.name)} ↗</a><span>${e(COUNTRY_LABELS[m.country] || m.country)}</span></p>`).join("")}</div></details></main></body></html>`;
 }

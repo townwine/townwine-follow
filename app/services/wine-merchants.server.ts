@@ -74,7 +74,12 @@ function jsonLd(raw: string) {
 export function parseMerchantProduct(
   html: string,
   pageUrl: string,
-  merchant: { name: string; country: string; origin: string },
+  merchant: {
+    name: string;
+    country: string;
+    origin: string;
+    adapter?: string | null;
+  },
   query: WineQuery,
 ): WineOffer[] {
   const $ = load(html);
@@ -91,47 +96,85 @@ export function parseMerchantProduct(
     }
     if ([node["@type"]].flat().includes("Product")) {
       const title = decode(node.name);
-      if (
-        !matchesProduct(title, query) ||
-        /pre[ -]?arrival|future arrival|in[ -]bond|auction/i.test(title)
-      )
-        return;
-      for (const offer of [node.offers].flat()) {
+      if (!matchesProduct(title, query) || /auction/i.test(title)) return;
+      const flattenOffers = (value: any): any[] =>
+        [value]
+          .flat()
+          .flatMap((o) => (o?.offers ? flattenOffers(o.offers) : o ? [o] : []));
+      for (const offer of flattenOffers(node.offers)) {
         if (
           !offer ||
-          !/^https?:\/\/schema.org\/InStock$/.test(offer.availability || "")
+          !/^https?:\/\/schema.org\/(?:InStock|PreOrder|BackOrder)$/.test(
+            offer.availability || "",
+          )
         )
           continue;
         const url = sameShop(offer.url || node.url || pageUrl, merchant.origin);
-        const price = Number(offer.price);
+        const specification = [offer.priceSpecification]
+          .flat()
+          .find((p) => p && p.price !== undefined);
+        const price = Number(offer.price ?? specification?.price);
+        const currency = offer.priceCurrency || specification?.priceCurrency;
         if (
           !url ||
           url.pathname === "/" ||
-          !/^[A-Z]{3}$/.test(offer.priceCurrency || "") ||
+          !/^[A-Z]{3}$/.test(currency || "") ||
           !Number.isFinite(price) ||
           price <= 0
         )
           continue;
         const variantTitle = `${decode(node.size)} ${title} ${decode(offer.name)}`;
+        const conditions = `${title} ${decode(node.description)} ${decode(offer.name)} ${decode(offer.description)} ${merchant.adapter === "woocommerce-html" ? $(".summary").text() : ""}`;
+        const availability = /in[ -]bond/i.test(
+          `${title} ${decode(offer.name)}`,
+        )
+          ? "보세 상품"
+          : /PreOrder|BackOrder/.test(offer.availability) ||
+              /pre[ -]?arrival|future arrival|stock abroad|(?:shipping|delivery|transfer)[^.!]{0,70}\b(?:weeks|months)\b/i.test(
+                conditions,
+              )
+            ? "예약·입고 후 배송"
+            : "재고 있음";
         const size =
           variantTitle
             .match(
-              /(?:^|[^0-9.,])(?:\d+\s*x\s*)?(\d+(?:[.,]\d+)?\s*(?:ml|cl|l))\b/i,
+              /(?:^|[^0-9.,])(?:\d+\s*x\s*)?(\d+(?:[.,]\d+)?\s*(?:ml|cl|ltr|litres?|liters?|l))\b/i,
             )?.[1]
             ?.replace(",", ".") || "";
+        const pack =
+          variantTitle.match(
+            /\b(\d+)\s*x\s*\d+(?:[.,]\d+)?\s*(?:ml|cl|ltr|litres?|liters?|l)\b/i,
+          )?.[1] || variantTitle.match(/\b(\d+)\s*(?:pk|pack|bottles)\b/i)?.[1];
         found.push({
           merchant: merchant.name,
           country: merchant.country,
           title,
           price,
-          currency: offer.priceCurrency,
+          currency,
           url: url.href,
           vintage: /\bNV\b|non[ -]vintage/i.test(title)
             ? "NV"
             : title.match(/\b(?:19|20)\d{2}\b/)?.[0] || "",
-          bottleSize: size,
-          description: "판매처에서 재고 있음으로 표시",
-          availability: "재고 있음",
+          bottleSize:
+            pack && Number(pack) > 1
+              ? `${pack} × ${size || "용량 확인"}`
+              : size,
+          description: availability,
+          availability,
+          tax:
+            [
+              availability === "보세 상품" ? "관세·현지 세금 별도" : "",
+              merchant.adapter === "woocommerce-html" &&
+              /Minimum order\s+(\d+)\s+bottles/i.test($(".summary").text())
+                ? `병당 금액 · 최소 ${
+                    $(".summary")
+                      .text()
+                      .match(/Minimum order\s+(\d+)\s+bottles/i)![1]
+                  }병 주문`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined,
           fetchedAt: new Date().toISOString(),
         });
       }
@@ -145,6 +188,35 @@ export function parseMerchantProduct(
     } catch {
       /* Unknown theme markup is not a price. */
     }
+  });
+  // WineFetch and several legacy stores publish schema.org microdata rather
+  // than JSON-LD. Read values within each Product/Offer scope, never site-wide.
+  $('[itemscope][itemtype$="/Product"]').each((_i, el) => {
+    const root = $(el);
+    const value = (scope: ReturnType<typeof $>, prop: string) => {
+      const field = scope
+        .find(`[itemprop="${prop}"]`)
+        .filter((_j, n) => $(n).parents("[itemscope]").first()[0] === scope[0])
+        .first();
+      return field.attr("content") || field.attr("href") || field.text().trim();
+    };
+    const name = value(root, "name");
+    root.find('[itemprop="offers"]').each((_j, offerEl) => {
+      const offer = $(offerEl);
+      const availability = value(offer, "availability");
+      walk({
+        "@type": "Product",
+        name,
+        offers: {
+          price: value(offer, "price"),
+          priceCurrency: value(offer, "priceCurrency"),
+          url: value(offer, "url") || pageUrl,
+          availability: availability.startsWith("http")
+            ? availability
+            : `https://schema.org/${availability}`,
+        },
+      });
+    });
   });
   return [...new Map(found.map((o) => [o.url, o])).values()];
 }
@@ -180,7 +252,12 @@ async function readShop(url: URL, signal: AbortSignal, fetcher: typeof fetch) {
 export function parseY18Product(
   html: string,
   pageUrl: string,
-  merchant: { name: string; country: string; origin: string },
+  merchant: {
+    name: string;
+    country: string;
+    origin: string;
+    adapter?: string | null;
+  },
   query: WineQuery,
 ): WineOffer[] {
   const $ = load(html);
@@ -220,7 +297,20 @@ function merchantSearch(merchant: Merchant, query: WineQuery) {
   if (query.vintage !== "2" && !terms.includes(query.vintage.toLowerCase()))
     terms.push(query.vintage);
   const search = new URL("/search", merchant.origin!);
-  if (merchant.adapter === "millesima-html")
+  if (merchant.adapter === "woocommerce-html") {
+    search.pathname = "/";
+    search.searchParams.set("s", terms.join(" "));
+    search.searchParams.set("post_type", "product");
+  } else if (merchant.adapter === "winefetch-html") {
+    search.pathname = "/websearch_results.html";
+    search.searchParams.set("kw", terms.join(" "));
+  } else if (merchant.adapter === "b21-html") {
+    search.pathname = "/searchprods.asp";
+    search.searchParams.set("txtsearch", terms.join(" "));
+  } else if (merchant.adapter === "bigcommerce-html") {
+    search.pathname = "/search.php";
+    search.searchParams.set("search_query", terms.join(" "));
+  } else if (merchant.adapter === "millesima-html")
     search.searchParams.set("searchTerm", terms.join(" "));
   else if (merchant.adapter === "y18-html") {
     search.pathname = "/index.php";
@@ -273,7 +363,15 @@ async function searchMerchant(
         ? "a[href*='.html']"
         : merchant.adapter === "y18-html"
           ? ".product-layout a[href]"
-          : "a[href*='/products/']";
+          : merchant.adapter === "woocommerce-html"
+            ? "a[href*='/product/'],a[href*='/wine/']"
+            : merchant.adapter === "winefetch-html"
+              ? "a[href*='/wines/'],a[href*='/spirits/']"
+              : merchant.adapter === "b21-html"
+                ? "a[href*='/productinfo/']"
+                : merchant.adapter === "bigcommerce-html"
+                  ? ".product a[href]"
+                  : "a[href*='/products/']";
     $(selector).each((_i, el) => {
       const url = sameShop($(el).attr("href") || "", origin);
       const label = $(el).text() + " " + ($(el).find("img").attr("alt") || "");
@@ -301,6 +399,8 @@ async function searchMerchant(
       )(html, url, { ...merchant, origin }, query);
     }),
   );
+  if (searchFailed && results.every((r) => r.status === "rejected"))
+    throw new Error("merchant products unavailable");
   return {
     offers: results.flatMap((r) => (r.status === "fulfilled" ? r.value : [])),
     incomplete:

@@ -30,7 +30,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/19983",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://www.secwines.com/search?type=product&q={query}"
   },
   {
     "id": "126696",
@@ -51,8 +52,13 @@
     "exampleUrl": "https://www.saratogawine.com/product/frederic-savart-champagne-premier-cru-louverture-nv-750ml/",
     "sourceUrl": "https://www.wine-searcher.com/merchant/1801",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "woocommerce-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.saratogawine.com/?s={query}&post_type=product",
+    "productUrls": [
+      "https://www.saratogawine.com/product/frederic-savart-champagne-premier-cru-laccomplie-nv-1-5ltr/",
+      "https://www.saratogawine.com/product/frederic-savart-champagne-premier-cru-laccomplie-nv-750ml/"
+    ]
   },
   {
     "id": "249040",
@@ -62,8 +68,13 @@
     "exampleUrl": "https://grandcrudirect.com/product/1000-savart-louverture-premier-cru-6x750ml/",
     "sourceUrl": "https://www.wine-searcher.com/merchant/249040",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "woocommerce-html",
+    "status": "enabled",
+    "searchTemplate": "https://grandcrudirect.com/?s={query}",
+    "productUrls": [
+      "https://grandcrudirect.com/product/nv-savart-bulle-de-rose-premier-cru-6x750ml/",
+      "https://grandcrudirect.com/product/2018-savart-le-mont-benoit-premier-cru-6x750ml/"
+    ]
   },
   {
     "id": "175293",
@@ -74,7 +85,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/175293",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://www.spirowines.com/search?type=product&q={query}"
   },
   {
     "id": "57257",
@@ -96,7 +108,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/8784",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://wine.sothebys.com/search?type=product&q={query}"
   },
   {
     "id": "777",
@@ -118,7 +131,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/163",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://bassins.com/search?type=product&q={query}"
   },
   {
     "id": "1375",
@@ -139,8 +153,12 @@
     "exampleUrl": "https://www.b-21.com/Champagne-Savart-Brut-1er-Cru-LOuverture/productinfo/FRSAPNNVAE/",
     "sourceUrl": "https://www.wine-searcher.com/merchant/34",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "b21-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.b-21.com/searchprods.asp?txtsearch={query}",
+    "productUrls": [
+      "https://www.b-21.com/Champagne-Savart-Brut-1er-Cru-LOuverture/productinfo/FRSAPNNVAE/"
+    ]
   },
   {
     "id": "5824",
@@ -162,7 +180,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/144481",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://mandarawine.com/search?type=product&q={query}"
   },
   {
     "id": "166201",
@@ -173,7 +192,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/166201",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://vinonueva.com/search?type=product&q={query}"
   },
   {
     "id": "9684",
@@ -183,8 +203,13 @@
     "exampleUrl": "https://tribecawine.com/product/nv-savart-louverture-premier-cru-6x750ml-133471310000600750/",
     "sourceUrl": "https://www.wine-searcher.com/merchant/9684",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "woocommerce-html",
+    "status": "enabled",
+    "searchTemplate": "https://tribecawine.com/?s={query}&post_type=product",
+    "productUrls": [
+      "https://tribecawine.com/product/2020-frederic-savart-verzenay-grand-cru-les-voiettes-1x1-5l-10531269-1-ib-stock-n/",
+      "https://tribecawine.com/product/nv-savart-louverture-premier-cru-6x750ml-133471310000600750/"
+    ]
   },
   {
     "id": "11225",
@@ -195,7 +220,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/11225",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://horseneckwine.com/search?type=product&q={query}"
   },
   {
     "id": "212199",
@@ -205,8 +231,13 @@
     "exampleUrl": "https://www.raederswine.com/wines/Champagne-Frederic-Savart-Extra-Brut-L-ouverture-Premier-Cru-w5412650jg",
     "sourceUrl": "https://www.wine-searcher.com/merchant/212199",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "winefetch-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.raederswine.com/websearch_results.html?kw={query}",
+    "productUrls": [
+      "https://www.raederswine.com/wines/Champagne-Frederic-Savart-Extra-Brut-L-ouverture-Premier-Cru-w5412650jg",
+      "https://www.raederswine.com/wines/Dremont-and-Savart-Ephemere-017-Bouzy-Grand-Cru-w4984730yy"
+    ]
   },
   {
     "id": "128468",
@@ -217,7 +248,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/128468",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://wainscottmain.com/search?type=product&q={query}"
   },
   {
     "id": "134105",
@@ -228,7 +260,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/134105",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://ny.vervewine.com/search?type=product&q={query}"
   },
   {
     "id": "52438",
@@ -250,7 +283,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/73406",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://www.kogodwine.com/search?type=product&q={query}"
   },
   {
     "id": "170",
@@ -271,8 +305,13 @@
     "exampleUrl": "https://mywineempire.com/product/savart-louverture-premier-cru-nv-750ml-6pk-pre-arrival/",
     "sourceUrl": "https://www.wine-searcher.com/merchant/147426",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "woocommerce-html",
+    "status": "enabled",
+    "searchTemplate": "https://mywineempire.com/?s={query}&post_type=product",
+    "productUrls": [
+      "https://mywineempire.com/product/savart-ecueil-trepail-blanc-de-blancs-premier-cru-champagne-nv-750ml-6pk-pre-arrival/",
+      "https://mywineempire.com/product/savart-laccomplie-premier-cru-nv-1-5l-6pk-pre-arrival/"
+    ]
   },
   {
     "id": "14848",
@@ -305,7 +344,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/16516",
     "discoveredAt": "2026-10-09",
     "adapter": null,
-    "status": "needs-review"
+    "status": "needs-review",
+    "searchTemplate": "https://winecellarage.com/?s={query}&post_type=product"
   },
   {
     "id": "246658",
@@ -419,7 +459,8 @@
     "productUrls": [
       "https://www.y18.hk/St-Aubin-Les-Frionnes-1er-Cru-Domaine-Hubert-Lamy-2019-(750ml)-LC90-X-15044",
       "https://www.y18.hk/Hubert-Lamy-St-Aubin-1er-Frionnes-Blanc-2019-(750ml)-LC80-X-04848"
-    ]
+    ],
+    "searchTemplate": "https://www.y18.hk/index.php?route=product%2Fsearch&search={query}"
   },
   {
     "id": "106473",
@@ -429,8 +470,12 @@
     "exampleUrl": "https://www.greatocean.hk",
     "sourceUrl": "https://www.wine-searcher.com/merchant/106473",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.greatocean.hk/search?q={query}",
+    "productUrls": [
+      "https://www.greatocean.hk/products/frederic-savart-louverture-premier-cru-extra-brut-nv"
+    ]
   },
   {
     "id": "115788",
@@ -452,7 +497,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/197441",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://maisondantard.com/search?type=product&q={query}"
   },
   {
     "id": "134100",
@@ -496,7 +542,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/52783",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://hedonism.co.uk/search?type=product&q={query}"
   },
   {
     "id": "19373",
@@ -507,7 +554,8 @@
     "sourceUrl": "https://www.wine-searcher.com/merchant/19373",
     "discoveredAt": "2026-10-09",
     "adapter": "shopify-html",
-    "status": "enabled"
+    "status": "enabled",
+    "searchTemplate": "https://www.wine-source.com/search?type=product&q={query}"
   },
   {
     "id": "245998",
@@ -517,8 +565,13 @@
     "exampleUrl": "https://avint-garde.com/product/savart-louverture-premier-cru-nv-6x750ml-stock-abroad/",
     "sourceUrl": "https://www.wine-searcher.com/merchant/245998",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "woocommerce-html",
+    "status": "enabled",
+    "searchTemplate": "https://avint-garde.com/?s={query}&post_type=product",
+    "productUrls": [
+      "https://avint-garde.com/product/savart-louverture-premier-cru-nv-6x750ml/",
+      "https://avint-garde.com/product/savart-les-noues-premier-cru-2020-6x750ml-stock-abroad/"
+    ]
   },
   {
     "id": "128687",
@@ -552,7 +605,9 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://www.laywheeler.com/product-detail?id=0419063A"]
+    "productUrls": [
+      "https://www.laywheeler.com/product-detail?id=0419063A"
+    ]
   },
   {
     "id": "2914",
@@ -564,7 +619,9 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://www.finewineexperience.com"]
+    "productUrls": [
+      "https://www.finewineexperience.com"
+    ]
   },
   {
     "id": "47149",
@@ -576,7 +633,10 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://skysunwines.com"]
+    "productUrls": [
+      "https://skysunwines.com"
+    ],
+    "searchTemplate": "https://skysunwines.com/?s={query}&post_type=product"
   },
   {
     "id": "23",
@@ -590,7 +650,8 @@
     "status": "needs-review",
     "productUrls": [
       "https://www.finestwine.com/en/2019/80561-lamy-h-les-frionnes-saint-aubin-2019.html"
-    ]
+    ],
+    "searchTemplate": "https://www.finestwine.com/en/module/iqitsearch/searchiqit?s={query}"
   },
   {
     "id": "153536",
@@ -604,7 +665,8 @@
     "status": "enabled",
     "productUrls": [
       "https://www.cellarselect.co.uk/products/saint-aubin-1er-cru-les-frionnes-2019-hubert-lamy-1x1500ml"
-    ]
+    ],
+    "searchTemplate": "https://www.cellarselect.co.uk/search?type=product&q={query}"
   },
   {
     "id": "34942",
@@ -616,7 +678,9 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review",
-    "productUrls": ["https://www.winecavehk.com"]
+    "productUrls": [
+      "https://www.winecavehk.com"
+    ]
   },
   {
     "id": "205",
@@ -658,7 +722,8 @@
     "status": "enabled",
     "productUrls": [
       "https://www.millesima.com.hk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
-    ]
+    ],
+    "searchTemplate": "https://www.millesima.com.hk/search?searchTerm={query}"
   },
   {
     "id": "18364",
@@ -686,7 +751,8 @@
     "status": "enabled",
     "productUrls": [
       "https://www.millesima.de/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
-    ]
+    ],
+    "searchTemplate": "https://www.millesima.de/search?searchTerm={query}"
   },
   {
     "id": "8468",
@@ -700,7 +766,8 @@
     "status": "enabled",
     "productUrls": [
       "https://www.millesima.fr/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
-    ]
+    ],
+    "searchTemplate": "https://www.millesima.fr/search?searchTerm={query}"
   },
   {
     "id": "19909",
@@ -770,7 +837,8 @@
     "status": "enabled",
     "productUrls": [
       "https://www.millesima.co.uk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
-    ]
+    ],
+    "searchTemplate": "https://www.millesima.co.uk/search?searchTerm={query}"
   },
   {
     "id": "244915",
@@ -785,5 +853,515 @@
     "productUrls": [
       "https://www.millesima.com/dk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
     ]
+  },
+  {
+    "id": "benchmarkwine.com",
+    "name": "Benchmark Wine Group",
+    "country": "USA",
+    "origin": "https://www.benchmarkwine.com",
+    "exampleUrl": "https://www.benchmarkwine.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "elevationwinefund.com",
+    "name": "Elevation Wine Fund",
+    "country": "USA",
+    "origin": "https://www.elevationwinefund.com",
+    "exampleUrl": "https://www.elevationwinefund.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "winefetch-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.elevationwinefund.com/websearch_results.html?kw={query}",
+    "productUrls": [
+      "https://www.elevationwinefund.com/wines/The-Mascot-The-Mascot-2016-w7174012rf",
+      "https://www.elevationwinefund.com/wines/The-Mascot-The-Mascot-2020-w77386009p"
+    ]
+  },
+  {
+    "id": "nolimitfinewines.com",
+    "name": "No Limit Fine Wines",
+    "country": "USA",
+    "origin": "https://www.nolimitfinewines.com",
+    "exampleUrl": "https://www.nolimitfinewines.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "searchTemplate": "https://www.nolimitfinewines.com/?s={query}&post_type=product"
+  },
+  {
+    "id": "grandcruliquidassets.com",
+    "name": "Grand Cru Liquid Assets",
+    "country": "USA",
+    "origin": "https://grandcruliquidassets.com",
+    "exampleUrl": "https://grandcruliquidassets.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://grandcruliquidassets.com/search?q={query}&type=product",
+    "productUrls": [
+      "https://grandcruliquidassets.com/products/2021-beringer-private-reserve-cabernet-sauvignon-napa-valley-bottle-750ml",
+      "https://grandcruliquidassets.com/products/2012-staglin-30th-anniversary-selection-cabernet-sauvignon-bottle-750ml"
+    ]
+  },
+  {
+    "id": "mywineplus.com",
+    "name": "MyWinePlus",
+    "country": "USA",
+    "origin": "https://www.mywineplus.com",
+    "exampleUrl": "https://www.mywineplus.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.mywineplus.com/search?q={query}",
+    "productUrls": [
+      "https://www.mywineplus.com/products/the-mascot-2018-napa-valley-cabernet-sauvignon"
+    ]
+  },
+  {
+    "id": "beverlyhillsliquorandwine.com",
+    "name": "Beverly Hills Liquor and Wine",
+    "country": "USA",
+    "origin": "https://www.beverlyhillsliquorandwine.com",
+    "exampleUrl": "https://www.beverlyhillsliquorandwine.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "klwines.com",
+    "name": "K&L Wine Merchants",
+    "country": "USA",
+    "origin": "https://klwines.com",
+    "exampleUrl": "https://klwines.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "famelounge-ps.com",
+    "name": "Fame Cigar & Wine Lounge",
+    "country": "USA",
+    "origin": "https://www.famelounge-ps.com",
+    "exampleUrl": "https://www.famelounge-ps.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "socalws.com",
+    "name": "SoCal Wine & Spirits",
+    "country": "USA",
+    "origin": "https://www.socalws.com",
+    "exampleUrl": "https://www.socalws.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "spectrumwine.com",
+    "name": "Spectrum Wine Retail",
+    "country": "USA",
+    "origin": "https://www.spectrumwine.com",
+    "exampleUrl": "https://www.spectrumwine.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "lincolnfinewines.com",
+    "name": "Lincoln Fine Wines",
+    "country": "USA",
+    "origin": "https://www.lincolnfinewines.com",
+    "exampleUrl": "https://www.lincolnfinewines.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "winefetch-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.lincolnfinewines.com/websearch_results.html?kw={query}",
+    "productUrls": [
+      "https://www.lincolnfinewines.com/wines/Accendo-Cellars-Cabernet-Sauvignon-2015-w62281933r",
+      "https://www.lincolnfinewines.com/wines/Accendo-Cellars-Cabernet-Sauvignon-2016-w6037098ph"
+    ]
+  },
+  {
+    "id": "whwc.com",
+    "name": "Woodland Hills Wine Co.",
+    "country": "USA",
+    "origin": "https://whwc.com",
+    "exampleUrl": "https://whwc.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "saisoncellar.com",
+    "name": "Saison Cellar",
+    "country": "USA",
+    "origin": "https://www.saisoncellar.com",
+    "exampleUrl": "https://www.saisoncellar.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "fallingbrightwinemerchants.com",
+    "name": "Falling Bright Wine Merchants",
+    "country": "USA",
+    "origin": "https://www.fallingbrightwinemerchants.com",
+    "exampleUrl": "https://www.fallingbrightwinemerchants.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "gilturners.com",
+    "name": "Gil Turner's Fine Wines and Spirits",
+    "country": "USA",
+    "origin": "https://www.gilturners.com",
+    "exampleUrl": "https://www.gilturners.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "reddcollection.com",
+    "name": "The Redd Collection",
+    "country": "USA",
+    "origin": "https://www.reddcollection.com",
+    "exampleUrl": "https://www.reddcollection.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "winefetch-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.reddcollection.com/websearch_results.html?kw={query}",
+    "productUrls": [
+      "https://www.reddcollection.com/wines/Cardinale-Cabernet-Sauvignon-Napa-Valley-2021-w55342350j",
+      "https://www.reddcollection.com/wines/Corison-Cabernet-Sauvignon-Napa-Valley-2001-w3331237qm"
+    ]
+  },
+  {
+    "id": "thewineclub.com",
+    "name": "The Wine Club",
+    "country": "USA",
+    "origin": "https://thewineclub.com",
+    "exampleUrl": "https://thewineclub.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://thewineclub.com/search?q={query}",
+    "productUrls": [
+      "https://thewineclub.com/products/2023-chappellet-cabernet-sauvignon-pritchard-hill-estate-vineyard-750ml",
+      "https://thewineclub.com/products/1993-shafer-hillside-select-napa-valley-cabernet-sauvignon-750ml"
+    ]
+  },
+  {
+    "id": "merchantofwine.com",
+    "name": "Merchant of Wine",
+    "country": "USA",
+    "origin": "https://merchantofwine.com",
+    "exampleUrl": "https://www.merchantofwine.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://merchantofwine.com/search?q={query}",
+    "productUrls": [
+      "https://merchantofwine.com/products/the-mascot-cabernet-sauvignon-napa-valley-california-2020",
+      "https://merchantofwine.com/products/the-mascot-cabernet-sauvignon-napa-valley-california-2018-by-harlan-family"
+    ]
+  },
+  {
+    "id": "missionliquor.com",
+    "name": "Mission Wine & Spirits",
+    "country": "USA",
+    "origin": "https://www.missionliquor.com",
+    "exampleUrl": "https://www.missionliquor.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "sfwtc.com",
+    "name": "San Francisco Wine Trading Company",
+    "country": "USA",
+    "origin": "https://www.sfwtc.com",
+    "exampleUrl": "https://www.sfwtc.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "oneirofinewine.com",
+    "name": "Oneiro Fine Wine",
+    "country": "USA",
+    "origin": "https://www.oneirofinewine.com",
+    "exampleUrl": "https://www.oneirofinewine.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "flatiron-wines-spirits.myshopify.com",
+    "name": "Flatiron Wines San Francisco",
+    "country": "USA",
+    "origin": "https://sf.flatiron-wines.com",
+    "exampleUrl": "https://flatiron-wines-spirits.myshopify.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "searchTemplate": "https://sf.flatiron-wines.com/search?q={query}"
+  },
+  {
+    "id": "birdrockfinewine.com",
+    "name": "Bird Rock Fine Wine",
+    "country": "USA",
+    "origin": "https://www.birdrockfinewine.com",
+    "exampleUrl": "https://www.birdrockfinewine.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "winesneak.com",
+    "name": "WineSneak",
+    "country": "USA",
+    "origin": "https://www.winesneak.com",
+    "exampleUrl": "https://www.winesneak.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "jjbuckley.com",
+    "name": "JJ Buckley Fine Wines",
+    "country": "USA",
+    "origin": "https://www.jjbuckley.com",
+    "exampleUrl": "https://www.jjbuckley.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "brix26.com",
+    "name": "Brix26 Wines",
+    "country": "USA",
+    "origin": "https://www.brix26.com",
+    "exampleUrl": "https://www.brix26.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.brix26.com/search?q={query}",
+    "productUrls": [
+      "https://www.brix26.com/products/the-mascot-2022-proprietary-red-napa-valley",
+      "https://www.brix26.com/products/the-mascot-2021-proprietary-red-napa-valley"
+    ]
+  },
+  {
+    "id": "vintagewinessd.com",
+    "name": "Vintage Wines San Diego",
+    "country": "USA",
+    "origin": "https://vintagewinessd.com",
+    "exampleUrl": "https://vintagewinessd.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://vintagewinessd.com/search?q={query}&type=product",
+    "productUrls": [
+      "https://vintagewinessd.com/products/2021-the-mascot-cabernet-sauvignon-napa"
+    ]
+  },
+  {
+    "id": "winecountryconnection.net",
+    "name": "Wine Country Connection",
+    "country": "USA",
+    "origin": "https://www.winecountryconnection.net",
+    "exampleUrl": "https://www.winecountryconnection.net",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "vintagewinemerchants.com",
+    "name": "Vintage Wine Merchants",
+    "country": "USA",
+    "origin": "https://www.vintagewinemerchants.com",
+    "exampleUrl": "https://www.vintagewinemerchants.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "searchTemplate": "https://www.vintagewinemerchants.com/search?q={query}&type=product%2Carticle%2Cpage"
+  },
+  {
+    "id": "hitimewine.net",
+    "name": "Hi-Time Wine Cellars",
+    "country": "USA",
+    "origin": "https://www.hitimewine.net",
+    "exampleUrl": "https://www.hitimewine.net",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "searchTemplate": "https://www.hitimewine.net/search.php?search_query={query}"
+  },
+  {
+    "id": "tarzanawineandspirits.com",
+    "name": "Tarzana Wine & Spirits",
+    "country": "USA",
+    "origin": "https://tarzanawineandspirits.com",
+    "exampleUrl": "https://tarzanawineandspirits.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "brentwoodfinewines.com",
+    "name": "Brentwood Fine Wines",
+    "country": "USA",
+    "origin": "https://www.brentwoodfinewines.com",
+    "exampleUrl": "https://www.brentwoodfinewines.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "searchTemplate": "https://www.brentwoodfinewines.com/search?q={query}"
+  },
+  {
+    "id": "midwaywines.com",
+    "name": "Midway Wine & Liquors",
+    "country": "USA",
+    "origin": "https://midwaywines.com",
+    "exampleUrl": "https://midwaywines.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "winestogo.com",
+    "name": "Winestogo",
+    "country": "USA",
+    "origin": "https://winestogo.com",
+    "exampleUrl": "https://winestogo.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "bottlerepublic.com",
+    "name": "Bottle Republic",
+    "country": "USA",
+    "origin": "https://www.bottlerepublic.com",
+    "exampleUrl": "https://www.bottlerepublic.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "primewineliquor.com",
+    "name": "Prime Wine & Liquor",
+    "country": "USA",
+    "origin": "https://primewineliquor.com",
+    "exampleUrl": "https://primewineliquor.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "universalfws.com",
+    "name": "Universal Fine Wine & Spirits",
+    "country": "USA",
+    "origin": "https://www.universalfws.com",
+    "exampleUrl": "https://www.universalfws.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "woocommerce-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.universalfws.com/?s={query}&post_type=product",
+    "productUrls": [
+      "https://www.universalfws.com/product/julien-fayard-2022-classic-cabernet-sauvignon-napa-valley-750ml/",
+      "https://www.universalfws.com/product/covert-estate-2021-cabernet-sauvignon-black-label-coombsville-napa-750ml/"
+    ]
+  },
+  {
+    "id": "continentalws.com",
+    "name": "Continental Wine & Spirits",
+    "country": "USA",
+    "origin": "https://www.continentalws.com",
+    "exampleUrl": "https://www.continentalws.com",
+    "sourceUrl": "https://www.wine-searcher.com/find/the+mascot+napa+valley+county+north+coast+california+usa/1/usa-ca",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "searchTemplate": "https://www.continentalws.com/search?q={query}",
+    "productUrls": [
+      "https://www.continentalws.com/products/the-mascot-napa-valley-red-2019"
+    ]
+  },
+  {
+    "id": "domaine.com.tw",
+    "name": "Domaine Wine Cellars",
+    "country": "Taiwan",
+    "origin": "https://domaine.com.tw",
+    "sourceUrl": "https://www.wine-searcher.com/find/dom+jean+michel+guillon+la+perrier+gevrey+chambertin+premier+cru+cote+de+nuit+burgundy+france/2020",
+    "searchTemplate": "https://domaine.com.tw/search?q={query}&type=product",
+    "exampleUrl": "https://domaine.com.tw/",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "106137",
+    "name": "Oak Wine",
+    "country": "Thailand",
+    "origin": "https://www.oakwine.co.th",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/106137-oak-wine",
+    "searchTemplate": "https://www.oakwine.co.th/index.php?page=Product%2Fproduct&search={query}",
+    "exampleUrl": "https://www.oakwine.co.th/",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
+  },
+  {
+    "id": "246669",
+    "name": "We are Fine Wine",
+    "country": "Thailand",
+    "origin": "https://wearefinewine.com",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/246669-we-are-fine-wine",
+    "exampleUrl": "https://wearefinewine.com/",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review"
   }
 ]

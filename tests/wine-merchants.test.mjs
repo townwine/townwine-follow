@@ -82,8 +82,8 @@ test("reject sold out, unknown availability, foreign urls and invalid prices", (
     );
   }
 });
-test("exclude prearrival and mismatched products", () => {
-  for (const name of ["Savart Ouverture NV PRE ARRIVAL", "Savart Accomplie NV"])
+test("exclude auctions and mismatched products", () => {
+  for (const name of ["Savart Ouverture NV auction", "Savart Accomplie NV"])
     assert.equal(
       parseMerchantProduct(product({ name }), m.origin, m, q).length,
       0,
@@ -178,7 +178,7 @@ test("long wine names match equivalent appellation spelling without losing cuvee
   ])
     assert.equal(matchesProduct(wrong, lamy), false);
 });
-test("Cellar Select parses duty-paid variant while excluding bonded stock", () => {
+test("Cellar Select distinguishes bonded and duty-paid variants", () => {
   const shop = {
     name: "Cellar Select UK",
     country: "UK",
@@ -190,10 +190,11 @@ test("Cellar Select parses duty-paid variant while excluding bonded stock", () =
     shop,
     lamy,
   );
-  assert.equal(offers.length, 1);
-  assert.equal(offers[0].price, 243.59);
-  assert.equal(offers[0].bottleSize, "1500ml");
-  assert.match(offers[0].url, /variant=54028812779848/);
+  assert.equal(offers.length, 2);
+  const dutyPaid = offers.find((o) => o.price === 243.59);
+  assert.equal(dutyPaid.bottleSize, "1500ml");
+  assert.match(dutyPaid.url, /variant=54028812779848/);
+  assert.equal(offers.find((o) => o.price === 200).availability, "보세 상품");
 });
 test("Millesima reads HTML product URLs and explicit 1.5L size, not 5l from display label", () => {
   const shop = {
@@ -248,8 +249,8 @@ test("observed product URLs are rechecked even when merchant search fails", asyn
     },
   );
   assert.ok(productFetches > 0);
-  assert.equal(result.offers.length, 1);
-  assert.equal(result.offers[0].price, 243.59);
+  assert.equal(result.offers.length, 2);
+  assert.ok(result.offers.some((o) => o.price === 243.59));
   assert.ok(result.coverage.incomplete > 0);
 });
 
@@ -264,5 +265,49 @@ test("merchant can omit cru after 1er without changing classification", () => {
   assert.equal(
     matchesProduct("Hubert Lamy St Aubin Grand Cru Frionnes Blanc 2019", lamy),
     false,
+  );
+});
+
+test("preorders, packs, and minimum bottle orders retain their purchase conditions", () => {
+  const html = product({ name: "Savart Ouverture NV 6x1.5Ltr PRE ARRIVAL" });
+  const [pack] = parseMerchantProduct(html, m.origin, m, q);
+  assert.equal(pack.bottleSize, "6 × 1.5Ltr");
+  assert.equal(pack.availability, "예약·입고 후 배송");
+  const [single] = parseMerchantProduct(
+    product() + '<div class="summary">Minimum order 6 bottles</div>',
+    m.origin,
+    { ...m, adapter: "woocommerce-html" },
+    q,
+  );
+  assert.match(single.tax, /병당 금액 · 최소 6병 주문/);
+});
+test("nested offers with price specifications are accepted only with explicit availability", () => {
+  const offers = {
+    "@type": "AggregateOffer",
+    offers: [
+      {
+        availability: "https://schema.org/PreOrder",
+        priceSpecification: { price: 120, priceCurrency: "USD" },
+        url: m.origin + "/product/savart",
+      },
+    ],
+  };
+  const [o] = parseMerchantProduct(product({ offers }), m.origin, m, q);
+  assert.equal(o.price, 120);
+  assert.equal(o.availability, "예약·입고 후 배송");
+});
+test("microdata prices stay within the matched Product and Offer scopes", () => {
+  const html = `<div itemscope itemtype="https://schema.org/Product"><h1 itemprop="name">Savart Ouverture NV 750ml</h1><div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><meta itemprop="price" content="99.98"><meta itemprop="priceCurrency" content="USD"><link itemprop="availability" href="https://schema.org/InStock"></div></div><span itemprop="price">1</span>`;
+  const [o] = parseMerchantProduct(html, m.origin + "/wines/savart", m, q);
+  assert.equal(o.price, 99.98);
+  assert.equal(o.bottleSize, "750ml");
+  assert.equal(
+    parseMerchantProduct(
+      html.replace("InStock", "OutOfStock"),
+      m.origin + "/wines/savart",
+      m,
+      q,
+    ).length,
+    0,
   );
 });
