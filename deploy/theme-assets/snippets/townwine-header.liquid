@@ -1,0 +1,268 @@
+{% liquid
+  assign influencer_page = pages['collectors']
+  assign policy_page = pages['policy']
+  assign logo_image = settings.logo
+  assign portable_logo_asset = 'townwine-live-logo.png'
+  assign logo_height = settings.logo_height | default: 36
+  assign logo_height_mobile = settings.logo_height_mobile | default: 28
+  assign home_url = settings.tw_nav_home_url
+  assign deals_url = '/pages/deals-latest-20260529?sort=latest&page_size=20'
+  assign collector_url = settings.tw_nav_collector_url
+  assign guide_url = settings.tw_nav_guide_url
+  assign mypage_url = '/pages/my-page#orders-management'
+  assign default_quote_tab_url = 'https://www.appsheet.com/start/fa633c0c-0a79-41ad-89ba-79f07e81ce36?platform=desktop#appName=TownwineQuotation-780392113&vss=H4sIAAAAAAAAA6WOywrCMBREf6XMOl-QrQiK6EZxY1zE5haCbVKa1FpC_t1bH3StLmeGc5iEm6VhH3V5hTylOW1ohERSOIwtKUiFhXex87WCUNjp5lWu_FBEX_SBY0Y-i48hUoBM3wrkvw8ErCEXbWWpm2wTy5Y3yfPEcTFTyAJNH_WlpudtpnLmrvIlr-bId366EdZueW-1M1tvWFrpOlB-AJLB5ElvAQAA&view=How%20to%20use'
+  assign quote_tab_url = settings.tw_nav_quote_url | default: default_quote_tab_url
+  assign home_label = settings.tw_nav_home_label | default: '홈'
+  assign deals_label = settings.tw_nav_deals_label | default: '진행 중인 공구'
+  assign collector_label = settings.tw_nav_collector_label | default: '컬렉터'
+  assign quote_tab_label = '국가별 와인 견적'
+  assign quote_notice_label = '원활한 사용을 위해 PC에서 사용을 권장 드립니다. 모바일에서 사용하실 경우 새 창으로 열기를 눌러주세요.'
+  assign guide_label = settings.tw_nav_guide_label | default: '가이드'
+  assign influencer_url = '#'
+  assign policy_url = '#'
+  if home_url == blank
+    assign home_url = routes.root_url
+  endif
+  if influencer_page != blank
+    assign influencer_url = influencer_page.url
+  endif
+  if policy_page != blank
+    assign policy_url = policy_page.url
+  endif
+  if collector_url == blank
+    assign collector_url = influencer_url
+  endif
+  if guide_url == blank
+    assign guide_url = policy_url
+  endif
+%}
+
+<header class="site-header">
+  <div class="container site-header__in">
+    <div class="site-header__top">
+      {% if logo_image != blank %}
+        <a
+          class="brand brand--has-logo"
+          href="{{ home_url }}"
+          style="--brand-logo-height: {{ logo_height }}px; --brand-logo-height-mobile: {{ logo_height_mobile }}px;"
+        >
+          <span class="brand__logo-wrap">
+            {{
+              logo_image
+              | image_url: width: 720
+              | image_tag:
+                class: 'brand__logo',
+                alt: shop.name,
+                loading: 'eager',
+                widths: '120, 180, 240, 320, 480, 640, 720',
+                sizes: '(max-width: 699px) 180px, 320px'
+            }}
+          </span>
+        </a>
+      {% else %}
+        <a
+          class="brand brand--has-logo"
+          href="{{ home_url }}"
+          style="--brand-logo-height: {{ logo_height }}px; --brand-logo-height-mobile: {{ logo_height_mobile }}px;"
+        >
+          <span class="brand__logo-wrap">
+            <img
+              src="{{ portable_logo_asset | asset_url }}"
+              class="brand__logo"
+              alt="{{ shop.name | escape }}"
+              loading="eager"
+            >
+          </span>
+        </a>
+      {% endif %}
+    </div>
+    <nav class="nav" aria-label="주요 메뉴">
+      <a class="{% if current == 'home' %}is-on{% endif %}" href="{{ home_url }}">{{ home_label }}</a>
+      <a class="{% if current == 'deals' %}is-on{% endif %}" href="{{ deals_url }}">{{ deals_label }}</a>
+      <a class="{% if current == 'influencer' %}is-on{% endif %}" href="{{ collector_url }}">{{ collector_label }}</a>
+      <a href="https://cafe.naver.com/townwine" target="_blank" rel="noopener noreferrer">카페</a>
+      <a class="{% if current == 'wine-search' %}is-on{% endif %}" href="/apps/townwine-follow/wine-search">국가별 와인 찾기</a>
+      <button
+        class="nav__quote-trigger"
+        type="button"
+        data-quote-dock-toggle
+        aria-expanded="false"
+        aria-controls="townwine-quote-dock"
+      >
+        {{ quote_tab_label }}
+      </button>
+    </nav>
+    <div class="actions">
+      <a class="icon-btn" aria-label="검색" href="{{ routes.search_url }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </a>
+      <a class="icon-btn" aria-label="마이페이지" href="{{ mypage_url }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+      </a>
+      <a class="icon-btn" aria-label="장바구니" href="{{ routes.cart_url }}">
+        <svg class="icon-btn__cart-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 8V7a5 5 0 0 1 10 0v1"/>
+          <path d="M5 8h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="quote-dock-backdrop" data-quote-dock-backdrop hidden></div>
+<section
+  class="quote-dock"
+  id="townwine-quote-dock"
+  aria-label="{{ quote_tab_label }}"
+  data-quote-dock
+  hidden
+>
+  <div class="container quote-dock__in">
+    <div class="quote-dock__bar">
+      <div class="quote-dock__heading">
+        <div class="quote-dock__title">{{ quote_tab_label }}</div>
+        <p class="quote-dock__notice">{{ quote_notice_label }}</p>
+      </div>
+      <div class="quote-dock__actions">
+        <a
+          class="quote-dock__link"
+          href="{{ quote_tab_url }}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          새 창으로 열기
+        </a>
+        <button class="quote-dock__close" type="button" data-quote-dock-close>
+          닫기
+        </button>
+      </div>
+    </div>
+    <div class="quote-dock__frame-wrap">
+      <iframe
+        class="quote-dock__frame"
+        title="{{ quote_tab_label }}"
+        loading="lazy"
+        referrerpolicy="strict-origin-when-cross-origin"
+        src="about:blank"
+        data-src="{{ quote_tab_url | escape }}"
+      ></iframe>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    if (window.__townwineQuoteDockReady) return;
+    window.__townwineQuoteDockReady = true;
+
+    function initQuoteDock() {
+      var header = document.querySelector('.site-header');
+      var toggle = document.querySelector('[data-quote-dock-toggle]');
+      var dock = document.querySelector('[data-quote-dock]');
+      var closeButton = document.querySelector('[data-quote-dock-close]');
+      var backdrop = document.querySelector('[data-quote-dock-backdrop]');
+      var openTriggers = document.querySelectorAll('[data-quote-dock-open]');
+      var frame = dock ? dock.querySelector('.quote-dock__frame') : null;
+
+      if (!(header instanceof HTMLElement) || !(toggle instanceof HTMLElement) || !(dock instanceof HTMLElement)) {
+        return;
+      }
+
+      function syncDockOffset() {
+        var headerHeight = header.getBoundingClientRect().height || header.offsetHeight || 64;
+        dock.style.top = headerHeight + 'px';
+
+        if (backdrop instanceof HTMLElement) {
+          backdrop.style.top = headerHeight + 'px';
+        }
+      }
+
+      function openDock() {
+        syncDockOffset();
+        dock.hidden = false;
+
+        if (backdrop instanceof HTMLElement) {
+          backdrop.hidden = false;
+        }
+
+        if (frame instanceof HTMLIFrameElement && frame.dataset.src && frame.src === 'about:blank') {
+          frame.src = frame.dataset.src;
+        }
+
+        document.body.classList.add('is-quote-dock-open');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+
+      function closeDock() {
+        dock.hidden = true;
+
+        if (backdrop instanceof HTMLElement) {
+          backdrop.hidden = true;
+        }
+
+        document.body.classList.remove('is-quote-dock-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+
+      toggle.addEventListener('click', function () {
+        if (dock.hidden) {
+          openDock();
+        } else {
+          closeDock();
+        }
+      });
+
+      Array.prototype.forEach.call(openTriggers, function (trigger) {
+        if (!(trigger instanceof HTMLElement)) return;
+
+        trigger.addEventListener('click', function (event) {
+          event.preventDefault();
+          openDock();
+        });
+      });
+
+      if (closeButton instanceof HTMLElement) {
+        closeButton.addEventListener('click', closeDock);
+      }
+
+      if (backdrop instanceof HTMLElement) {
+        backdrop.addEventListener('click', closeDock);
+      }
+
+      window.addEventListener('resize', syncDockOffset);
+      window.addEventListener('orientationchange', syncDockOffset);
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !dock.hidden) {
+          closeDock();
+        }
+      });
+
+      syncDockOffset();
+
+      try {
+        var currentUrl = new URL(window.location.href);
+
+        if (currentUrl.searchParams.get('openQuoteDock') === '1') {
+          currentUrl.searchParams.delete('openQuoteDock');
+          var nextSearch = currentUrl.searchParams.toString();
+          var nextUrl = currentUrl.pathname + (nextSearch ? '?' + nextSearch : '') + currentUrl.hash;
+
+          if (window.history && typeof window.history.replaceState === 'function') {
+            window.history.replaceState({}, document.title, nextUrl);
+          }
+
+          openDock();
+        }
+      } catch (error) {
+        console.warn('Failed to auto-open quote dock.', error);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initQuoteDock, { once: true });
+    } else {
+      initQuoteDock();
+    }
+  })();
+</script>

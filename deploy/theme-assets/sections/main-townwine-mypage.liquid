@@ -1,0 +1,811 @@
+{{ 'townwine.css' | asset_url | stylesheet_tag }}
+{{ 'townwine-collector-editor.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'townwine-collector-editor.js' | asset_url }}" defer="defer"></script>
+
+<style>
+  #header-group,
+  body > footer {
+    display: none !important;
+  }
+</style>
+
+{% liquid
+  assign collector_region_options = '루아르|피에몬테|보르도 우안|보르도 좌안|부르고뉴|샴페인|론|토스카나|리오하|모젤|오스트리아|나파 밸리|소노마|오리건|호주|칠레|아르헨티나' | split: '|'
+  assign collector_style_options = '미네랄 화이트|미디엄 레드|풀바디 레드|스파클링|로제|내추럴|오렌지 와인|데일리 와인|싱글 빈야드|디저트 와인' | split: '|'
+  assign collector_definition = metaobjects.collector_profile
+  assign collector_total_count = 0
+  assign customer_collector_profile = blank
+  assign customer_collector_gid = ''
+  assign collector_display_name = ''
+  assign collector_public_handle = ''
+  assign collector_role_label = ''
+  assign collector_bio = ''
+  assign collector_introduction = ''
+  assign collector_specialties = ''
+  assign collector_preferred_regions = ''
+  assign collector_preferred_styles = ''
+  assign collector_preferred_grapes = ''
+  assign collector_price_band = ''
+  assign collector_storefront_url = ''
+  assign collector_taste_body = 0
+  assign collector_taste_tannin = 0
+  assign collector_taste_acidity = 0
+  assign collector_taste_sweetness = 0
+  assign collector_taste_alcohol = 0
+  assign customer_login_id = ''
+  assign guide_page = pages['guide']
+  assign guide_url = guide_page.url | default: '/pages/guide'
+  assign collectors_page = pages['collectors']
+  assign collectors_page_url = collectors_page.url | default: '/pages/collectors'
+  assign account_addresses_url = routes.account_addresses_url | default: '/account/addresses'
+  assign follow_proxy_base = '/apps/townwine-follow'
+  assign follow_return_to = request.path | append: '#follows-management'
+
+  if collector_definition != blank
+    assign collector_total_count = collector_definition.values_count
+  endif
+
+  if customer
+    assign customer_login_id = customer.email | default: customer.phone | default: customer.name
+    assign customer_collector_gid = 'gid://shopify/Customer/' | append: customer.id
+
+    if collector_definition != blank
+      for collector_profile in collector_definition.values
+        if collector_profile.customer_id.value == customer_collector_gid
+          assign customer_collector_profile = collector_profile
+          break
+        endif
+      endfor
+    endif
+
+    if customer_collector_profile != blank
+      assign collector_display_name = customer_collector_profile.display_name.value | strip
+      assign collector_public_handle = customer_collector_profile.public_handle.value | strip
+      assign collector_role_label = customer_collector_profile.role_label.value | strip
+      assign collector_bio = customer_collector_profile.bio.value | strip
+      assign collector_introduction = customer_collector_profile.introduction.value | strip
+      assign collector_specialties = customer_collector_profile.specialties.value | strip
+      assign collector_preferred_regions = customer_collector_profile.preferred_regions.value | strip
+      assign collector_preferred_styles = customer_collector_profile.preferred_styles.value | strip
+      assign collector_preferred_grapes = customer_collector_profile.preferred_grapes.value | strip
+      assign collector_price_band = customer_collector_profile.price_band.value | strip
+      assign collector_storefront_url = customer_collector_profile.system.url | default: ''
+      assign collector_taste_body = customer_collector_profile.taste_body.value | default: 0 | plus: 0
+      assign collector_taste_tannin = customer_collector_profile.taste_tannin.value | default: 0 | plus: 0
+      assign collector_taste_acidity = customer_collector_profile.taste_acidity.value | default: 0 | plus: 0
+      assign collector_taste_sweetness = customer_collector_profile.taste_sweetness.value | default: 0 | plus: 0
+      assign collector_taste_alcohol = customer_collector_profile.taste_alcohol.value | default: 0 | plus: 0
+    endif
+
+    if collector_display_name == blank
+      assign collector_display_name = customer.first_name | default: customer.name
+    endif
+  endif
+%}
+
+{% render 'townwine-header', current: 'mypage' %}
+
+<main class="container">
+  {% if customer %}
+    <section class="mhero" aria-label="요약">
+      <div class="mhero__head">
+        <div>
+          <h1 class="mhero__t">안녕하세요, <em>{{ collector_display_name | default: customer.first_name | default: customer.name }}</em>님의 공동구매 현황입니다</h1>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat__l">총 주문 수</div><div class="stat__v">{{ customer.orders_count }}</div><div class="stat__d">전체 주문 합계</div></div>
+        <div class="stat"><div class="stat__l">기본 배송지</div><div class="stat__v">{% if customer.default_address %}설정됨{% else %}미설정{% endif %}</div><div class="stat__d"><a href="{{ account_addresses_url }}">{% if customer.default_address %}배송지 수정하기{% else %}배송지 설정하기{% endif %}</a></div></div>
+        <div class="stat"><div class="stat__l">알림</div><div class="stat__v">켜짐 · 4</div><div class="stat__d">상태 알림, 배송 알림 활성</div></div>
+        <div class="stat"><div class="stat__l">최근 주문</div><div class="stat__v">{% if customer.orders.first %}{{ customer.orders.first.created_at | date: '%m.%d' }}{% else %}없음{% endif %}</div><div class="stat__d">최근 결제 기준</div></div>
+      </div>
+    </section>
+    <div class="tabs mp-tabs" role="tablist" aria-label="마이페이지 메뉴" data-mypage-tabs>
+      <button
+        class="tab is-on"
+        type="button"
+        role="tab"
+        id="mypage-orders-tab"
+        aria-controls="mypage-orders-panel"
+        aria-selected="true"
+        data-mypage-tab="orders"
+      >
+        주문관리
+        <span class="tab__c">{{ customer.orders_count }}</span>
+      </button>
+<button
+  class="tab"
+  type="button"
+  role="tab"
+  id="mypage-follows-tab"
+  aria-controls="mypage-follows-panel"
+  aria-selected="false"
+  data-mypage-tab="follows"
+>
+  팔로우 관리
+</button>
+      <button
+        class="tab"
+        type="button"
+        role="tab"
+        id="mypage-account-tab"
+        aria-controls="mypage-account-panel"
+        aria-selected="false"
+        data-mypage-tab="account"
+      >
+        계정관리
+      </button>
+    </div>
+
+    <section
+      class="mp-panel is-on"
+      id="mypage-orders-panel"
+      role="tabpanel"
+      aria-labelledby="mypage-orders-tab"
+      data-mypage-panel="orders"
+    >
+      <div class="page-grid">
+        <section aria-label="주문 목록">
+          {% liquid
+            assign order_list_render_limit = 250
+            assign order_page_size_options = '10,50,100'
+          %}
+          {% paginate customer.orders by order_list_render_limit %}
+            <div
+              data-order-management
+              data-proxy-base="{{ follow_proxy_base | escape }}"
+              data-order-page-size-default="10"
+              data-order-page-size-options="{{ order_page_size_options }}"
+            >
+              <div class="of" role="toolbar" aria-label="주문 상태 필터">
+                <button class="chip is-on" type="button" data-order-filter="all" aria-pressed="true">
+                  전체
+                  <span class="chip__c">{{ customer.orders_count }}</span>
+                </button>
+                <button class="chip" type="button" data-order-filter="paid" aria-pressed="false">결제 완료</button>
+                <button class="chip" type="button" data-order-filter="shipping" aria-pressed="false">배송 중</button>
+                <button class="chip" type="button" data-order-filter="delivered" aria-pressed="false">완료</button>
+              </div>
+
+              {% if customer.orders_count > 0 %}
+                <div class="op-head" data-order-pagination-toolbar>
+                  <div class="op-head__summary" data-order-pagination-summary aria-live="polite"></div>
+                  <div class="op-head__controls">
+                    <span class="op-head__label">노출 수</span>
+                    <div class="op-head__sizes" role="group" aria-label="주문 표시 개수">
+                      <button class="chip is-on" type="button" data-order-page-size="10" aria-pressed="true">10개</button>
+                      <button class="chip" type="button" data-order-page-size="50" aria-pressed="false">50개</button>
+                      <button class="chip" type="button" data-order-page-size="100" aria-pressed="false">100개</button>
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+
+              <div class="orders" data-order-list>
+                {% for order in customer.orders %}
+                {% liquid
+                  assign first_item = order.line_items.first
+                  assign status_bucket = 'paid'
+                  assign status_badge_class = 'st--confirm'
+                  assign status_display_label = '결제 완료'
+                  assign status_description = '주문이 처리되었고 배송 준비 중입니다. 운송장이 등록되면 배송 중으로 자동 변경됩니다.'
+                  assign order_detail_url = order.customer_url | default: order.order_status_url | default: routes.account_url
+
+                  if order.fulfillment_status == 'partial'
+                    assign status_bucket = 'shipping'
+                    assign status_badge_class = 'st--ship'
+                    assign status_display_label = '배송 중'
+                    assign status_description = '일부 주문이 출고되어 배송이 진행 중입니다. 운송장이 등록되면 상세 배송 흐름을 바로 확인할 수 있어요.'
+                  endif
+                %}
+                <article
+                  class="oc"
+                  data-order-card
+                  data-order-id="{{ order.id }}"
+                  data-order-status="{{ status_bucket }}"
+                  {% if forloop.index > 10 %}
+                    hidden
+                  {% endif %}
+                >
+                  <div class="oc__top">
+                    <div class="oc__m" aria-hidden="true">
+                      {% if first_item.image != blank %}
+                        {{ first_item.image | image_url: width: 220 | image_tag: loading: 'lazy', widths: '110, 160, 220', alt: first_item.title }}
+                      {% else %}
+                        {{ 'product-1' | placeholder_svg_tag }}
+                      {% endif %}
+                    </div>
+                    <div class="oc__bd">
+                      <div class="oc__sttop">
+                        <span class="st {{ status_badge_class }}" data-order-status-badge>{{ status_display_label }}</span>
+                        <span class="bd bd--out">주문번호 {{ order.name }}</span>
+                      </div>
+                      <h3 class="oc__t">{{ first_item.title }}</h3>
+                      <div class="oc__sub">
+                        {{ first_item.vendor }}
+                        {% if first_item.variant_title != blank %}
+                          · {{ first_item.variant_title }}
+                        {% endif %}
+                      </div>
+                      <div class="oc__meta"><span><b>{{ order.item_count }}개 상품</b></span><span>·</span><span>주문 {{ order.created_at | date: '%Y.%m.%d' }}</span><span>·</span><span>결제 {{ order.total_price | money }}</span></div>
+                    </div>
+                    <div class="oc__a">
+                      <div class="oc__pr">{{ order.total_price | money }}</div>
+                      <div class="oc__qty">{{ order.financial_status_label | default: '결제 상태 확인' }}</div>
+                    </div>
+                  </div>
+
+                  <div class="cur">
+                    <div>
+                      <div class="cur__h">현재 상태</div>
+                      <h4 class="cur__t" data-order-status-title>{{ status_display_label }}</h4>
+                      <p class="cur__d" data-order-status-description>{{ status_description }}</p>
+                    </div>
+                  </div>
+
+                  <div class="oc__inf">
+                    <div class="oc__ii">
+                      <div class="oc__iav">{{ first_item.vendor | slice: 0 }}</div>
+                      <div class="oc__inm">{{ first_item.vendor }}<span>{{ first_item.product.url }}</span></div>
+                    </div>
+                    <div class="oc__ia">
+                      <a class="btn btn--quiet btn--sm" href="{{ order_detail_url }}">주문 상세</a>
+                      {% if first_item.product %}
+                        <a class="btn btn--gh btn--sm" href="{{ first_item.product.url }}">상품 보기</a>
+                      {% endif %}
+                    </div>
+                  </div>
+                </article>
+                {% else %}
+                  <article class="oc oc--empty">
+                    <div class="cur cur--empty">
+                      <div class="cur__copy">
+                        <div class="cur__h">아직 주문이 없어요</div>
+                        <h4 class="cur__t">첫 공동구매부터 시작해보세요</h4>
+                        <p class="cur__d">주문이 생기면 요약과 상태를 확인할 수 있어요.</p>
+                      </div>
+                      <div class="oc__ia oc__ia--empty">
+                        <a class="btn btn--dark btn--sm" href="{{ routes.root_url }}">공구 보러 가기</a>
+                      </div>
+                    </div>
+                  </article>
+                {% endfor %}
+              </div>
+
+              <article class="oc oc--empty" data-order-filter-empty hidden>
+                <div class="cur cur--empty">
+                  <div class="cur__copy">
+                    <div class="cur__h">현재 필터</div>
+                    <h4 class="cur__t" data-order-filter-empty-title>해당 상태의 주문이 아직 없어요</h4>
+                    <p class="cur__d" data-order-filter-empty-body>다른 상태 탭으로 바꾸면 현재 주문을 다시 확인할 수 있어요.</p>
+                  </div>
+                  <div class="oc__ia oc__ia--empty">
+                    <button class="btn btn--dark btn--sm" type="button" data-order-filter-reset>전체 주문 보기</button>
+                  </div>
+                </div>
+              </article>
+
+              <nav class="op-pager" aria-label="주문 페이지 이동" data-order-pagination-nav hidden></nav>
+
+              {% if customer.orders_count > order_list_render_limit %}
+                <p class="mp-note op-note">
+                  최근 {{ order_list_render_limit }}건 주문을 기준으로 빠르게 조회할 수 있도록 먼저 불러오고 있습니다.
+                </p>
+              {% endif %}
+            </div>
+          {% endpaginate %}
+        </section>
+
+        <aside class="side" aria-label="주문관리 도움말">
+          <div class="card card--alt">
+            <div class="card__h">도움이 필요하신가요</div>
+            <div class="hl">
+              <a href="{{ guide_url }}">공동구매 정책 보기<span class="hl__arrow">→</span></a>
+              <a href="{{ routes.account_url }}">주문 문의<span>계정 페이지</span></a>
+              <a href="{{ routes.root_url }}">다른 공구 둘러보기<span class="hl__arrow">→</span></a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section
+      class="mp-panel"
+      id="mypage-follows-panel"
+      role="tabpanel"
+      aria-labelledby="mypage-follows-tab"
+      data-mypage-panel="follows"
+      hidden
+    >
+      <section
+        class="fm"
+        aria-label="팔로우 관리"
+        data-follow-management
+        data-proxy-base="{{ follow_proxy_base | escape }}"
+        data-shop-domain="{{ shop.permanent_domain | escape }}"
+        data-customer-id="{{ customer.id | escape }}"
+      >
+        <div class="fm__head">
+          <div>
+            <div class="fm__eyebrow">Follow Management</div>
+            <h2 class="fm__title">내가 팔로우한 컬렉터 관리</h2>
+            <p class="fm__desc">
+              실제 스토어 팔로우 데이터를 기준으로 내가 팔로우 중인 컬렉터만
+              한곳에서 확인하고 관리할 수 있어요.
+            </p>
+          </div>
+        </div>
+
+<div class="of fm__filters" role="tablist" aria-label="팔로우 목록 필터">
+  <button class="chip is-on" type="button" data-follow-filter="all" aria-pressed="true">
+    전체
+  </button>
+</div>
+
+<div class="fm__loading" data-follow-loading>
+  실제 팔로우 목록을 불러오는 중입니다.
+</div>
+
+        {% if collector_definition != blank and collector_total_count > 0 %}
+          <div class="fm__grid" data-follow-grid>
+            {% for collector in collector_definition.values %}
+              {% liquid
+                assign follow_collector_handle = collector.system.handle | default: ''
+                assign follow_collector_url = collector.system.url | default: collectors_page_url
+                assign follow_display_name = collector.display_name.value | default: collector.customer_name.value | default: follow_collector_handle
+                assign follow_public_handle = collector.public_handle.value | strip
+                assign follow_role_label = collector.role_label.value | strip
+                assign follow_bio = collector.bio.value | strip
+                assign follow_specialties_text = collector.specialties.value | default: ''
+                assign follow_regions_text = collector.preferred_regions.value | default: ''
+                assign follow_styles_text = collector.preferred_styles.value | default: ''
+                assign follow_tag_pool = follow_specialties_text | append: ',' | append: follow_regions_text | append: ',' | append: follow_styles_text
+                assign follow_tag_values = follow_tag_pool | split: ','
+                assign follow_card_initial = follow_display_name | strip | slice: 0
+                assign follow_match_handles = follow_collector_handle
+                assign follow_public_handle_key = follow_public_handle | remove_first: '@' | strip
+                assign follow_customer_name = collector.customer_name.value | strip
+                if follow_public_handle_key != blank
+                  assign follow_match_handles = follow_match_handles | append: ',' | append: follow_public_handle_key
+                endif
+                if follow_display_name != blank
+                  assign follow_match_handles = follow_match_handles | append: ',' | append: follow_display_name
+                endif
+                if follow_customer_name != blank
+                  assign follow_match_handles = follow_match_handles | append: ',' | append: follow_customer_name
+                endif
+              %}
+              {% if follow_collector_handle != blank %}
+                <article
+                  class="fm-card"
+                  data-follow-card
+                  data-follow-handle="{{ follow_collector_handle | escape }}"
+                  data-follow-default-handle="{{ follow_collector_handle | escape }}"
+                  data-follow-match-handles="{{ follow_match_handles | escape }}"
+                  data-following="false"
+                  hidden
+                >
+                  <div class="fm-card__top">
+                    <div class="fm-card__avatar" aria-hidden="true">{{ follow_card_initial }}</div>
+                    <div class="fm-card__head">
+                      {% if follow_role_label != blank %}
+                        <div class="fm-card__role">{{ follow_role_label }}</div>
+                      {% endif %}
+                      <div class="fm-card__name">{{ follow_display_name }}</div>
+                      {% if follow_public_handle != blank %}
+                        <div class="fm-card__handle">{{ follow_public_handle }}</div>
+                      {% else %}
+                        <div class="fm-card__handle">@{{ follow_collector_handle }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  {% if follow_bio != blank %}
+                    <div class="fm-card__bio">{{ follow_bio }}</div>
+                  {% endif %}
+
+                  {% if follow_specialties_text != blank or follow_regions_text != blank or follow_styles_text != blank %}
+                    <div class="fm-card__tags" aria-label="컬렉터 태그">
+                      {% for tag in follow_tag_values limit: 4 %}
+                        {% assign tag_label = tag | strip %}
+                        {% if tag_label != blank %}
+                          <span class="fm-tag">{{ tag_label }}</span>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+
+                  <div
+                    class="fm-card__stats"
+                    data-townwine-collector-summary
+                    data-influencer-handle="{{ follow_collector_handle | escape }}"
+                    data-proxy-base="{{ follow_proxy_base | escape }}"
+                  >
+                    <div class="fm-card__stat">
+                      <span>Followers</span>
+                      <strong data-collector-followers>0 팔로워</strong>
+                    </div>
+                    <div class="fm-card__stat">
+                      <span>All Deals</span>
+                      <strong data-collector-deals>누적 공구 0회</strong>
+                    </div>
+                  </div>
+
+<div class="fm-card__actions">
+  <a class="btn btn--quiet btn--sm" href="{{ follow_collector_url }}">컬렉터 소개보기</a>
+  {% render 'townwine-follow-button',
+    influencer_handle: follow_collector_handle,
+    influencer_name: follow_display_name,
+    proxy_base: follow_proxy_base,
+                      shop_domain: shop.permanent_domain,
+                      customer_id: customer.id,
+                      follow_label: '팔로우',
+                      following_label: '팔로잉',
+                      is_following: true,
+                      button_class: 'follow',
+                      return_to: follow_return_to
+                    %}
+                  </div>
+                </article>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <div class="fm__empty" data-follow-empty hidden>
+            <strong data-follow-empty-title>아직 팔로우한 컬렉터가 없어요.</strong>
+            <p data-follow-empty-body>아직 팔로우 중인 컬렉터가 없습니다. 마음에 드는 컬렉터를 먼저 팔로우해보세요.</p>
+            <a class="btn btn--dark btn--sm" href="{{ collectors_page_url }}">컬렉터 보러 가기</a>
+          </div>
+        {% else %}
+          <div class="fm__empty">
+            <strong>등록된 컬렉터가 아직 없습니다.</strong>
+            <p>운영팀이 공개한 컬렉터 프로필이 생기면 여기에서 바로 팔로우를 관리할 수 있어요.</p>
+          </div>
+        {% endif %}
+      </section>
+    </section>
+
+    <section
+      class="mp-panel"
+      id="mypage-account-panel"
+      role="tabpanel"
+      aria-labelledby="mypage-account-tab"
+      data-mypage-panel="account"
+      hidden
+    >
+      <div class="page-grid mp-account-grid">
+        <section aria-label="계정 관리">
+          <section
+            id="collector-profile-editor"
+            class="cpe"
+            aria-label="내 컬렉터 프로필"
+            data-collector-profile-editor
+          >
+            <div class="cpe__head">
+              <div>
+                <div class="cpe__eyebrow">Collector Profile</div>
+                <h2 class="cpe__title">내 컬렉터 소개 직접 작성하기</h2>
+                <p class="cpe__desc">
+                  마이페이지에서 직접 쓴 소개와 취향 정보가
+                  Collectors 목록과 내 컬렉터 상세 페이지에 반영됩니다.
+                  내용을 비워두면 해당 영역은 자동으로 숨겨집니다.
+                </p>
+              </div>
+            </div>
+
+            <div class="cpe__notice" data-collector-profile-feedback hidden></div>
+
+            <form
+              class="cpe__form"
+              action="/apps/townwine-follow/collector-profile"
+              method="post"
+              data-collector-profile-form
+              data-login-url="/customer_authentication/login?return_to=%2Fpages%2Fmy-page%23orders-management"
+            >
+              <div class="cpe__grid">
+                <div class="cpe__field">
+                  <label for="collector_display_name">닉네임</label>
+                  <input
+                    id="collector_display_name"
+                    name="display_name"
+                    type="text"
+                    value="{{ collector_display_name | escape }}"
+                    placeholder="소믈리에 윤지"
+                  >
+                </div>
+                <div class="cpe__field">
+                  <label for="collector_public_handle">인스타그램 아이디</label>
+                  <input
+                    id="collector_public_handle"
+                    name="public_handle"
+                    type="text"
+                    value="{{ collector_public_handle | escape }}"
+                    placeholder="@yunji.wine"
+                  >
+                  <small>비워두면 컬렉터 페이지에서 숨겨집니다.</small>
+                </div>
+              </div>
+
+              <div class="cpe__grid">
+                <div class="cpe__field">
+                  <label for="collector_role_label">역할 라벨</label>
+                  <input
+                    id="collector_role_label"
+                    name="role_label"
+                    type="text"
+                    value="{{ collector_role_label | escape }}"
+                    placeholder="와인 큐레이터 · 소믈리에"
+                  >
+                </div>
+                <div class="cpe__field">
+                  <label for="collector_price_band_min">선호 가격대</label>
+                  <div class="cpe__price-band" data-price-band>
+                    <label class="cpe__price-band-field" for="collector_price_band_min">
+                      <span>₩</span>
+                      <input
+                        id="collector_price_band_min"
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        placeholder="30,000"
+                        aria-label="최소 금액"
+                        data-price-band-input="min"
+                      >
+                    </label>
+                    <span class="cpe__price-band-separator" aria-hidden="true">~</span>
+                    <label class="cpe__price-band-field" for="collector_price_band_max">
+                      <span>₩</span>
+                      <input
+                        id="collector_price_band_max"
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        placeholder="60,000"
+                        aria-label="최대 금액"
+                        data-price-band-input="max"
+                      >
+                    </label>
+                    <input
+                      id="collector_price_band"
+                      name="price_band"
+                      type="hidden"
+                      value="{{ collector_price_band | escape }}"
+                      data-price-band-hidden
+                    >
+                  </div>
+                  <small>금액만 입력하면 원화 표기와 쉼표가 자동으로 적용됩니다.</small>
+                </div>
+              </div>
+
+              <div class="cpe__field">
+                <label for="collector_bio">한 줄 소개</label>
+                <textarea
+                  id="collector_bio"
+                  name="bio"
+                  rows="3"
+                  placeholder="컬렉터 대표 영역에 보일 짧은 소개를 적어주세요."
+                >{{ collector_bio }}</textarea>
+              </div>
+
+              <div class="cpe__field">
+                <label for="collector_introduction">나의 큐레이션 소개</label>
+                <textarea
+                  id="collector_introduction"
+                  name="introduction"
+                  rows="5"
+                  placeholder="내가 어떤 기준으로 와인을 고르는지, 어떤 식탁에 추천하는지 자유롭게 적어주세요."
+                >{{ collector_introduction }}</textarea>
+              </div>
+
+              <div class="cpe__grid">
+                <div class="cpe__field">
+                  <label for="collector_specialties">주요 태그</label>
+                  <input
+                    id="collector_specialties"
+                    name="specialties"
+                    type="text"
+                    value="{{ collector_specialties | escape }}"
+                    placeholder="한식 페어링, 데일리 와인, 미디엄 레드"
+                  >
+                  <small>쉼표로 구분해서 입력하면 배지로 노출됩니다.</small>
+                </div>
+                <div class="cpe__field">
+                  <label for="collector_preferred_grapes">주요 품종</label>
+                  <input
+                    id="collector_preferred_grapes"
+                    name="preferred_grapes"
+                    type="text"
+                    value="{{ collector_preferred_grapes | escape }}"
+                    placeholder="메를로, 슈냉 블랑, 까베르네 프랑"
+                  >
+                </div>
+              </div>
+
+              <div class="cpe__field">
+                <label>선호 산지</label>
+                <div class="cpe__badge-grid">
+                  {% for option in collector_region_options %}
+                    <label class="cpe__badge">
+                      <input
+                        type="checkbox"
+                        name="preferred_regions"
+                        value="{{ option | escape }}"
+                        {% if collector_preferred_regions contains option %}checked{% endif %}
+                      >
+                      <span>{{ option }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="cpe__field">
+                <label>선호 스타일</label>
+                <div class="cpe__badge-grid">
+                  {% for option in collector_style_options %}
+                    <label class="cpe__badge">
+                      <input
+                        type="checkbox"
+                        name="preferred_styles"
+                        value="{{ option | escape }}"
+                        {% if collector_preferred_styles contains option %}checked{% endif %}
+                      >
+                      <span>{{ option }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="cpe__field">
+                <div class="cpe__field-head">
+                  <label>테이스팅 프로파일</label>
+                  <small>0점으로 두면 해당 프로파일은 미입력으로 처리됩니다.</small>
+                </div>
+                <div class="cpe__score-list">
+                  <div class="cpe__score">
+                    <label for="collector_taste_body">바디</label>
+                    <div class="cpe__score-control">
+                      <input id="collector_taste_body" name="taste_body" type="range" min="0" max="10" step="1" value="{{ collector_taste_body }}">
+                      <span data-score-value>{{ collector_taste_body }}</span>
+                    </div>
+                  </div>
+                  <div class="cpe__score">
+                    <label for="collector_taste_tannin">탄닌</label>
+                    <div class="cpe__score-control">
+                      <input id="collector_taste_tannin" name="taste_tannin" type="range" min="0" max="10" step="1" value="{{ collector_taste_tannin }}">
+                      <span data-score-value>{{ collector_taste_tannin }}</span>
+                    </div>
+                  </div>
+                  <div class="cpe__score">
+                    <label for="collector_taste_acidity">산도</label>
+                    <div class="cpe__score-control">
+                      <input id="collector_taste_acidity" name="taste_acidity" type="range" min="0" max="10" step="1" value="{{ collector_taste_acidity }}">
+                      <span data-score-value>{{ collector_taste_acidity }}</span>
+                    </div>
+                  </div>
+                  <div class="cpe__score">
+                    <label for="collector_taste_sweetness">당도</label>
+                    <div class="cpe__score-control">
+                      <input id="collector_taste_sweetness" name="taste_sweetness" type="range" min="0" max="10" step="1" value="{{ collector_taste_sweetness }}">
+                      <span data-score-value>{{ collector_taste_sweetness }}</span>
+                    </div>
+                  </div>
+                  <div class="cpe__score">
+                    <label for="collector_taste_alcohol">알코올</label>
+                    <div class="cpe__score-control">
+                      <input id="collector_taste_alcohol" name="taste_alcohol" type="range" min="0" max="10" step="1" value="{{ collector_taste_alcohol }}">
+                      <span data-score-value>{{ collector_taste_alcohol }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cpe__footnote">
+                대표 컬렉션 연결과 공구 매칭은 운영팀이 관리합니다. 소개/취향 정보는 여기서 직접 저장하면 바로 반영됩니다.
+              </div>
+
+              <div class="cpe__submit">
+                <button class="btn btn--dark" type="submit" data-submit-label="저장하기">
+                  저장하기
+                </button>
+                {% if collector_storefront_url != blank %}
+                  <a class="btn btn--quiet" href="{{ collector_storefront_url }}" target="_blank" rel="noreferrer">
+                    내 페이지 미리보기
+                  </a>
+                {% endif %}
+              </div>
+            </form>
+          </section>
+        </section>
+
+        <aside class="side" aria-label="계정관리 도움말">
+          <div class="ship">
+            <div class="ship__h">
+              <div class="ship__h__l">계정 정보</div>
+            </div>
+            <dl class="ship__rows">
+              <div class="ship__r">
+                <dt>아이디</dt>
+                <dd class="mono">{{ customer_login_id | escape }}</dd>
+              </div>
+              <div class="ship__r">
+                <dt>기본 배송지</dt>
+                {% if customer.default_address %}
+                  <dd>
+                    {{ customer.default_address.name | escape }}
+                    {% if customer.default_address.phone != blank %}
+                      <small>{{ customer.default_address.phone | escape }}</small>
+                    {% endif %}
+                    {% if customer.default_address.address1 != blank or customer.default_address.address2 != blank %}
+                      <small>
+                        {{ customer.default_address.address1 | escape }}{% if customer.default_address.address2 != blank %} {{ customer.default_address.address2 | escape }}{% endif %}
+                      </small>
+                    {% endif %}
+                    {% capture default_address_locality %}
+                      {% if customer.default_address.city != blank %}{{ customer.default_address.city | escape }}{% endif %}
+                      {% if customer.default_address.province != blank %}{% if customer.default_address.city != blank %}, {% endif %}{{ customer.default_address.province | escape }}{% endif %}
+                      {% if customer.default_address.zip != blank %} {{ customer.default_address.zip | escape }}{% endif %}
+                    {% endcapture %}
+                    {% assign default_address_locality_text = default_address_locality | strip %}
+                    {% if default_address_locality_text != blank %}
+                      <small>{{ default_address_locality_text }}</small>
+                    {% endif %}
+                  </dd>
+                {% else %}
+                  <dd class="muted">아직 설정된 배송지가 없습니다.</dd>
+                {% endif %}
+              </div>
+            </dl>
+            <div class="ship__btn">
+              <a class="btn btn--gh btn--sm" href="{{ account_addresses_url }}">
+                {% if customer.default_address %}배송지 수정하기{% else %}배송지 설정하기{% endif %}
+              </a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__h">계정 바로가기</div>
+            <div class="hl">
+              <a href="{{ guide_url }}">공동구매 정책 보기<span class="hl__arrow">→</span></a>
+              <a href="{{ pages['collectors'].url | default: '#' }}">Collectors 보기<span class="hl__arrow">→</span></a>
+            </div>
+          </div>
+
+          <div class="card card--alt">
+            <div class="card__h">작성 안내</div>
+            <p class="mp-note">
+              소개, 선호 산지, 선호 스타일, 테이스팅 프로파일은 입력한 항목만
+              컬렉터 페이지에 노출됩니다. 비워둔 항목은 자동으로 숨겨집니다.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  {% else %}
+    <section class="mhero" aria-label="로그인 안내">
+      <div class="mhero__head">
+        <div>
+          <div class="mhero__l">로그인이 필요합니다</div>
+          <h1 class="mhero__t">공동구매 트래커는 <em>회원 로그인 후</em> 확인할 수 있어요</h1>
+        </div>
+        <div class="mhero__a">
+          <a class="btn btn--dark" href="/customer_authentication/login?return_to=%2Fpages%2Fmy-page%23orders-management">로그인 / 회원가입</a>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+</main>
+
+{% render 'townwine-footer' %}
+
+{% schema %}
+{
+  "name": "TownWine Mypage",
+  "settings": [],
+  "presets": [
+    {
+      "name": "TownWine Mypage"
+    }
+  ]
+}
+{% endschema %}

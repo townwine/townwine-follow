@@ -1,0 +1,450 @@
+{% doc %}
+  Renders all global scripts, module preloads, and importmaps for the theme.
+
+  @param {object} [product] - The product object, available on product pages.
+{% enddoc %}
+
+<script type="importmap">
+  {
+    "imports": {
+      "@theme/overflow-list": "{{ 'overflow-list.js' | asset_url }}",
+      "@theme/product-title": "{{ 'product-title-truncation.js' | asset_url }}",
+      "@theme/component": "{{ 'component.js' | asset_url }}",
+      "@theme/dialog": "{{ 'dialog.js' | asset_url }}",
+      "@theme/events": "{{ 'events.js' | asset_url }}",
+      "@theme/focus": "{{ 'focus.js' | asset_url }}",
+      "@theme/morph": "{{ 'morph.js' | asset_url }}",
+      "@theme/paginated-list": "{{ 'paginated-list.js' | asset_url }}",
+      "@theme/performance": "{{ 'performance.js' | asset_url }}",
+      "@theme/product-form": "{{ 'product-form.js' | asset_url }}",
+      "@theme/recently-viewed-products": "{{ 'recently-viewed-products.js' | asset_url }}",
+      "@theme/scrolling": "{{ 'scrolling.js' | asset_url }}",
+      "@theme/section-renderer": "{{ 'section-renderer.js' | asset_url }}",
+      "@theme/section-hydration": "{{ 'section-hydration.js' | asset_url }}",
+      "@theme/money-formatting": "{{ 'money-formatting.js' | asset_url }}",
+      "@theme/utilities": "{{ 'utilities.js' | asset_url }}",
+      "@theme/variant-picker": "{{ 'variant-picker.js' | asset_url }}",
+      "@theme/media-gallery": "{{ 'media-gallery.js' | asset_url }}",
+      "@theme/quick-add": "{{ 'quick-add.js' | asset_url }}",
+      "@theme/paginated-list-aspect-ratio": "{{ 'paginated-list-aspect-ratio.js' | asset_url }}",
+      "@theme/popover-polyfill": "{{ 'popover-polyfill.js' | asset_url }}",
+      "@theme/component-quantity-selector": "{{ 'component-quantity-selector.js' | asset_url }}",
+      "@theme/comparison-slider": "{{ 'comparison-slider.js' | asset_url }}",
+      "@theme/sticky-add-to-cart": "{{ 'sticky-add-to-cart.js' | asset_url }}",
+      "@theme/fly-to-cart": "{{ 'fly-to-cart.js' | asset_url }}"
+    }
+  }
+</script>
+
+<script
+  src="{{ 'view-transitions.js' | asset_url }}"
+  async
+  {% if settings.page_transition_enabled or settings.transition_to_main_product %}
+    blocking="render"
+  {% endif %}
+></script>
+
+<link
+  rel="modulepreload"
+  href="{{ 'utilities.js' | asset_url }}"
+  fetchpriority="low"
+>
+<link
+  rel="modulepreload"
+  href="{{ 'component.js' | asset_url }}"
+  fetchpriority="low"
+>
+<link
+  rel="modulepreload"
+  href="{{ 'section-renderer.js' | asset_url }}"
+  fetchpriority="low"
+>
+<link
+  rel="modulepreload"
+  href="{{ 'section-hydration.js' | asset_url }}"
+  fetchpriority="low"
+>
+<link
+  rel="modulepreload"
+  href="{{ 'morph.js' | asset_url }}"
+  fetchpriority="low"
+>
+
+{% if template.name == 'collection' or template.name == 'search' %}
+  <link
+    rel="modulepreload"
+    href="{{ 'paginated-list-aspect-ratio.js' | asset_url }}"
+    fetchpriority="low"
+  >
+  <link
+    rel="modulepreload"
+    href="{{ 'paginated-list.js' | asset_url }}"
+    fetchpriority="low"
+  >
+
+  <link
+    rel="modulepreload"
+    href="{{ 'product-title-truncation.js' | asset_url }}"
+    fetchpriority="low"
+  >
+{% endif %}
+
+<link
+  rel="modulepreload"
+  href="{{ 'focus.js' | asset_url }}"
+  fetchpriority="low"
+>
+<link
+  rel="modulepreload"
+  href="{{ 'recently-viewed-products.js' | asset_url }}"
+  fetchpriority="low"
+>
+<link
+  rel="modulepreload"
+  href="{{ 'scrolling.js' | asset_url }}"
+  fetchpriority="low"
+>
+<link
+  rel="modulepreload"
+  href="{{ 'events.js' | asset_url }}"
+  fetchpriority="low"
+>
+<script
+  src="{{ 'popover-polyfill.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'overflow-list.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'quick-add.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+{% if settings.show_add_discount_code %}
+  <script
+    src="{{ 'cart-discount.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{% endif %}
+
+<script
+  src="{{ 'dialog.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'variant-picker.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'product-card.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'product-form.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'fly-to-cart.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'accordion-custom.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'media.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'product-price.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'product-sku.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'product-title-truncation.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'product-inventory.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'townwine-inventory.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'show-more.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'slideshow.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'layered-slideshow.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'anchored-popover.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'floating-panel.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'video-background.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'component-quantity-selector.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'media-gallery.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'rte-formatter.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'volume-pricing.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'price-per-item.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+<script
+  src="{{ 'volume-pricing-info.js' | asset_url }}"
+  type="module"
+  fetchpriority="low"
+></script>
+
+{% if localization.available_countries.size > 1 or localization.available_languages.size > 1 %}
+  <script
+    src="{{ 'localization.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+{% endif %}
+
+{% if template == 'product' or template.name == 'product' or request.page_type == 'product' %}
+  <script
+    src="{{ 'fly-to-cart.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <script
+    src="{{ 'sticky-add-to-cart.js' | asset_url }}"
+    type="module"
+    fetchpriority="low"
+  ></script>
+  <script type="module">
+    import { RecentlyViewed } from '@theme/recently-viewed-products';
+    RecentlyViewed.addProduct('{{ product.id }}');
+  </script>
+{% endif %}
+
+<script
+  src="{{ 'auto-close-details.js' | asset_url }}"
+  defer="defer"
+></script>
+<script>
+  {% capture townwine_storefront_home_login_url %}/customer_authentication/login?return_to={{ '/pages/my-page#orders-management' | url_encode }}{% endcapture %}
+  window.TownWineCustomer = {
+    id: {{ customer.id | default: '' | json }},
+    email: {{ customer.email | default: '' | json }},
+    firstName: {{ customer.first_name | default: customer.name | default: '' | json }},
+    shopDomain: {{ shop.permanent_domain | default: '' | json }}
+  };
+  window.TownWineRoutes = Object.assign({}, window.TownWineRoutes, {
+    storefrontHomeUrl: {{ routes.root_url | json }},
+    storefrontHomeLoginUrl: {{ townwine_storefront_home_login_url | strip | json }}
+  });
+</script>
+<script>
+  (function () {
+    if (window.__townwineFollowHotfix20260615) return;
+    window.__townwineFollowHotfix20260615 = true;
+    var routes = window.TownWineRoutes || {};
+    var storefrontHomeLoginUrl = String(
+      routes.storefrontHomeLoginUrl || '/customer_authentication/login?return_to=%2Fpages%2Fmy-page%23orders-management',
+    ).trim();
+    var originalAlert = window.alert;
+
+    function redirectToStorefrontLogin() {
+      if (window.self !== window.top) {
+        originalAlert('테마 미리보기에서는 고객 로그인 세션이 전달되지 않아 팔로우 테스트가 제한될 수 있습니다. 실제 스토어프론트 프리뷰 URL에서 고객 로그인 후 다시 확인해 주세요.');
+        return;
+      }
+
+      originalAlert('로그인해주세요.');
+      window.location.href = storefrontHomeLoginUrl;
+    }
+
+    function normalizeHandle(value) {
+      var handle = String(value || '').trim();
+
+      if (!handle) {
+        return '';
+      }
+
+      if (/^https?:\/\//i.test(handle)) {
+        try {
+          var url = new URL(handle, window.location.origin);
+          var segments = url.pathname.split('/').filter(Boolean);
+
+          if (segments.length) {
+            handle = segments[segments.length - 1];
+          }
+        } catch (error) {
+          console.warn('[follow-hotfix] failed to parse handle URL', error);
+        }
+      }
+
+      handle = handle
+        .split(/[?#]/, 1)[0]
+        .replace(/^@+/, '')
+        .replace(/\/+$/, '')
+        .trim()
+        .toLowerCase();
+
+      try {
+        handle = decodeURIComponent(handle);
+      } catch (error) {
+        console.warn('[follow-hotfix] failed to decode handle', error);
+      }
+
+      return handle;
+    }
+
+    window.influencerAliases = Array.isArray(window.influencerAliases)
+      ? window.influencerAliases
+      : [];
+
+    document.addEventListener(
+      'click',
+      function (event) {
+        var target = event.target;
+        var customer = window.TownWineCustomer || {};
+
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        var loginLink = target.closest('a[href*="/account/login"]');
+
+        if (loginLink instanceof HTMLAnchorElement) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          window.location.href = storefrontHomeLoginUrl;
+          return;
+        }
+
+        var button = target.closest('.js-follow-btn');
+
+        if (!(button instanceof HTMLButtonElement)) {
+          return;
+        }
+
+        var handle = normalizeHandle(button.dataset.influencerHandle || '');
+        var customerId = String(button.dataset.customerId || customer.id || '').trim();
+        window.influencerAliases = handle ? [handle] : [];
+
+        if (!customerId) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          redirectToStorefrontLogin();
+        }
+      },
+      true,
+    );
+
+    var originalAlert = window.alert;
+
+    window.alert = function (message) {
+      if (message === '팔로우가 취소됐습니다.') {
+        return originalAlert('팔로우 취소 되었습니다.');
+      }
+
+      return originalAlert(message);
+    };
+
+    document.addEventListener('townwine:follow-change', function (event) {
+      var detail = event && event.detail;
+
+      if (!detail || detail.phase !== 'confirmed' || detail.following !== true) {
+        return;
+      }
+
+      originalAlert('팔로우 되었습니다.');
+    });
+  })();
+</script>
+<script
+  src="{{ 'townwine-follow.js' | asset_url }}&rev=20260523a"
+  defer="defer"
+></script>
+<script
+  src="{{ 'townwine-collector-stats.js' | asset_url }}&rev=20260602a"
+  defer="defer"
+></script>
+
+<script>
+  const Theme = {
+    translations: {
+      placeholder_image: `{{ 'content.placeholder_image' | t }}`,
+      added: `{{ 'actions.added' | t }}`,
+      recipient_form_fields_visible: `{{ 'content.recipient_form_fields_visible' | t }}`,
+      recipient_form_fields_hidden: `{{ 'content.recipient_form_fields_hidden' | t }}`,
+      recipient_form_error: `{{ 'content.recipient_form_error' | t }}`,
+      items_added_to_cart_one: `{{ 'content.items_added_to_cart.one' | t }}`,
+      items_added_to_cart_other: `{{ 'content.items_added_to_cart.other' | t }}`,
+      cart_count: `{{ 'accessibility.cart_count' | t }}`,
+    },
+    routes: {
+      cart_add_url: '{{ routes.cart_add_url | append: '.js' }}',
+      cart_change_url: '{{ routes.cart_change_url }}',
+      cart_update_url: '{{ routes.cart_update_url }}',
+      cart_url: '{{ routes.cart_url }}',
+      predictive_search_url: '{{ routes.predictive_search_url }}',
+      search_url: '{{ routes.search_url }}',
+    },
+    template: {
+      name: '{{ template }}',
+    },
+  };
+</script>
