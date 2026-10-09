@@ -37,6 +37,7 @@ function shouldRetry(args: {
   const notificationSkipped = String(args.notification?.skipped || "").trim();
 
   return (
+    Number(args.notification?.failedCount || 0) > 0 ||
     RETRYABLE_COLLECTOR_SKIPS.has(collectorSkipped) ||
     RETRYABLE_NOTIFICATION_SKIPS.has(notificationSkipped)
   );

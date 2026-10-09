@@ -54,5 +54,9 @@ export async function action({ request }: ActionFunctionArgs) {
     productId,
   });
 
-  return Response.json(result);
+  // Let Shopify retry partial delivery failures. Successful recipients remain
+  // protected by their per-product notification reservations.
+  return Response.json(result, {
+    status: Number(result.notification?.failedCount || 0) > 0 ? 503 : 200,
+  });
 }

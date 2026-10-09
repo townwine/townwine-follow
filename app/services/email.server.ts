@@ -1,3 +1,4 @@
+import { sendResendRequest } from "./resend-delivery.server";
 import {
   DEFAULT_FOLLOW_EMAIL_TEMPLATE_SETTINGS,
   applyFollowEmailTemplateVariables,
@@ -6,7 +7,6 @@ import {
 import nodemailer from "nodemailer";
 
 const RESEND_MIN_INTERVAL_MS = 650;
-const RESEND_MAX_ATTEMPTS = 4;
 const DEFAULT_SMTP_CONNECTION_TIMEOUT_MS = 15_000;
 const DEFAULT_SMTP_GREETING_TIMEOUT_MS = 15_000;
 const DEFAULT_SMTP_SOCKET_TIMEOUT_MS = 20_000;
@@ -16,6 +16,7 @@ let resendSendQueue: Promise<void> = Promise.resolve();
 let resendLastAttemptAt = 0;
 
 type NewDealEmailParams = {
+  idempotencyKey?: string;
   to: string;
   customerFirstName: string;
   influencerName: string;
@@ -28,6 +29,7 @@ type NewDealEmailParams = {
 };
 
 type UpcomingOpenAlertEmailParams = {
+  idempotencyKey?: string;
   to: string;
   customerFirstName: string;
   productTitle: string;
@@ -118,6 +120,7 @@ type EmailSendResult = {
 };
 
 type DeliverEmailMessageParams = {
+  idempotencyKey?: string;
   to: string;
   subject: string;
   html: string;
@@ -339,16 +342,6 @@ async function waitForResendWindow() {
   resendLastAttemptAt = Date.now();
 }
 
-function getResendRetryDelayMs(response: Response, attempt: number) {
-  const retryAfterSeconds = Number(response.headers.get("retry-after") || "");
-
-  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-    return Math.ceil(retryAfterSeconds * 1000);
-  }
-
-  return 900 * attempt;
-}
-
 async function sendViaSmtp(params: {
   to: string;
   subject: string;
@@ -431,73 +424,32 @@ async function sendViaResend(params: {
   text: string;
   from: string;
   replyTo?: string;
+  idempotencyKey?: string;
 }) {
-  const resendApiKey = String(process.env.RESEND_API_KEY || "").trim();
   const requestTimeoutMs = parseNumberEnv(
     process.env.RESEND_REQUEST_TIMEOUT_MS,
     DEFAULT_RESEND_REQUEST_TIMEOUT_MS,
   );
   await runInResendQueue(async () => {
-    for (let attempt = 1; attempt <= RESEND_MAX_ATTEMPTS; attempt += 1) {
-      await waitForResendWindow();
-
-      console.info("[email] sending via Resend", {
-        to: maskEmailAddress(params.to),
+    const id = await sendResendRequest({
+      apiKey: String(process.env.RESEND_API_KEY || "").trim(),
+      idempotencyKey: params.idempotencyKey,
+      timeoutMs: requestTimeoutMs,
+      beforeAttempt: waitForResendWindow,
+      payload: {
+        from: params.from,
+        to: [params.to],
         subject: params.subject,
-        attempt,
-        requestTimeoutMs,
-      });
-
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        signal: AbortSignal.timeout(requestTimeoutMs),
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: params.from,
-          to: [params.to],
-          subject: params.subject,
-          html: params.html,
-          text: params.text,
-          ...(params.replyTo ? { reply_to: params.replyTo } : {}),
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Resend email sent", {
-          ...result,
-          to: maskEmailAddress(params.to),
-          subject: params.subject,
-        });
-        return;
-      }
-
-      const errorText = await response.text();
-
-      if (
-        response.status === 429 &&
-        (/daily_quota_exceeded/i.test(errorText) ||
-          /daily email sending quota/i.test(errorText))
-      ) {
-        throw new Error(`Resend send failed: ${response.status} ${errorText}`);
-      }
-
-      if (response.status === 429 && attempt < RESEND_MAX_ATTEMPTS) {
-        const retryDelayMs = getResendRetryDelayMs(response, attempt);
-        console.warn("[email] Resend rate limited, retrying", {
-          to: params.to,
-          attempt,
-          retryDelayMs,
-        });
-        await sleep(retryDelayMs);
-        continue;
-      }
-
-      throw new Error(`Resend send failed: ${response.status} ${errorText}`);
-    }
+        html: params.html,
+        text: params.text,
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),
+      },
+    });
+    console.info("Resend email sent", {
+      id,
+      to: maskEmailAddress(params.to),
+      subject: params.subject,
+    });
   });
 }
 
@@ -540,6 +492,7 @@ async function deliverEmailMessage(
   }
 
   await sendViaResend({
+    idempotencyKey: runtimeStatus.mode === "live" ? params.idempotencyKey : undefined,
     to,
     subject: params.subject,
     html: params.html,
@@ -607,6 +560,7 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
     detailLines,
   });
   return deliverEmailMessage({
+    idempotencyKey: params.idempotencyKey,
     to: params.to,
     subject,
     html,
@@ -665,6 +619,7 @@ ${footerText ? `\n${footerText}` : ""}`.trim();
     detailLines,
   });
   return deliverEmailMessage({
+    idempotencyKey: params.idempotencyKey,
     to: params.to,
     subject,
     html,

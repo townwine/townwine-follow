@@ -120,5 +120,7 @@ export async function handleMetafieldWebhookAction(
     productId,
   });
 
-  return Response.json(result);
+  return Response.json(result, {
+    status: Number(result.notification?.failedCount || 0) > 0 ? 503 : 200,
+  });
 }

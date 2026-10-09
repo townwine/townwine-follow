@@ -1,8 +1,15 @@
 import {
+  readNotificationQuery,
+  refreshingNotificationAdmin,
+} from "./notification-query.server";
+import { notificationEmailKey } from "./resend-delivery.server";
+import {
   getFollowersForInfluencerAliases,
   normalizeInfluencerHandle,
   releaseNotificationSendReservation,
   reserveNotificationSend,
+  wasNotificationSent,
+  cacheFollowerContact,
 } from "./follow.server";
 import {
   getEmailDeliveryRuntimeStatus,
@@ -125,7 +132,11 @@ export async function processDealNotification(params: {
   resolvedInfluencerHandle?: string;
   resolvedInfluencerName?: string;
 }) {
-  const response = await params.admin.graphql(
+  const admin = refreshingNotificationAdmin(params.admin, async () => {
+    const { unauthenticated } = await import("../shopify.server");
+    return (await unauthenticated.admin(params.shop)).admin;
+  });
+  const response = await admin.graphql(
     `#graphql
       query FollowNotificationProduct($id: ID!) {
         product(id: $id) {
@@ -157,7 +168,7 @@ export async function processDealNotification(params: {
     { variables: { id: params.productId } },
   );
 
-  const result = await response.json();
+  const result = await readNotificationQuery(response);
   const product = result.data?.product;
 
   if (!product || !isActiveProductStatus(product.status)) {
@@ -183,7 +194,7 @@ export async function processDealNotification(params: {
     },
   );
   const effectiveInfluencerAliases = await buildEffectiveInfluencerAliases({
-    admin: params.admin,
+    admin,
     shop: params.shop,
     aliases: influencerAliases,
     tags: Array.isArray(product.tags) ? product.tags : [],
@@ -227,7 +238,7 @@ export async function processDealNotification(params: {
   }
 
   const templateConfig = await loadFollowEmailTemplateConfigSafe(
-    params.admin,
+    admin,
     params.shop,
   );
   const emailDeliveryRuntime = getEmailDeliveryRuntimeStatus();
@@ -246,11 +257,25 @@ export async function processDealNotification(params: {
 
   for (const follower of followers) {
     try {
+      // Avoid a remote customer lookup for every previously completed delivery.
+      // The atomic reservation below still arbitrates concurrent new sends.
+      if (
+        shouldReserveLiveDelivery &&
+        await wasNotificationSent({
+          shop: params.shop,
+          customerId: follower.customerId,
+          productId: params.productId,
+          notificationType: "FOLLOW_NEW_DEAL",
+        })
+      ) {
+        skippedCount += 1;
+        continue;
+      }
       let customerEmail = String(follower.customerEmail || "").trim();
       let customerFirstName = String(follower.customerFirstName || "").trim();
 
       if (!customerEmail) {
-        const customerResponse = await params.admin.graphql(
+        const customerResponse = await admin.graphql(
           `#graphql
             query FollowNotificationCustomer($id: ID!) {
               customer(id: $id) {
@@ -263,11 +288,19 @@ export async function processDealNotification(params: {
           { variables: { id: toCustomerGid(follower.customerId) } },
         );
 
-        const customerResult = await customerResponse.json();
+        const customerResult = await readNotificationQuery(customerResponse);
         const customer = customerResult.data?.customer;
         customerEmail = String(customer?.email || "").trim();
         customerFirstName =
           customerFirstName || String(customer?.firstName || "").trim();
+        if (customerEmail) {
+          await cacheFollowerContact({
+            shop: params.shop,
+            customerId: follower.customerId,
+            customerEmail,
+            customerFirstName,
+          });
+        }
       }
 
       if (!customerEmail) {
@@ -310,6 +343,12 @@ export async function processDealNotification(params: {
 
       try {
         const emailResult = await sendNewDealEmail({
+          idempotencyKey: notificationEmailKey({
+            shop: params.shop,
+            customerId: follower.customerId,
+            productId: params.productId,
+            notificationType: "FOLLOW_NEW_DEAL",
+          }),
           to: customerEmail,
           customerFirstName,
           influencerName:
@@ -439,7 +478,9 @@ async function fetchActiveFollowNotificationProducts(params: {
       { variables: { cursor } },
     );
 
-    const result = await response.json();
+    const result = await readNotificationQuery(response) as {
+      data: ActiveFollowNotificationProductsQueryResponse;
+    };
     const connection = result.data?.products;
 
     if (!connection) {

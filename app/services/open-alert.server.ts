@@ -1,3 +1,4 @@
+import { notificationEmailKey } from "./resend-delivery.server";
 import type { UpcomingDealAlertSubscription } from "@prisma/client";
 import { prisma } from "../db.server";
 import {
@@ -585,6 +586,12 @@ export async function processDueOpenAlerts(params: {
 
         try {
           const emailResult = await sendUpcomingOpenAlertEmail({
+            idempotencyKey: notificationEmailKey({
+              shop,
+              customerId: subscription.customerId,
+              productId: product.id,
+              notificationType: "UPCOMING_OPEN_ALERT",
+            }),
             to: customer.email,
             customerFirstName: customer.firstName || "",
             productTitle: product.title,

@@ -832,3 +832,24 @@ export async function wasNotificationSent(params: {
 
   return true;
 }
+
+// Cache contacts read from Shopify so each product does not repeat the same
+// remote lookup for imported subscriptions that originally lacked an address.
+export async function cacheFollowerContact(params: {
+  shop: string;
+  customerId: string;
+  customerEmail: string;
+  customerFirstName: string;
+}) {
+  await prisma.followSubscription.updateMany({
+    where: {
+      shop: normalizeShop(params.shop),
+      customerId: normalizeCustomerId(params.customerId),
+      OR: [{ customerEmail: null }, { customerEmail: "" }],
+    },
+    data: {
+      customerEmail: params.customerEmail,
+      customerFirstName: params.customerFirstName,
+    },
+  });
+}

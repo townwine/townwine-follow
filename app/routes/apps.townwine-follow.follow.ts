@@ -5,7 +5,6 @@ import {
   followInfluencer,
   normalizeInfluencerHandle,
 } from "../services/follow.server";
-import { processFollowNotificationCatchup } from "../services/deal-notification.server";
 import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
 
 function getSafeReturnTo(value: string) {
@@ -40,7 +39,6 @@ async function handleFollowRequest(request: Request) {
       required: false,
       logPrefix: "[follow] follow",
     });
-    const admin = adminContext.admin;
     const shop = adminContext.resolvedShop || adminContext.requestedShop;
 
     if (!shop || !customerId) {
@@ -92,21 +90,8 @@ async function handleFollowRequest(request: Request) {
       recordId: record.id,
     });
 
-    if (admin) {
-      void processFollowNotificationCatchup({
-        admin,
-        shop,
-        handles: [influencerHandle, influencerName],
-      }).catch((error) => {
-        console.error("[follow] failed to run notification catchup after follow", {
-          shop,
-          customerId,
-          influencerHandle,
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      });
-    }
+    // Following opts into future notifications. Replaying the entire catalog
+    // here floods new followers and starts overlapping jobs for all followers.
 
     if (shouldNavigateWithRedirect(request)) {
       return redirect(returnTo);
