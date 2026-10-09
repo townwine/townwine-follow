@@ -534,6 +534,15 @@
   #collector-history .sh{align-items:center;gap:12px;margin-bottom:12px}
   #collector-history [data-history-status]{font-size:13px;color:#827568;margin:0 0 16px}
   .tw-history-order{font-size:12px;color:#827568;white-space:nowrap}
+
+  #collector-history .tw-history-filters{display:grid;grid-template-columns:minmax(180px,1fr) 115px 150px 150px auto;gap:12px;align-items:end;margin:20px 0;background:#fffdf9;border:1px solid #e3dbcf;border-radius:10px;padding:18px}
+  #collector-history .tw-history-filters label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:#776957;min-width:0}
+  #collector-history .tw-history-filters input,#collector-history .tw-history-filters select{box-sizing:border-box;min-width:0;width:100%;height:42px;padding:0 10px;border:1px solid #d9d0c2;border-radius:6px;background:#fff;color:#342e26;font:inherit;font-size:13px}
+  .tw-history-filter-actions{display:flex;gap:6px}
+  #collector-history .tw-history-filter-actions button{height:42px;padding:0 14px;border:1px solid #d9d0c2;border-radius:6px;font:inherit;font-size:13px;cursor:pointer;background:#fffdf9;color:#625340;white-space:nowrap}
+  #collector-history .tw-history-filter-actions button[type="submit"]{background:#382f25;color:white;border-color:#382f25}
+  #collector-history .tw-history-empty{margin:0;padding:34px 20px;text-align:center;color:#7c6e5c;font-size:14px}
+  @media(max-width:900px){#collector-history .tw-history-filters{grid-template-columns:1fr 1fr}.tw-history-search{grid-column:1/-1}.tw-history-filter-actions{grid-column:1/-1;justify-content:flex-end}}
   #collector-history .tw-history-tools{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:18px 0 12px}
   #collector-history [data-history-status]{margin:0}
   .tw-history-size{display:flex;align-items:center;gap:8px;font-size:12px;color:#756958;white-space:nowrap}
@@ -577,12 +586,18 @@
   <section class="sec sec--alt" id="collector-history" aria-label="{{ display_name | escape }}의 공구 내역" data-collector-history data-collector-handle="{{ collector_handle | escape }}" data-currency="{{ shop.currency }}">
     <div class="container">
       <div class="sh"><div><div class="sh__sub">공구 내역</div><h2 class="sh__t">{{ display_name }}의 공구 모아보기</h2></div><span class="tw-history-order">최신순</span></div>
+      <form class="tw-history-filters" data-history-filters>
+        <label class="tw-history-search">공구명<input name="q" type="search" maxlength="160" placeholder="공구명 또는 와인명" autocomplete="off"></label>
+        <label>진행 상태<select name="status"><option value="all">전체</option><option value="active">진행 중</option><option value="ended">종료</option></select></label>
+        <label>시작일<input name="from" type="date" aria-label="공구 시작일"></label>
+        <label>종료일<input name="to" type="date" aria-label="공구 종료일"></label>
+        <div class="tw-history-filter-actions"><button type="submit">검색</button><button type="reset">초기화</button></div>
+      </form>
       <div class="tw-history-tools"><p data-history-status role="status">공구 내역을 불러오는 중입니다.</p><label class="tw-history-size"><span>페이지당</span><select data-history-page-size aria-label="페이지당 공구 수"><option value="10">10개씩</option><option value="20">20개씩</option><option value="50">50개씩</option></select></label></div>
-      <div class="tw-history-table"><div class="tw-history-head" aria-hidden="true"><span>공구</span><span>국가</span><span>날짜</span></div><div class="tw-history-list" data-history-list></div></div>
+      <div class="tw-history-table"><div class="tw-history-head" aria-hidden="true"><span>공구</span><span>국가</span><span>날짜</span></div><div class="tw-history-list" data-history-list></div><p class="tw-history-empty" data-history-empty hidden>조건에 맞는 공구가 없어요. 검색어나 기간을 바꿔보세요.</p></div>
       <nav class="tw-history-pagination" data-history-pagination aria-label="공구 내역 페이지" hidden></nav>
     </div>
   </section>
-  <script src="{{ 'townwine-catalog-feed.js' | asset_url }}" defer></script>
   <script src="{{ 'townwine-collector-history.js' | asset_url }}" defer></script>
 
   {% if has_profile_section %}

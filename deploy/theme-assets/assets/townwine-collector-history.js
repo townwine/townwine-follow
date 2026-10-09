@@ -10,13 +10,15 @@
     var status = root.querySelector('[data-history-status]');
     var pagination = root.querySelector('[data-history-pagination]');
     var pageSizeSelect = root.querySelector('[data-history-page-size]');
-    var products = [], page = 1, pageSize = 10;
+    var products = [], total = 0, page = 1, pageSize = 10, requestVersion = 0, controller;
+    var filters = root.querySelector('[data-history-filters]');
+    var empty = root.querySelector('[data-history-empty]');
     function renderPage(moveFocus) {
-      var totalPages = Math.max(1, Math.ceil(products.length / pageSize));
+      var totalPages = Math.max(1, Math.ceil(total / pageSize));
       page = Math.max(1, Math.min(page, totalPages));
       var offset = (page - 1) * pageSize;
       list.replaceChildren();
-      products.slice(offset, offset + pageSize).forEach(function (product) {
+      products.forEach(function (product) {
         var link = text('a', 'tw-history-row', '');
         link.href = '/products/' + encodeURIComponent(product.handle);
         var main = text('span', 'tw-history-main', '');
@@ -47,7 +49,8 @@
         link.appendChild(text('span', 'tw-history-date', dateLabel));
         list.appendChild(link);
       });
-      status.textContent = products.length ? '총 ' + products.length + '개 · ' + (offset + 1) + '–' + Math.min(offset + pageSize, products.length) + '개 표시' : '아직 등록된 공구 내역이 없습니다.';
+      status.textContent = total ? '검색 결과 ' + total + '개 · ' + (offset + 1) + '–' + Math.min(offset + pageSize, total) + '개 표시' : '검색 결과 0개';
+      empty.hidden = total > 0;
       pagination.replaceChildren();
       pagination.hidden = totalPages <= 1;
       function button(label, target, disabled, current) {
@@ -55,7 +58,7 @@
         node.type = 'button'; node.disabled = disabled;
         node.setAttribute('aria-label', label === '이전' || label === '다음' ? label + ' 페이지' : label + '페이지');
         if (current) node.setAttribute('aria-current', 'page');
-        node.addEventListener('click', function () { page = target; renderPage(true); });
+        node.addEventListener('click', function () { page = target; load(true); });
         pagination.appendChild(node);
       }
       button('이전', page - 1, page === 1, false);
@@ -78,23 +81,50 @@
       }
     }
     pageSizeSelect.addEventListener('change', function () {
-      pageSize = Number(pageSizeSelect.value); page = 1; renderPage(false);
+      pageSize = Number(pageSizeSelect.value); page = 1; load(false);
     });
-    function load() {
+    filters.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var from = filters.elements.from.value, to = filters.elements.to.value;
+      if (from && to && from > to) { status.textContent = '시작일은 종료일보다 늦을 수 없어요.'; return; }
+      page = 1; load(false);
+    });
+    filters.addEventListener('reset', function () {setTimeout(function () {page = 1;load(false);},0);});
+    async function load(moveFocus) {
+      var version = ++requestVersion;
+      if (controller) controller.abort();
+      controller = new AbortController();
+      var signal = controller.signal;
+      var timer = setTimeout(function () {if (version === requestVersion) controller.abort();}, 90000);
+      root.setAttribute('aria-busy','true');
       status.textContent = '공구 내역을 불러오는 중입니다.';
-      window.TownWineCatalog.load().then(function (payload) {
-        products = payload.products.filter(function (product) {
-          var detail = payload.collectorDetails[product.handle];
-          return detail && detail.followHandle === root.dataset.collectorHandle;
-        }).sort(function (a,b) {return Date.parse(b.created_at)-Date.parse(a.created_at);});
-        status.textContent = products.length ? '총 ' + products.length + '개의 공구' : '아직 등록된 공구 내역이 없습니다.';
-        renderPage(false);
-      }).catch(function () {
+      pagination.querySelectorAll('button').forEach(function (button) {button.disabled=true;});
+      var params = new URLSearchParams({collector:root.dataset.collectorHandle,page:String(page),pageSize:String(pageSize),q:filters.elements.q.value.trim(),status:filters.elements.status.value,from:filters.elements.from.value,to:filters.elements.to.value});
+      try {
+        var payload;
+        for (var attempt=0;attempt<30;attempt++) {
+          var response = await fetch('/apps/townwine-follow/collector-history?' + params.toString(), {signal:signal,headers:{Accept:'application/json'}});
+          if (!response.ok) throw new Error('REQUEST_FAILED');
+          payload = await response.json();
+          if (!payload.pending) break;
+          if (signal.aborted) throw new Error('ABORTED');
+          await new Promise(function (resolve) {setTimeout(resolve,2000);});
+        }
+        if (version !== requestVersion) return;
+        if (!payload || payload.pending) throw new Error('INDEX_PENDING');
+        products = payload.products; total = payload.total; page = payload.page;
+        renderPage(moveFocus);
+      } catch (error) {
+        if (version !== requestVersion) return;
+        list.replaceChildren(); pagination.hidden = true; empty.hidden = true;
         status.textContent = '공구 내역을 불러오지 못했습니다. ';
         var retry = text('button', 'btn btn--gh', '다시 불러오기');
-        retry.type = 'button'; retry.addEventListener('click', load, {once:true}); status.appendChild(retry);
-      });
+        retry.type = 'button'; retry.addEventListener('click', function () {load(false);}, {once:true}); status.appendChild(retry);
+      } finally {
+        clearTimeout(timer);
+        if (version === requestVersion) root.removeAttribute('aria-busy');
+      }
     }
-    load();
+    load(false);
   });
 })();

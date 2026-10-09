@@ -86,3 +86,24 @@ model CollectorComment {
   @@index([shop, collectorHandle, createdAt])
   @@index([shop, customerId])
 }
+
+model CollectorDealIndex {
+  handle          String @id
+  collectorHandle String
+  title           String
+  searchTitle     String
+  vendor          String
+  image           String
+  available       Boolean
+  dealDate        String
+  createdAt       DateTime
+  generation      String
+
+  @@index([collectorHandle, dealDate, handle])
+  @@index([collectorHandle, available, dealDate])
+}
+
+model CollectorDealIndexState {
+  id        String @id
+  updatedAt DateTime
+}
