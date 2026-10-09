@@ -19,11 +19,15 @@ export type WineOffer = {
   bottleSize: string;
   url: string;
   description: string;
+  tax?: string;
 };
 export type WineResult = {
   state: "ready" | "empty" | "ambiguous";
   offers: WineOffer[];
   fetchedAt: string;
+  sourceUrl?: string;
+  matchedName?: string;
+  partial?: boolean;
 };
 export class WineSearchError extends Error {
   kind: "input" | "unconfigured" | "busy" | "provider";
@@ -87,7 +91,7 @@ function apiConfig() {
   }
 }
 export function wineSearchAvailable() {
-  return Boolean(apiConfig());
+  return process.env.WINE_SEARCHER_MODE !== "api" || Boolean(apiConfig());
 }
 const string = (value: unknown) =>
   typeof value === "string" || typeof value === "number"
@@ -243,16 +247,27 @@ export async function fetchWineOffers(
   }
 }
 const inFlight = new Map<string, Promise<WineResult>>();
+const crawlCache = new Map<string, { time: number; result: WineResult }>();
+let crawlBlockedUntil = 0;
 let windowStart = 0,
   requests = 0;
 export async function searchWine(query: WineQuery): Promise<WineResult> {
   const config = apiConfig();
-  if (!config)
+  const crawl = process.env.WINE_SEARCHER_MODE !== "api";
+  if (!crawl && !config)
     throw new WineSearchError(
       "unconfigured",
       "해외 판매처 검색을 준비 중입니다. 데이터 연결이 완료되면 검색할 수 있습니다.",
     );
-  const key = JSON.stringify(query);
+  const key = JSON.stringify([crawl, query]);
+  const cached = crawlCache.get(key);
+  if (crawl && cached && Date.now() - cached.time < 15 * 60_000)
+    return cached.result;
+  if (crawl && Date.now() < crawlBlockedUntil)
+    throw new WineSearchError(
+      "provider",
+      "Wine-Searcher에서 자동 수집을 제한하고 있습니다. 원문 검색에서 판매처를 확인해 주세요.",
+    );
   const pending = inFlight.get(key);
   if (pending) return pending;
   if (Date.now() - windowStart >= 60000) {
@@ -265,9 +280,24 @@ export async function searchWine(query: WineQuery): Promise<WineResult> {
       "검색 요청이 많습니다. 1분 후 다시 시도해 주세요.",
     );
   requests++;
-  const task = fetchWineOffers(query, config).finally(() =>
-    inFlight.delete(key),
-  );
+  const task = (async () => {
+    if (!crawl) return fetchWineOffers(query, config!);
+    const { crawlWineOffers, WineCrawlError } =
+      await import("./wine-crawl.server");
+    try {
+      const result = await crawlWineOffers(query);
+      if (crawlCache.size >= 100)
+        crawlCache.delete(crawlCache.keys().next().value!);
+      crawlCache.set(key, { time: Date.now(), result });
+      return result;
+    } catch (error) {
+      if (error instanceof WineCrawlError) {
+        if (error.blocked) crawlBlockedUntil = Date.now() + 15 * 60_000;
+        throw new WineSearchError("provider", error.message);
+      }
+      throw error;
+    }
+  })().finally(() => inFlight.delete(key));
   inFlight.set(key, task);
   return task;
 }

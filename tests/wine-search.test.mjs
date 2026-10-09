@@ -4,6 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import * as wine from "../app/services/wine-search.server.ts";
+import * as crawl from "../app/services/wine-crawl.server.ts";
 const pageModule = { exports: {} };
 vm.runInNewContext(
   ts.transpileModule(
@@ -13,7 +14,12 @@ vm.runInNewContext(
     ),
     { compilerOptions: { module: ts.ModuleKind.CommonJS } },
   ).outputText,
-  { exports: pageModule.exports, require: () => wine, Intl, Date },
+  {
+    exports: pageModule.exports,
+    require: (path) => (path.includes("wine-crawl") ? crawl : wine),
+    Intl,
+    Date,
+  },
 );
 const { renderWineSearchPage } = pageModule.exports;
 const query = { name: "Château Margaux", vintage: "2018", location: "USA" };
@@ -145,6 +151,7 @@ test("network and invalid JSON errors never leak credentials", async () => {
 test("configuration fails closed, including unsafe or unconfirmed endpoint", () => {
   const old = { ...process.env };
   try {
+    process.env.WINE_SEARCHER_MODE = "api";
     process.env.WINE_SEARCHER_ENABLED = "true";
     process.env.WINE_SEARCHER_API_KEY = "test";
     for (const url of [
@@ -270,4 +277,62 @@ test("route validates before API calls and returns retry-after on busy", async (
   });
   assert.equal(response.status, 429);
   assert.equal(response.headers.get("retry-after"), "60");
+});
+
+function isolatedSearch(crawlWineOffers) {
+  const mod = { exports: {} };
+  vm.runInNewContext(
+    ts.transpileModule(
+      fs.readFileSync(
+        new URL("../app/services/wine-search.server.ts", import.meta.url),
+        "utf8",
+      ),
+      {
+        compilerOptions: {
+          target: ts.ScriptTarget.ES2022,
+          module: ts.ModuleKind.CommonJS,
+        },
+      },
+    ).outputText,
+    {
+      exports: mod.exports,
+      require: () => ({ ...crawl, crawlWineOffers }),
+      process: { env: {} },
+      URL,
+      Date,
+      fetch,
+    },
+  );
+  return mod.exports;
+}
+test("default crawling needs no API key and caches successful queries", async () => {
+  let calls = 0;
+  const service = isolatedSearch(async () => {
+    calls++;
+    return { state: "ready", offers: [], fetchedAt: new Date().toISOString() };
+  });
+  assert.equal(service.wineSearchAvailable(), true);
+  await Promise.all([service.searchWine(query), service.searchWine(query)]);
+  await service.searchWine(query);
+  assert.equal(calls, 1);
+});
+test("a provider block stops further crawling but preserves existing valid cache", async () => {
+  let calls = 0;
+  const result = {
+    state: "ready",
+    offers: [],
+    fetchedAt: new Date().toISOString(),
+  };
+  const service = isolatedSearch(async () => {
+    calls++;
+    if (calls === 1) return result;
+    throw new crawl.WineCrawlError("Blocked", true);
+  });
+  await service.searchWine(query);
+  await assert.rejects(
+    service.searchWine({ ...query, name: "Different wine" }),
+  );
+  await assert.rejects(service.searchWine({ ...query, name: "Third wine" }));
+  assert.equal(await service.searchWine(query), result);
+  assert.equal(calls, 2);
 });
