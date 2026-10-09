@@ -34,6 +34,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
  const file=form.get('imageFile');const bytes=file instanceof File&&file.size?new Uint8Array(await file.arrayBuffer()):null;
  if(bytes)imageFileType(bytes);
  let imageUrl=String(form.get('imageUrl')||'').trim();if(imageUrl)imageUrl=productUrl(imageUrl).href;
+ if(!bytes&&!imageUrl)throw new Error('공구 썸네일로 사용할 라벨 확대 이미지를 등록해 주세요.');
  const imageHash=bytes?createHash('sha256').update(bytes).digest('hex'):imageUrl;
  const payloadHash=createHash('sha256').update(JSON.stringify({title,note,sourceUrl,input,imageHash})).digest('hex');
  const id=createHash('sha256').update(shop+':'+customerId+':'+key).digest('hex');const handle='townwine-request-'+id.slice(0,32);
