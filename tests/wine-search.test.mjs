@@ -336,3 +336,11 @@ test("a provider block stops further crawling but preserves existing valid cache
   assert.equal(await service.searchWine(query), result);
   assert.equal(calls, 2);
 });
+
+test('Liquid theme rendering cannot execute query or provider Liquid tags', () => {
+  const html = renderWineSearchPage({available:true,query:{...query,name:'{{ shop.name }} {% render "secret" %}'}});
+  assert.ok(!html.includes('{{ shop.name }}'));
+  assert.ok(!html.includes('{% render &quot;secret&quot; %}'));
+  assert.ok(html.includes('&#123;&#123; shop.name &#125;&#125;'));
+  assert.ok(html.includes("{% render 'townwine-header', current: 'wine-search' %}"));
+});

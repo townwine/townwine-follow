@@ -33,7 +33,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     {
       status,
       headers: {
-        "Content-Type": "text/html; charset=utf-8",
+        "Content-Type": "application/liquid; charset=utf-8",
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "strict-origin-when-cross-origin",
