@@ -9,6 +9,7 @@ export const LOCATIONS = [
   "China",
   "Taiwan",
   "Thailand",
+  "UK",
 ] as const;
 export const COUNTRY_LABELS: Record<string, string> = {
   USA: "미국",
@@ -48,6 +49,7 @@ export type WineOffer = {
   title?: string;
   availability?: string;
   fetchedAt?: string;
+  priceKrw?: number;
   vintage: string;
   price: number;
   currency: string;
@@ -59,6 +61,7 @@ export type WineOffer = {
 };
 export type WineResult = {
   source?: "merchants";
+  fxDate?: string;
   coverage?: {
     registered: number;
     searched: number;
@@ -85,7 +88,7 @@ export function parseWineQuery(params: URLSearchParams): WineQuery {
     .replace(/\s+/g, " ")
     .trim();
   const vintage = (params.get("vintage") || "2").toUpperCase();
-  const location = params.get("location") || "USA";
+  const location = params.get("location") || "ALL";
   if (
     name.length < 2 ||
     name.length > 160 ||
@@ -105,7 +108,10 @@ export function parseWineQuery(params: URLSearchParams): WineQuery {
       "input",
       "빈티지는 1900년 이후의 연도 또는 NV로 입력해 주세요.",
     );
-  if (!(LOCATIONS as readonly string[]).includes(location))
+  if (
+    location !== "ALL" &&
+    !(LOCATIONS as readonly string[]).includes(location)
+  )
     throw new WineSearchError("input", "판매 국가를 다시 선택해 주세요.");
   return { name, vintage, location };
 }
@@ -305,7 +311,8 @@ export async function searchWine(query: WineQuery): Promise<WineResult> {
   const direct =
     process.env.WINE_SEARCHER_MODE !== "api" &&
     process.env.WINE_SEARCHER_MODE !== "crawl";
-  const key = JSON.stringify([direct, crawl, query]);
+  const searchQuery = direct ? { ...query, location: "ALL" } : query;
+  const key = JSON.stringify([direct, crawl, searchQuery]);
   const cached = crawlCache.get(key);
   if (crawl && cached && Date.now() - cached.time < 15 * 60_000)
     return cached.result;
@@ -329,7 +336,7 @@ export async function searchWine(query: WineQuery): Promise<WineResult> {
   const task = (async () => {
     if (direct) {
       const { searchMerchants } = await import("./wine-merchants.server");
-      const result = await searchMerchants(query);
+      const result = await searchMerchants(searchQuery);
       if (crawlCache.size >= 100)
         crawlCache.delete(crawlCache.keys().next().value!);
       if (result.coverage?.succeeded)

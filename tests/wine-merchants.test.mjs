@@ -123,3 +123,10 @@ test("decimal comma size and NV base year are not misrepresented", () => {
   assert.equal(o.bottleSize, "0.75L");
   assert.equal(o.vintage, "NV");
 });
+test('currency comparison uses a single dated reference and rejects stale rates', () => {
+ const xml="<Cube><Cube time='2026-10-08'><Cube currency='USD' rate='1.1'/><Cube currency='GBP' rate='0.8'/><Cube currency='KRW' rate='1600'/></Cube></Cube>";
+ const fx=mod.exports.parseReferenceRates(xml,Date.parse('2026-10-09T00:00:00Z'));
+ const converted=mod.exports.applyReferenceRates([{price:110,currency:'USD'},{price:80,currency:'GBP'},{price:100,currency:'EUR'}],fx);
+ for (const offer of converted) assert.ok(Math.abs(offer.priceKrw-160000)<0.01);
+ assert.throws(()=>mod.exports.parseReferenceRates(xml,Date.parse('2026-11-01T00:00:00Z')));
+});

@@ -46,7 +46,7 @@ test("normalizes unicode/whitespace and defaults empty vintage to any", () => {
     wine.parseWineQuery(
       new URLSearchParams({ q: "  Château   Margaux  ", vintage: "" }),
     ),
-    { name: "Château Margaux", vintage: "2", location: "USA" },
+    { name: "Château Margaux", vintage: "2", location: "ALL" },
   );
 });
 test("rejects short names, invalid years, unsupported countries", () => {
@@ -357,5 +357,14 @@ test("storefront does not expose discovery providers or forwarding centers", () 
     error: "Wine-Searcher에서 자동 수집을 제한했습니다. 원문 검색",
   });
   assert.ok(!/Wine-Searcher|wine-searcher\.com|훗타운/.test(html));
-  assert.ok(!html.includes('value="UK"'));
+
+  assert.ok(!html.includes('value="Italy"'));
+});
+test('country selection filters results after global search and keeps original prices',()=>{
+ const result={state:'ready',source:'merchants',fetchedAt:new Date().toISOString(),fxDate:'2026-10-08',offers:[{merchant:'US Shop',country:'USA',price:100,currency:'USD',priceKrw:140000,url:'https://us.example/product',vintage:'NV',bottleSize:'750ml'},{merchant:'French Shop',country:'France',price:80,currency:'EUR',priceKrw:130000,url:'https://fr.example/product',vintage:'NV',bottleSize:'750ml'}]};
+ const html=renderWineSearchPage({available:true,query:{...query,location:'France'},result});
+ assert.ok(html.includes('French Shop'));assert.ok(!html.includes('US Shop'));
+ assert.ok(html.includes('130,000'));assert.ok(html.includes('EUR'));
+ assert.ok(html.indexOf('id="result-country"')>html.indexOf('aria-label="검색 결과"'));
+ const initial=renderWineSearchPage({available:true});assert.ok(!initial.includes('name="location"'));
 });

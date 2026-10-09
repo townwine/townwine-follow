@@ -211,12 +211,62 @@ async function searchMerchant(
       candidates.size > 4 || results.some((r) => r.status === "rejected"),
   };
 }
+type FxRates = { date: string; rates: Record<string, number> };
+let fxCache: { at: number; value: FxRates } | undefined;
+export function parseReferenceRates(xml: string, now = Date.now()): FxRates {
+  const $ = load(xml, { xmlMode: true });
+  const date = $("Cube[time]").attr("time") || "";
+  const age = now - Date.parse(date + "T00:00:00Z");
+  if (!Number.isFinite(age) || age < -86400000 || age > 7 * 86400000)
+    throw new Error("stale rates");
+  const rates: Record<string, number> = { EUR: 1 };
+  $("Cube[currency]").each((_i, el) => {
+    const currency = $(el).attr("currency") || "";
+    const rate = Number($(el).attr("rate"));
+    if (/^[A-Z]{3}$/.test(currency) && Number.isFinite(rate) && rate > 0)
+      rates[currency] = rate;
+  });
+  if (!rates.KRW) throw new Error("missing KRW rate");
+  return { date, rates };
+}
+async function referenceRates(
+  fetcher: typeof fetch,
+): Promise<FxRates | undefined> {
+  if (fxCache && Date.now() - fxCache.at < 86400000) return fxCache.value;
+  try {
+    const r = await fetcher(
+      "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
+      { signal: AbortSignal.timeout(4000), redirect: "error" },
+    );
+    if (!r.ok) {
+      await r.body?.cancel();
+      return;
+    }
+    const body = await r.text();
+    if (body.length > 100000) return;
+    const value = parseReferenceRates(body);
+    fxCache = { at: Date.now(), value };
+    return value;
+  } catch {
+    return;
+  }
+}
+export function applyReferenceRates(offers: WineOffer[], fx: FxRates) {
+  return offers.map((o) => ({
+    ...o,
+    priceKrw: fx.rates[o.currency]
+      ? (o.price / fx.rates[o.currency]) * fx.rates.KRW
+      : undefined,
+  }));
+}
 export async function searchMerchants(
   query: WineQuery,
   fetcher: typeof fetch = fetch,
 ): Promise<WineResult> {
   const selected = merchants.filter(
-    (m) => m.country === query.location && m.status === "enabled",
+    (m) =>
+      (query.location === "ALL" || m.country === query.location) &&
+      m.status === "enabled",
   );
   const results = await Promise.allSettled(
     selected.map((m) => searchMerchant(m, query, fetcher)),
@@ -225,17 +275,25 @@ export async function searchMerchants(
     r.status === "fulfilled" ? r.value.offers : [],
   );
   const succeeded = results.filter((r) => r.status === "fulfilled").length;
-  const unique = [...new Map(offers.map((o) => [o.url, o])).values()];
+  let unique = [...new Map(offers.map((o) => [o.url, o])).values()];
+  const fx = unique.length ? await referenceRates(fetcher) : undefined;
+  if (fx) unique = applyReferenceRates(unique, fx);
   unique.sort(
-    (a, b) => a.currency.localeCompare(b.currency) || a.price - b.price,
+    (a, b) =>
+      (a.priceKrw ?? Infinity) - (b.priceKrw ?? Infinity) ||
+      a.currency.localeCompare(b.currency) ||
+      a.price - b.price,
   );
   return {
     state: unique.length ? "ready" : "empty",
     offers: unique,
     fetchedAt: new Date().toISOString(),
     source: "merchants",
+    fxDate: fx?.date,
     coverage: {
-      registered: merchants.filter((m) => m.country === query.location).length,
+      registered: merchants.filter(
+        (m) => query.location === "ALL" || m.country === query.location,
+      ).length,
       searched: selected.length,
       succeeded,
       incomplete: results.filter(
