@@ -31,6 +31,25 @@ export async function fetchProductHtml(value:string, redirects=0):Promise<{html:
     const timer=setTimeout(()=>req.destroy(new Error('판매처 응답 시간이 초과되었습니다.')),10000);req.on('close',()=>clearTimeout(timer));req.on('error',reject);
   });
 }
+export async function fetchLabelImage(value:string, redirects=0):Promise<Buffer> {
+  const u=productUrl(value);
+  const addresses=await lookup(u.hostname,{all:true,family:4});
+  if(!addresses.length||addresses.some(a=>!allowedProductAddress(a.address)))throw new Error('이 주소는 조회할 수 없습니다.');
+  const address=addresses[0].address;
+  return new Promise((resolve,reject)=>{
+    const req=https.get(u,{family:4,lookup:(_host,_opts,cb)=>cb(null,address,4),headers:{'User-Agent':'TownWineProductPreview/1.0','Accept':'image/*'}},res=>{
+      if([301,302,303,307,308].includes(res.statusCode||0)){
+        res.resume();if(redirects>=3||!res.headers.location)return reject(new Error('주소 이동이 너무 많습니다.'));
+        fetchLabelImage(new URL(res.headers.location,u).href,redirects+1).then(resolve,reject);return;
+      }
+      if(res.statusCode!==200||!/^image\/(jpeg|png|webp)(;|$)/i.test(String(res.headers['content-type']))){res.resume();reject(new Error('판매처가 조회를 허용하지 않거나 상품 페이지가 아닙니다.'));return;}
+      const parts:Buffer[]=[];let size=0;
+      res.on('data',(part:Buffer)=>{size+=part.length;if(size>10*1024*1024){req.destroy(new Error('상품 페이지가 너무 큽니다.'));return;}parts.push(part);});
+      res.on('end',()=>resolve(Buffer.concat(parts)));res.on('error',reject);
+    });
+    const timer=setTimeout(()=>req.destroy(new Error('판매처 응답 시간이 초과되었습니다.')),10000);req.on('close',()=>clearTimeout(timer));req.on('error',reject);
+  });
+}
 export function parseDemandProduct(html:string,url:string) {
   const $=load(html);const products:Record<string,any>[]=[];
   function walk(v:any){if(!v||typeof v!=='object')return;if(Array.isArray(v)){v.forEach(walk);return;}if([v['@type']].flat().includes('Product'))products.push(v);if(v['@graph'])walk(v['@graph']);}

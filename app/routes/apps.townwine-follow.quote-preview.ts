@@ -4,6 +4,8 @@ import {calculateDemandQuote} from '../services/demand-quote';
 import {registrationRates,parseRegistrationInput,previewRegistration} from '../services/quote-preview.server';
 import {renderQuotePreview} from '../services/quote-preview-page.server';
 import {issueQuoteToken} from '../services/quote-draft-token.server';
+import {fetchLabelImage} from '../services/demand-product.server';
+import {imageFileType} from '../services/quote-draft.server';
 import {registerQuoteDraft} from '../services/quote-draft.server';
 const headers={'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'};
 let active=0;
@@ -26,6 +28,7 @@ export async function action({request}:ActionFunctionArgs){
  active++;
  try{
   const form=await boundedForm(request),intent=form.get('intent');
+  if(intent==='label-image'){const bytes=await fetchLabelImage(String(form.get('imageUrl')||''));const type=imageFileType(bytes);return Response.json({image:'data:'+type.mime+';base64,'+bytes.toString('base64')},{headers});}
   if(intent==='extract')return Response.json({product:await previewRegistration(String(form.get('url')||''))},{headers});
   if(intent==='quote'){
    const input=parseRegistrationInput(form),quote=calculateDemandQuote(input,await registrationRates());
