@@ -41,3 +41,8 @@ test('pending sales still retry after the former four-attempt limit', async () =
   assert.equal(timers.size,1);
   assert.ok([...timers.values()][0].delay<=10000);
 });
+test('confirmed zero sales render zero instead of a permanent loading label', () => {
+  const {run}=setup(async()=>{});
+  assert.equal(run('getCardSummary({inventoryTracked:true,soldCountPending:false,totalInventory:0,soldCount:0})'),'0병 판매');
+  assert.equal(run('getCardSummary({inventoryTracked:true,soldCountPending:true,totalInventory:0,soldCount:0})'),'판매 수량 확인 중');
+});

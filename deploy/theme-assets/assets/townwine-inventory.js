@@ -52,7 +52,7 @@ function getCardSummary(snapshot) {
       ? snapshot.totalInventory <= 0 && snapshot.soldCount > 0
         ? `${formatCount(snapshot.soldCount)}\uBCD1 \uD310\uB9E4 \uC644\uB8CC`
         : snapshot.totalInventory <= 0
-          ? "\uD310\uB9E4 \uC218\uB7C9 \uD655\uC778 \uC911"
+          ? "0병 판매"
           : `${formatCount(snapshot.soldCount)} / ${formatCount(snapshot.totalInventory)}\uBCD1 \uD310\uB9E4`
       : `${formatCount(snapshot.soldCount)}\uBCD1 \uD310\uB9E4`;
 }
