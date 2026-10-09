@@ -107,3 +107,18 @@ model CollectorDealIndexState {
   id        String @id
   updatedAt DateTime
 }
+
+model QuoteDraftRequest {
+  id String @id
+  shop String
+  customerId String
+  payloadHash String
+  status String @default("PENDING")
+  productId String?
+  handle String
+  quoteJson String
+  error String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([shop, customerId, createdAt])
+}
