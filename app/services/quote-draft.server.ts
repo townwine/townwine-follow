@@ -58,7 +58,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
     title,handle,status:'DRAFT',productType:'Wine',vendor:'TOWN WINE',tags:['공구등록요청','승인대기',country,'customer-'+customerId],
     descriptionHtml:'<h2>'+escape(title)+'</h2><p>750ml · 모집 수량 '+input.bottles+'병</p><p>배송센터: '+escape(country)+'</p>'+(note?'<p>'+escape(note)+'</p>':''),
     productOptions:[{name:'Title',values:[{name:'Default Title'}]}],variants:[{optionValues:[{optionName:'Title',name:'Default Title'}],price:Number(price).toFixed(2),inventoryPolicy:'DENY'}],
-    metafields:[{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)}],
+    metafields:[{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)},...(sourceUrl?[{namespace:'custom',key:'quote_source_url',type:'url',value:sourceUrl}]:[])],
     ...(imageUrl?{files:[{originalSource:imageUrl,contentType:'IMAGE',alt:title}]}:{})
    }});product=data.productSet.product;
    if(!product?.id)throw new Error('초안 상품 생성 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
@@ -67,4 +67,17 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
   await prisma.quoteDraftRequest.update({where:{id},data:{status:'CREATED',productId:product.id}});
   return {requestId:id.slice(0,12),productId:product.id,status:product.status,duplicate:false};
  }catch(e){await prisma.quoteDraftRequest.update({where:{id},data:{status:'RETRY',error:e instanceof Error?e.message:'등록 실패'}});throw e;}
+}
+
+export async function backfillQuoteSourceUrls(admin:DraftAdmin){
+ let after:string|null=null;
+ do{
+  const data=await query(admin,'query($after:String){products(first:50,after:$after,query:"tag:공구등록요청"){nodes{id source:metafield(namespace:"custom",key:"quote_source_url"){value} request:metafield(namespace:"townwine",key:"registration_request"){value}} pageInfo{hasNextPage endCursor}}}',{after});
+  for(const product of data.products.nodes){
+   if(product.source?.value||!product.request?.value)continue;
+   let source='';try{const saved=JSON.parse(product.request.value);if(saved.sourceUrl)source=productUrl(saved.sourceUrl).href;}catch{continue;}
+   if(source)await query(admin,'mutation($metafields:[MetafieldsSetInput!]!){metafieldsSet(metafields:$metafields){metafields{id} userErrors{message}}}',{metafields:[{ownerId:product.id,namespace:'custom',key:'quote_source_url',type:'url',value:source}]});
+  }
+  after=data.products.pageInfo.hasNextPage?data.products.pageInfo.endCursor:null;
+ }while(after);
 }

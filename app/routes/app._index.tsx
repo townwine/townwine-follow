@@ -1,3 +1,4 @@
+import {backfillQuoteSourceUrls} from "../services/quote-draft.server";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
@@ -17,7 +18,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const [result, collectorDefinitionResult, collectorProfiles, upcomingDeals, processedAlerts] =
       await Promise.all([
-      ensureProductMetafieldDefinitions(admin),
+      ensureProductMetafieldDefinitions(admin).then(async result=>{await backfillQuoteSourceUrls(admin);return result;}),
       ensureCollectorMetaobjectDefinition(admin),
       listCollectorProfiles(admin),
       getUpcomingDealAdminSnapshots({

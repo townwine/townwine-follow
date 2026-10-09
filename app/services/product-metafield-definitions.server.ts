@@ -11,6 +11,7 @@ type ProductMetafieldDefinition = {
   description: string;
   type: string;
   shouldPin?: boolean;
+  storefront?: "NONE" | "PUBLIC_READ";
 };
 
 type DefinitionLookupResponse = {
@@ -42,6 +43,7 @@ const PRODUCT_OWNER_TYPE = "PRODUCT";
 const METAFIELD_NAMESPACE = "custom";
 
 const PRODUCT_METAFIELD_DEFINITIONS: ProductMetafieldDefinition[] = [
+  {key:"quote_source_url",name:"공구 요청 · 원본 상품 URL",description:"고객이 견적 요청 시 입력한 해외 판매처 원본 상품 링크입니다. 운영자 검토용이며 고객 화면에는 표시하지 않습니다.",type:"url",shouldPin:true,storefront:"NONE"},
   {
     key: "collector_tag",
     name: "컬렉터 태그",
@@ -292,7 +294,7 @@ async function createDefinition(
         description: definition.description,
         type: definition.type,
         access: {
-          storefront: "PUBLIC_READ",
+          storefront: definition.storefront || "PUBLIC_READ",
         },
       },
     },
@@ -336,7 +338,7 @@ async function updateDefinition(
         name: definition.name,
         description: definition.description,
         access: {
-          storefront: "PUBLIC_READ",
+          storefront: definition.storefront || "PUBLIC_READ",
         },
       },
     },
@@ -422,7 +424,7 @@ export async function ensureProductMetafieldDefinitions(
     const needsUpdate =
       existingDefinition.name !== definition.name ||
       (existingDefinition.description || "") !== definition.description ||
-      existingDefinition.access.storefront !== "PUBLIC_READ";
+      existingDefinition.access.storefront !== (definition.storefront || "PUBLIC_READ");
 
     if (!needsUpdate) {
       if (definition.shouldPin && existingDefinition.pinnedPosition == null) {
