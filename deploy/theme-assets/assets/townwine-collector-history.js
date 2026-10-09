@@ -12,26 +12,22 @@
     var products = [], shown = 0;
     function renderMore() {
       products.slice(shown, shown + 12).forEach(function (product) {
-        var link = text('a', 'lib__r', '');
+        var link = text('a', 'tw-history-row', '');
         link.href = '/products/' + encodeURIComponent(product.handle);
-        var media = text('div', 'lib__m', '');
-        var source = product.images && product.images[0];
-        var url = source && (source.src || source);
-        if (typeof url === 'string' && /^(https:\/\/|\/\/)/.test(url)) {
-          var image = document.createElement('img');
-          image.src = url; image.alt = product.title; image.loading = 'lazy';
-          image.style.cssText = 'width:100%;height:100%;object-fit:contain';
-          media.appendChild(image);
-        }
-        var body = text('div', 'lib__bd', '');
-        body.appendChild(text('div', 'lib__t', product.title));
-        body.appendChild(text('div', 'lib__sub', product.vendor || ''));
-        body.appendChild(text('span', 'bd bd--out', product.available ? '진행 중' : '종료'));
-        link.append(media, body);
+        link.appendChild(text('span', 'tw-history-title', product.title));
+        var countries = [
+          [/\b(?:HK|Hong Kong)\b|홍콩/i, '🇭🇰 홍콩'], [/France|프랑스/i, '🇫🇷 프랑스'],
+          [/\b(?:UK|United Kingdom)\b|영국/i, '🇬🇧 영국'], [/\b(?:US|USA|United States)\b|미국/i, '🇺🇸 미국'],
+          [/Germany|독일/i, '🇩🇪 독일'], [/Japan|일본/i, '🇯🇵 일본'], [/Taiwan|대만/i, '🇹🇼 대만'],
+          [/China|중국/i, '🇨🇳 중국'], [/Thailand|태국/i, '🇹🇭 태국'], [/Italy|이탈리아/i, '🇮🇹 이탈리아'],
+          [/Australia|호주/i, '🇦🇺 호주'], [/Singapore|싱가포르/i, '🇸🇬 싱가포르']
+        ];
+        var country = countries.find(function (entry) { return entry[0].test(product.vendor || ''); });
+        link.appendChild(text('span', 'tw-history-country', country ? country[1] : '국가 미확인'));
+        var titleDate = String(product.title).match(/^(20\d{2})[.\-/](\d{2})[.\-/](\d{2})/);
         var date = new Date(product.created_at);
-        link.appendChild(text('div', 'lib__date', Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('ko-KR')));
-        var prices = (product.variants || []).map(function (variant) {return Number(variant.price);}).filter(Number.isFinite);
-        if (prices.length) link.appendChild(text('div', 'lib__pr', new Intl.NumberFormat('ko-KR', {style:'currency',currency:root.dataset.currency || 'HKD'}).format(Math.min.apply(null,prices))));
+        var dateLabel = titleDate ? titleDate.slice(1).join('.') : Number.isNaN(date.getTime()) ? '날짜 미확인' : date.toLocaleDateString('ko-KR', {timeZone:'Asia/Seoul'});
+        link.appendChild(text('span', 'tw-history-date', dateLabel));
         list.appendChild(link);
       });
       shown = Math.min(shown + 12, products.length);
