@@ -123,10 +123,146 @@ test("decimal comma size and NV base year are not misrepresented", () => {
   assert.equal(o.bottleSize, "0.75L");
   assert.equal(o.vintage, "NV");
 });
-test('currency comparison uses a single dated reference and rejects stale rates', () => {
- const xml="<Cube><Cube time='2026-10-08'><Cube currency='USD' rate='1.1'/><Cube currency='GBP' rate='0.8'/><Cube currency='KRW' rate='1600'/></Cube></Cube>";
- const fx=mod.exports.parseReferenceRates(xml,Date.parse('2026-10-09T00:00:00Z'));
- const converted=mod.exports.applyReferenceRates([{price:110,currency:'USD'},{price:80,currency:'GBP'},{price:100,currency:'EUR'}],fx);
- for (const offer of converted) assert.ok(Math.abs(offer.priceKrw-160000)<0.01);
- assert.throws(()=>mod.exports.parseReferenceRates(xml,Date.parse('2026-11-01T00:00:00Z')));
+test("currency comparison uses a single dated reference and rejects stale rates", () => {
+  const xml =
+    "<Cube><Cube time='2026-10-08'><Cube currency='USD' rate='1.1'/><Cube currency='GBP' rate='0.8'/><Cube currency='KRW' rate='1600'/></Cube></Cube>";
+  const fx = mod.exports.parseReferenceRates(
+    xml,
+    Date.parse("2026-10-09T00:00:00Z"),
+  );
+  const converted = mod.exports.applyReferenceRates(
+    [
+      { price: 110, currency: "USD" },
+      { price: 80, currency: "GBP" },
+      { price: 100, currency: "EUR" },
+    ],
+    fx,
+  );
+  for (const offer of converted)
+    assert.ok(Math.abs(offer.priceKrw - 160000) < 0.01);
+  assert.throws(() =>
+    mod.exports.parseReferenceRates(xml, Date.parse("2026-11-01T00:00:00Z")),
+  );
+});
+
+const lamy = {
+  name: "2019 Domaine Hubert Lamy Les Frionnes, Saint-Aubin Premier Cru, France",
+  vintage: "2",
+  location: "ALL",
+};
+const fixture = (name) =>
+  fs.readFileSync(
+    new URL(`./fixtures/lamy-${name}.html`, import.meta.url),
+    "utf8",
+  );
+test("long wine names match equivalent appellation spelling without losing cuvee or vintage", () => {
+  assert.equal(
+    matchesProduct(
+      "Saint Aubin 1er Cru Les Frionnes 2019, Hubert Lamy, 1x1500ml",
+      lamy,
+    ),
+    true,
+  );
+  assert.equal(
+    matchesProduct(
+      "2019 St Aubin Les Frionnes 1er Cru Domaine Hubert Lamy Burgundy",
+      lamy,
+    ),
+    true,
+  );
+  for (const wrong of [
+    "2020 Hubert Lamy St Aubin 1er Cru Les Frionnes",
+    "2019 Hubert Lamy St Aubin 1er Cru En Remilly",
+    "2019 Hubert Lamy St Aubin Grand Cru Frionnes",
+    "2019 Olivier Leflaive St Aubin 1er Cru Frionnes",
+  ])
+    assert.equal(matchesProduct(wrong, lamy), false);
+});
+test("Cellar Select parses duty-paid variant while excluding bonded stock", () => {
+  const shop = {
+    name: "Cellar Select UK",
+    country: "UK",
+    origin: "https://www.cellarselect.co.uk",
+  };
+  const offers = parseMerchantProduct(
+    fixture("cellar"),
+    shop.origin,
+    shop,
+    lamy,
+  );
+  assert.equal(offers.length, 1);
+  assert.equal(offers[0].price, 243.59);
+  assert.equal(offers[0].bottleSize, "1500ml");
+  assert.match(offers[0].url, /variant=54028812779848/);
+});
+test("Millesima reads HTML product URLs and explicit 1.5L size, not 5l from display label", () => {
+  const shop = {
+    name: "Millesima France",
+    country: "France",
+    origin: "https://www.millesima.fr",
+  };
+  const [offer] = parseMerchantProduct(
+    fixture("millesima"),
+    shop.origin,
+    shop,
+    lamy,
+  );
+  assert.equal(offer.price, 355);
+  assert.equal(offer.bottleSize, "1.5L");
+  assert.equal(offer.vintage, "2019");
+});
+test("Y18 requires product-scoped current price, stock and purchase button", () => {
+  const shop = {
+    name: "Y18",
+    country: "Hong Kong",
+    origin: "https://www.y18.hk",
+  };
+  const url =
+    shop.origin +
+    "/St-Aubin-Les-Frionnes-1er-Cru-Domaine-Hubert-Lamy-2019-(750ml)-LC90-X-15044";
+  const html = fixture("y18");
+  const [offer] = mod.exports.parseY18Product(html, url, shop, lamy);
+  assert.equal(offer.price, 1024);
+  assert.equal(offer.currency, "HKD");
+  assert.equal(offer.bottleSize, "750ml");
+  for (const bad of [
+    html.replace("Availability: In Stock", "Availability: Out Of Stock"),
+    html.replace("LC90-X-15044", "PO-16-15044"),
+    html.replace("HK$1,024.00", "USD 1,024.00"),
+  ])
+    assert.equal(mod.exports.parseY18Product(bad, url, shop, lamy).length, 0);
+});
+test("observed product URLs are rechecked even when merchant search fails", async () => {
+  let productFetches = 0;
+  const result = await searchMerchants(
+    { ...lamy, location: "UK" },
+    async (input) => {
+      const url = String(input);
+      if (url.includes("cellarselect.co.uk/products/")) {
+        productFetches++;
+        return new Response(fixture("cellar"), {
+          headers: { "content-type": "text/html" },
+        });
+      }
+      return new Response("Unavailable", { status: 503 });
+    },
+  );
+  assert.ok(productFetches > 0);
+  assert.equal(result.offers.length, 1);
+  assert.equal(result.offers[0].price, 243.59);
+  assert.ok(result.coverage.incomplete > 0);
+});
+
+test("merchant can omit cru after 1er without changing classification", () => {
+  assert.equal(
+    matchesProduct(
+      "Hubert Lamy St Aubin 1er Frionnes Blanc 2019 (750ml)",
+      lamy,
+    ),
+    true,
+  );
+  assert.equal(
+    matchesProduct("Hubert Lamy St Aubin Grand Cru Frionnes Blanc 2019", lamy),
+    false,
+  );
 });

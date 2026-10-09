@@ -414,8 +414,12 @@
     "exampleUrl": "https://www.y18.hk/Savart-L'Ouverture-Premier-Cru-NV-(6-x-750ml)-PO-20-0757980",
     "sourceUrl": "https://www.wine-searcher.com/merchant/16517",
     "discoveredAt": "2026-10-09",
-    "adapter": null,
-    "status": "needs-review"
+    "adapter": "y18-html",
+    "status": "enabled",
+    "productUrls": [
+      "https://www.y18.hk/St-Aubin-Les-Frionnes-1er-Cru-Domaine-Hubert-Lamy-2019-(750ml)-LC90-X-15044",
+      "https://www.y18.hk/Hubert-Lamy-St-Aubin-1er-Frionnes-Blanc-2019-(750ml)-LC80-X-04848"
+    ]
   },
   {
     "id": "106473",
@@ -537,5 +541,249 @@
     "discoveredAt": "2026-10-09",
     "adapter": null,
     "status": "needs-review"
+  },
+  {
+    "id": "3",
+    "name": "Lay & Wheeler Wine Merchants",
+    "country": "UK",
+    "origin": "https://www.laywheeler.com",
+    "exampleUrl": "https://www.laywheeler.com/product-detail?id=0419063A",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/3",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": ["https://www.laywheeler.com/product-detail?id=0419063A"]
+  },
+  {
+    "id": "2914",
+    "name": "The Fine Wine Experience",
+    "country": "Hong Kong",
+    "origin": "https://www.finewineexperience.com",
+    "exampleUrl": "https://www.finewineexperience.com",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/2914",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": ["https://www.finewineexperience.com"]
+  },
+  {
+    "id": "47149",
+    "name": "Skysun Wines",
+    "country": "Hong Kong",
+    "origin": "https://skysunwines.com",
+    "exampleUrl": "https://skysunwines.com",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/47149",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": ["https://skysunwines.com"]
+  },
+  {
+    "id": "23",
+    "name": "Finest Wine",
+    "country": "France",
+    "origin": "https://www.finestwine.com",
+    "exampleUrl": "https://www.finestwine.com/en/2019/80561-lamy-h-les-frionnes-saint-aubin-2019.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/23",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://www.finestwine.com/en/2019/80561-lamy-h-les-frionnes-saint-aubin-2019.html"
+    ]
+  },
+  {
+    "id": "153536",
+    "name": "Cellar Select UK",
+    "country": "UK",
+    "origin": "https://www.cellarselect.co.uk",
+    "exampleUrl": "https://www.cellarselect.co.uk/products/saint-aubin-1er-cru-les-frionnes-2019-hubert-lamy-1x1500ml",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/153536",
+    "discoveredAt": "2026-10-09",
+    "adapter": "shopify-html",
+    "status": "enabled",
+    "productUrls": [
+      "https://www.cellarselect.co.uk/products/saint-aubin-1er-cru-les-frionnes-2019-hubert-lamy-1x1500ml"
+    ]
+  },
+  {
+    "id": "34942",
+    "name": "The Wine Cave Co. Ltd.",
+    "country": "Hong Kong",
+    "origin": "https://www.winecavehk.com",
+    "exampleUrl": "https://www.winecavehk.com",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/34942",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": ["https://www.winecavehk.com"]
+  },
+  {
+    "id": "205",
+    "name": "Hart Davis Hart Wine Co.",
+    "country": "USA",
+    "origin": "https://shop.hdhwine.com",
+    "exampleUrl": "https://shop.hdhwine.com/2019-saint-aubin-frionnes-hubert-lamy-3556094-1500",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/205",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://shop.hdhwine.com/2019-saint-aubin-frionnes-hubert-lamy-3556094-1500"
+    ]
+  },
+  {
+    "id": "70921",
+    "name": "Westgarth Wines",
+    "country": "USA",
+    "origin": "https://westgarthwines.com",
+    "exampleUrl": "https://westgarthwines.com/products/france-burgundy-saint-aubin-hubert-lamy-saint-aubin-frionnes-blanc",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/70921",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://westgarthwines.com/products/france-burgundy-saint-aubin-hubert-lamy-saint-aubin-frionnes-blanc"
+    ]
+  },
+  {
+    "id": "19911",
+    "name": "Millesima Hong Kong",
+    "country": "Hong Kong",
+    "origin": "https://www.millesima.com.hk",
+    "exampleUrl": "https://www.millesima.com.hk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/19911",
+    "discoveredAt": "2026-10-09",
+    "adapter": "millesima-html",
+    "status": "enabled",
+    "productUrls": [
+      "https://www.millesima.com.hk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "18364",
+    "name": "Millesima Switzerland",
+    "country": "Switzerland",
+    "origin": "https://de.millesima.ch",
+    "exampleUrl": "https://de.millesima.ch/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/18364",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://de.millesima.ch/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "17963",
+    "name": "Millesima Germany",
+    "country": "Germany",
+    "origin": "https://www.millesima.de",
+    "exampleUrl": "https://www.millesima.de/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/17963",
+    "discoveredAt": "2026-10-09",
+    "adapter": "millesima-html",
+    "status": "enabled",
+    "productUrls": [
+      "https://www.millesima.de/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "8468",
+    "name": "Millesima France",
+    "country": "France",
+    "origin": "https://www.millesima.fr",
+    "exampleUrl": "https://www.millesima.fr/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/8468",
+    "discoveredAt": "2026-10-09",
+    "adapter": "millesima-html",
+    "status": "enabled",
+    "productUrls": [
+      "https://www.millesima.fr/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "19909",
+    "name": "Millesima Belgium",
+    "country": "Belgium",
+    "origin": "https://www.millesima.be",
+    "exampleUrl": "https://www.millesima.be/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/19909",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://www.millesima.be/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "17965",
+    "name": "Millesima Italy",
+    "country": "Italy",
+    "origin": "https://www.millesima.it",
+    "exampleUrl": "https://www.millesima.it/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/17965",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://www.millesima.it/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "191217",
+    "name": "Millesima Netherlands",
+    "country": "Netherlands",
+    "origin": "https://www.millesima.com",
+    "exampleUrl": "https://www.millesima.com/nl/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/191217",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://www.millesima.com/nl/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "77163",
+    "name": "Millesima Singapore",
+    "country": "Singapore",
+    "origin": "https://www.millesima.sg",
+    "exampleUrl": "https://www.millesima.sg/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/77163",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://www.millesima.sg/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "11260",
+    "name": "Millesima UK",
+    "country": "UK",
+    "origin": "https://www.millesima.co.uk",
+    "exampleUrl": "https://www.millesima.co.uk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/11260",
+    "discoveredAt": "2026-10-09",
+    "adapter": "millesima-html",
+    "status": "enabled",
+    "productUrls": [
+      "https://www.millesima.co.uk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
+  },
+  {
+    "id": "244915",
+    "name": "Millesima Denmark",
+    "country": "Denmark",
+    "origin": "https://www.millesima.com",
+    "exampleUrl": "https://www.millesima.com/dk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html",
+    "sourceUrl": "https://www.wine-searcher.com/merchant/244915",
+    "discoveredAt": "2026-10-09",
+    "adapter": null,
+    "status": "needs-review",
+    "productUrls": [
+      "https://www.millesima.com/dk/domaine-hubert-lamy-saint-aubin-1er-cru-les-frionnes-2019-d-cc-1.html"
+    ]
   }
 ]

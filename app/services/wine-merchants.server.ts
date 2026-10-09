@@ -9,12 +9,31 @@ const normalize = (s: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+    .trim()
+    .replace(/\bsaint\b/g, "st")
+    .replace(/\bpremier\b/g, "1er");
+const optionalWords = new Set([
+  "domaine",
+  "dom",
+  "les",
+  "le",
+  "la",
+  "de",
+  "du",
+  "des",
+  "france",
+  "burgundy",
+  "bourgogne",
+  "cru",
+]);
+function productWords(name: string) {
+  return normalize(name)
+    .split(" ")
+    .filter((w) => w.length > 1 && !optionalWords.has(w));
+}
 export function matchesProduct(title: string, query: WineQuery) {
   const words = normalize(title).split(" ");
-  const requested = normalize(query.name)
-    .split(" ")
-    .filter((w) => w.length > 1);
+  const requested = productWords(query.name);
   if (!requested.length || !requested.every((w) => words.includes(w)))
     return false;
   if (query.vintage === "2") return true;
@@ -87,16 +106,18 @@ export function parseMerchantProduct(
         const price = Number(offer.price);
         if (
           !url ||
-          !url.pathname.includes("/products/") ||
+          url.pathname === "/" ||
           !/^[A-Z]{3}$/.test(offer.priceCurrency || "") ||
           !Number.isFinite(price) ||
           price <= 0
         )
           continue;
-        const variantTitle = `${title} ${decode(offer.name)}`;
+        const variantTitle = `${decode(node.size)} ${title} ${decode(offer.name)}`;
         const size =
           variantTitle
-            .match(/\b\d+(?:[.,]\d+)?\s*(?:ml|cl|l)\b/i)?.[0]
+            .match(
+              /(?:^|[^0-9.,])(?:\d+\s*x\s*)?(\d+(?:[.,]\d+)?\s*(?:ml|cl|l))\b/i,
+            )?.[1]
             ?.replace(",", ".") || "";
         found.push({
           merchant: merchant.name,
@@ -156,59 +177,136 @@ async function readShop(url: URL, signal: AbortSignal, fetcher: typeof fetch) {
   }
   return Buffer.concat(chunks).toString("utf8");
 }
+export function parseY18Product(
+  html: string,
+  pageUrl: string,
+  merchant: { name: string; country: string; origin: string },
+  query: WineQuery,
+): WineOffer[] {
+  const $ = load(html);
+  const info = $(".product-info");
+  const title = info.find(".product-title").text().trim();
+  const stock = info
+    .find("li")
+    .toArray()
+    .some((el) => /^Availability:\s*In Stock$/i.test($(el).text().trim()));
+  const code = info.find(".pModel").text();
+  const rawPrice = info.find(".price").text().trim();
+  const priceMatch = rawPrice.match(/^HK\$([\d,]+\.\d{2})$/);
+  const url = sameShop(pageUrl, merchant.origin);
+  if (
+    !url ||
+    !matchesProduct(title, query) ||
+    !stock ||
+    /\bPO-/i.test(code) ||
+    !priceMatch ||
+    !info.find("#button-cart").length
+  )
+    return [];
+  // Reuse the structured parser after reading the verified product-scoped fields.
+  return parseMerchantProduct(
+    `<script type="application/ld+json">${JSON.stringify({ "@type": "Product", name: title, offers: { availability: "https://schema.org/InStock", price: priceMatch[1].replace(/,/g, ""), priceCurrency: "HKD", url: url.href } }).replace(/</g, "\\u003c")}</script>`,
+    pageUrl,
+    merchant,
+    query,
+  );
+}
+function merchantSearch(merchant: Merchant, query: WineQuery) {
+  // Remove optional geography/classification from discovery only. Final product
+  // validation still requires the producer, cuvee, appellation and vintage.
+  const terms = productWords(query.name).filter(
+    (w) => !["st", "aubin", "1er", "cru"].includes(w),
+  );
+  if (query.vintage !== "2" && !terms.includes(query.vintage.toLowerCase()))
+    terms.push(query.vintage);
+  const search = new URL("/search", merchant.origin!);
+  if (merchant.adapter === "millesima-html")
+    search.searchParams.set("searchTerm", terms.join(" "));
+  else if (merchant.adapter === "y18-html") {
+    search.pathname = "/index.php";
+    search.searchParams.set("route", "product/search");
+    // OpenCart searches the literal phrase; use one distinctive token, then
+    // validate every identity token and vintage on the returned products.
+    const keyword =
+      terms
+        .filter((w) => /[a-z]/i.test(w))
+        .sort((a, b) => b.length - a.length)[0] || terms.join(" ");
+    search.searchParams.set("search", keyword);
+    search.searchParams.set("limit", "100");
+  } else {
+    search.searchParams.set("type", "product");
+    search.searchParams.set("q", terms.join(" "));
+  }
+  return search;
+}
 async function searchMerchant(
   merchant: Merchant,
   query: WineQuery,
   fetcher: typeof fetch,
 ) {
   const origin = merchant.origin!;
-  const signal = AbortSignal.timeout(11000);
-  const search = new URL("/search", origin);
-  search.searchParams.set("type", "product");
-  search.searchParams.set(
-    "q",
-    `${query.name}${query.vintage === "2" ? "" : ` ${query.vintage}`}`,
-  );
-  const html = await readShop(search, signal, fetcher);
-  const $ = load(html);
-  if (!$('form[action="/search"]').length)
-    throw new Error("unrecognized search page");
+  const signal = AbortSignal.timeout(15000);
   const candidates = new Set<string>();
-  $("a[href*='/products/']").each((_i, el) => {
-    const url = sameShop($(el).attr("href") || "", origin);
-    const label = $(el).text() + " " + ($(el).find("img").attr("alt") || "");
-    if (url && matchesProduct(label, query)) {
-      url.search = "";
-      url.hash = "";
+  // Observed product URLs are discovery seeds, never cached prices. Validate
+  // their origin and re-read current title, stock, vintage and price each time.
+  for (const raw of [...(merchant.productUrls || []), merchant.exampleUrl]) {
+    if (!raw) continue;
+    const url = sameShop(raw, origin);
+    if (url && matchesProduct(decodeURIComponent(url.pathname), query))
       candidates.add(url.href);
-    }
-  });
-  // Previously observed product links can fill gaps in client-rendered search
-  // pages. Re-fetch and re-validate the title, price and stock; never use old prices.
-  if (merchant.exampleUrl) {
-    const known = new URL(merchant.exampleUrl);
-    const canonical = new URL(known.pathname, origin);
-    if (
-      canonical.pathname.startsWith("/products/") &&
-      matchesProduct(decodeURIComponent(canonical.pathname), query)
-    )
-      candidates.add(canonical.href);
   }
-  const products = [...candidates].slice(0, 4);
+  let searchFailed = false;
+  try {
+    const html = await readShop(
+      merchantSearch(merchant, query),
+      AbortSignal.any([signal, AbortSignal.timeout(7000)]),
+      fetcher,
+    );
+    const $ = load(html);
+    if (
+      merchant.adapter === "shopify-html" &&
+      !$('form[action="/search"]').length
+    )
+      throw new Error("unrecognized search page");
+    const selector =
+      merchant.adapter === "millesima-html"
+        ? "a[href*='.html']"
+        : merchant.adapter === "y18-html"
+          ? ".product-layout a[href]"
+          : "a[href*='/products/']";
+    $(selector).each((_i, el) => {
+      const url = sameShop($(el).attr("href") || "", origin);
+      const label = $(el).text() + " " + ($(el).find("img").attr("alt") || "");
+      if (
+        url &&
+        (matchesProduct(label, query) ||
+          matchesProduct(decodeURIComponent(url.pathname), query))
+      ) {
+        url.search = "";
+        url.hash = "";
+        candidates.add(url.href);
+      }
+    });
+  } catch {
+    searchFailed = true;
+  }
+  if (searchFailed && !candidates.size)
+    throw new Error("merchant search unavailable");
+  const products = [...candidates].slice(0, 6);
   const results = await Promise.allSettled(
-    products.map(async (url) =>
-      parseMerchantProduct(
-        await readShop(new URL(url), signal, fetcher),
-        url,
-        { ...merchant, origin },
-        query,
-      ),
-    ),
+    products.map(async (url) => {
+      const html = await readShop(new URL(url), signal, fetcher);
+      return (
+        merchant.adapter === "y18-html" ? parseY18Product : parseMerchantProduct
+      )(html, url, { ...merchant, origin }, query);
+    }),
   );
   return {
     offers: results.flatMap((r) => (r.status === "fulfilled" ? r.value : [])),
     incomplete:
-      candidates.size > 4 || results.some((r) => r.status === "rejected"),
+      searchFailed ||
+      candidates.size > 6 ||
+      results.some((r) => r.status === "rejected"),
   };
 }
 type FxRates = { date: string; rates: Record<string, number> };
