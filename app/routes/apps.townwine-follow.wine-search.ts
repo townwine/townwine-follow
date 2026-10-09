@@ -25,7 +25,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       if (!(caught instanceof WineSearchError)) throw caught;
       error = caught.message;
       status =
-        caught.kind === "input" ? 400 : caught.kind === "busy" ? 429 : 503;
+        caught.kind === "input" ? 400 : caught.kind === "busy" ? 429 : 200;
     }
   }
   return new Response(
