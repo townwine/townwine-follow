@@ -27,6 +27,8 @@ vm.runInNewContext(
     require: (p) => (p === "cheerio" ? cheerio : registry),
     URL,
     AbortSignal,
+    setTimeout,
+    clearTimeout,
     Buffer,
     fetch,
     Date,
@@ -310,4 +312,12 @@ test("microdata prices stay within the matched Product and Offer scopes", () => 
     ).length,
     0,
   );
+});
+
+test("deadline settles even if a merchant ignores cancellation", async () => {
+  await assert.rejects(
+    mod.exports.withDeadline(new Promise(() => {}), 10),
+    /deadline exceeded/,
+  );
+  assert.equal(await mod.exports.withDeadline(Promise.resolve(42), 10), 42);
 });

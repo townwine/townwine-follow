@@ -335,7 +335,7 @@ async function searchMerchant(
   fetcher: typeof fetch,
 ) {
   const origin = merchant.origin!;
-  const signal = AbortSignal.timeout(15000);
+  const signal = AbortSignal.timeout(9000);
   const candidates = new Set<string>();
   // Observed product URLs are discovery seeds, never cached prices. Validate
   // their origin and re-read current title, stock, vintage and price each time.
@@ -457,6 +457,25 @@ export function applyReferenceRates(offers: WineOffer[], fx: FxRates) {
       : undefined,
   }));
 }
+export async function withDeadline<T>(
+  task: Promise<T>,
+  milliseconds: number,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("merchant deadline exceeded")),
+          milliseconds,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 export async function searchMerchants(
   query: WineQuery,
   fetcher: typeof fetch = fetch,
@@ -466,15 +485,18 @@ export async function searchMerchants(
       (query.location === "ALL" || m.country === query.location) &&
       m.status === "enabled",
   );
+  const rates = withDeadline(referenceRates(fetcher), 4000).catch(
+    () => undefined,
+  );
   const results = await Promise.allSettled(
-    selected.map((m) => searchMerchant(m, query, fetcher)),
+    selected.map((m) => withDeadline(searchMerchant(m, query, fetcher), 9500)),
   );
   const offers = results.flatMap((r) =>
     r.status === "fulfilled" ? r.value.offers : [],
   );
   const succeeded = results.filter((r) => r.status === "fulfilled").length;
   let unique = [...new Map(offers.map((o) => [o.url, o])).values()];
-  const fx = unique.length ? await referenceRates(fetcher) : undefined;
+  const fx = await rates;
   if (fx) unique = applyReferenceRates(unique, fx);
   unique.sort(
     (a, b) =>
