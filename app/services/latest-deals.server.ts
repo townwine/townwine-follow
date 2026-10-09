@@ -288,10 +288,14 @@ async function runAdminQuery<TData>(
 
   while (attempt < ADMIN_QUERY_MAX_ATTEMPTS) {
     attempt += 1;
-    const response = await admin.graphql(
-      query,
-      variables ? { variables } : undefined,
-    );
+    let response: Response;
+    try {
+      response = await admin.graphql(query, variables ? { variables } : undefined);
+    } catch (error) {
+      if (!/throttled|timeout|temporar/i.test(String(error)) || attempt >= ADMIN_QUERY_MAX_ATTEMPTS) throw error;
+      await sleep(ADMIN_QUERY_RETRY_BASE_MS * attempt);
+      continue;
+    }
     const result = (await response.json()) as {
       data?: TData;
       errors?: Array<{ message?: string }>;
@@ -636,7 +640,7 @@ async function fetchLatestDealProducts(params: {
         }
       `,
       {
-        first: PRODUCTS_PAGE_SIZE,
+        first: Math.min(PRODUCTS_PAGE_SIZE, Math.max(20, offsetEnd - matchedProducts.length)),
         cursor,
       },
     );
@@ -838,18 +842,6 @@ export async function getLatestDealsPage(params: {
       payload: fullCachedEntry.value,
       page,
       pageSize,
-    });
-  }
-
-  if (!fullCachedEntry?.promise && page === 1) {
-    void getAllLatestDealsPayload({
-      admin: params.admin,
-      shop: params.shop,
-    }).catch((error) => {
-      console.warn("[latest-deals] full cache warmup failed", {
-        shop: params.shop,
-        message: error instanceof Error ? error.message : String(error),
-      });
     });
   }
 
