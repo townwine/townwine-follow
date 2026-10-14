@@ -6,6 +6,7 @@ import {registrationCountries} from './demand-quote';
 import {parseRegistrationInput} from './quote-preview.server';
 import {readQuoteToken} from './quote-draft-token.server';
 import {syncQuoteSheet, type SheetPayload} from './quote-sheet.server';
+import {notifyQuoteRequestRegistered} from './quote-request-email.server';
 export type DraftAdmin={graphql:(query:string,options?:{variables?:Record<string,unknown>})=>Promise<Response>};
 async function query(admin:DraftAdmin,q:string,variables:Record<string,unknown>={}){
  const r=await admin.graphql(q,{variables});const j=await r.json();if(!r.ok||j.errors?.length)throw new Error(j.errors?.map((e:{message:string})=>e.message).join(', ')||'Shopify 연결에 실패했습니다.');
@@ -44,7 +45,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
  if(row&&row.payloadHash!==payloadHash)throw new Error('앞선 등록 요청과 내용이 다릅니다. 새 요청으로 다시 등록해 주세요.');
  if(!row){try{row=await prisma.quoteDraftRequest.create({data:{id,shop,customerId,payloadHash,handle,quoteJson:JSON.stringify(signed.quote)}});}catch{row=await prisma.quoteDraftRequest.findUnique({where:{id}});if(!row)throw new Error('등록 요청 저장에 실패했습니다.');}}
  if(row.payloadHash!==payloadHash)throw new Error('동일한 요청으로 다시 시도해 주세요.');
- if(row.productId)return {requestId:id.slice(0,12),productId:row.productId,status:'DRAFT',duplicate:true,sheetStatus:await syncQuoteSheet(id)};
+ if(row.productId){try{await notifyQuoteRequestRegistered(id);}catch{console.error('[quote-request-email] notification pending',{requestId:id});}return {requestId:id.slice(0,12),productId:row.productId,status:'DRAFT',duplicate:true,sheetStatus:await syncQuoteSheet(id)};}
  const claim=await prisma.quoteDraftRequest.updateMany({where:{id,OR:[{status:{in:['PENDING','RETRY']}},{status:'PROCESSING',updatedAt:{lt:new Date(Date.now()-300000)}}]},data:{status:'PROCESSING',error:null}});
  if(!claim.count)throw new Error('초안 등록 처리 중입니다. 잠시 후 다시 확인해 주세요.');
  try{
@@ -74,6 +75,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    if(product.status!=='DRAFT')throw new Error('초안 상태를 확인하지 못했습니다. 운영자에게 문의해 주세요.');
   }
   await prisma.quoteDraftRequest.update({where:{id},data:{status:'CREATED',productId:product.id}});
+  try{await notifyQuoteRequestRegistered(id);}catch{console.error('[quote-request-email] notification pending',{requestId:id});}
   return {requestId:id.slice(0,12),productId:product.id,status:product.status,duplicate:false,sheetStatus:await syncQuoteSheet(id)};
  }catch(e){await prisma.quoteDraftRequest.update({where:{id},data:{status:'RETRY',error:e instanceof Error?e.message:'등록 실패'}});throw e;}
 }

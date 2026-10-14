@@ -124,6 +124,9 @@ model QuoteDraftRequest {
   approvalEmailSentAt DateTime?
   approvalEmailCheckedAt DateTime?
   approvalEmailLeaseAt DateTime?
+  requestEmailSentAt DateTime?
+  requestEmailCheckedAt DateTime?
+  requestEmailLeaseAt DateTime?
   procurementRegistration String?
   procurementState String?
   procurementCheckedAt DateTime?
