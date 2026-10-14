@@ -9,9 +9,12 @@ const order={id:'gid://shopify/Order/1',legacyResourceId:'1',customer:{legacyRes
 const parcel={id:'parcel',status:'SUCCESS',displayStatus:'IN_TRANSIT',createdAt:'2026-10-14',estimatedDeliveryAt:null,inTransitAt:null,deliveredAt:null,trackingInfo:[{company:'Carrier',number:'123',url:'https://example.com/track'}]};
 test('shipping stages distinguish preparation, dispatch, transit and delivery',()=>{
   assert.equal(service.orderSnapshot({...order,displayFulfillmentStatus:'UNFULFILLED'}).stage,1);
+  assert.equal(service.orderSnapshot({...order,fulfillments:[{...parcel,trackingInfo:[],displayStatus:'FULFILLED'}]}).bucket,'paid');
+  assert.equal(service.orderSnapshot({...order,fulfillments:[{...parcel,trackingInfo:[],displayStatus:'IN_TRANSIT'}]}).bucket,'paid');
   for(const [displayStatus,stage] of [['MARKED_AS_FULFILLED',3],['IN_TRANSIT',3],['OUT_FOR_DELIVERY',3],['DELIVERED',4]])assert.equal(service.orderSnapshot({...order,fulfillments:[{...parcel,displayStatus}]}).stage,stage);
   const processed=service.orderSnapshot({...order,fulfillments:[{...parcel,displayStatus:'FULFILLED',trackingInfo:[{company:'HANJIN',number:'800223722664',url:'https://www.hanjin.com/track'}]}]});
   assert.equal(processed.label,'배송중');assert.equal(processed.trackingNumber,'800223722664');
+  assert.equal(service.orderSnapshot({...order,displayFulfillmentStatus:'FULFILLED',fulfillments:[{...parcel,displayStatus:'DELIVERED'}]}).bucket,'delivered');
 });
 test('partial delivery and canceled parcels cannot complete an order',()=>{
   const delivered={...parcel,displayStatus:'DELIVERED'};
@@ -21,7 +24,7 @@ test('partial delivery and canceled parcels cannot complete an order',()=>{
   assert.notEqual(service.orderSnapshot({...order,fulfillments:Array(100).fill(delivered)}).bucket,'delivered');
 });
 test('canceled, refunded and unpaid orders do not claim payment or delivery completion',()=>{
-  for(const changes of [{cancelledAt:'2026-10-14'},{displayFinancialStatus:'REFUNDED'},{displayFinancialStatus:'PENDING'},{displayFinancialStatus:'VOIDED'}]){const r=service.orderSnapshot({...order,...changes,fulfillments:[parcel]});assert.equal(r.bucket,'other');assert.equal(r.stage,-1);if(changes.displayFinancialStatus==='REFUNDED')assert.equal(r.label,'환불됨');}
+  for(const changes of [{cancelledAt:'2026-10-14'},{displayFinancialStatus:'REFUNDED'},{displayFinancialStatus:'PARTIALLY_REFUNDED'},{displayFinancialStatus:'PENDING'},{displayFinancialStatus:'VOIDED'}]){const r=service.orderSnapshot({...order,...changes,fulfillments:[parcel]});assert.equal(r.bucket,'other');assert.equal(r.stage,-1);if(changes.displayFinancialStatus==='REFUNDED')assert.equal(r.label,'환불됨');}
 });
 test('all tracking numbers preserved and unsafe tracking URLs removed',()=>{
   const r=service.orderSnapshot({...order,fulfillments:[{...parcel,trackingInfo:[...parcel.trackingInfo,{number:'456',url:'javascript:alert(1)'}]}]});

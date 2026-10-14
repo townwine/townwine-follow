@@ -200,28 +200,38 @@
                   assign status_display_label = '배송 준비'
                   assign status_description = '결제가 완료되어 상품 배송을 준비하고 있습니다.'
                   assign shipping_stage = 1
-
-                  if order.fulfillment_status == 'partial'
+                %}
+                {% assign order_shipments = order.line_items | map: 'fulfillment' | compact | uniq %}
+                {% assign order_has_tracking = false %}
+                {% for shipment in order_shipments %}
+                  {% if shipment.tracking_number != blank %}{% assign order_has_tracking = true %}{% endif %}
+                {% endfor %}
+                {% liquid
+                  if order.fulfillment_status == 'partial' and order_has_tracking
                     assign status_bucket = 'shipping'
                     assign status_badge_class = 'st--ship'
-                    assign shipping_stage = 2
+                    assign shipping_stage = 3
                     assign status_display_label = '부분 배송'
-                    assign status_description = '일부 주문이 출고되어 배송이 진행 중입니다. 운송장이 등록되면 상세 배송 흐름을 바로 확인할 수 있어요.'
+                    assign status_description = '운송장 번호가 등록되어 배송이 진행 중입니다.'
                   endif
-                  if order.fulfillment_status == 'fulfilled'
+                  if order.fulfillment_status == 'fulfilled' and order_has_tracking
                     assign shipping_stage = 3
                     assign status_bucket = 'shipping'
                     assign status_badge_class = 'st--ship'
                     assign status_display_label = '배송중'
-                    assign status_description = '주문이 처리되어 배송 중입니다.'
+                    assign status_description = '운송장 번호가 등록되어 배송 중입니다.'
                   endif
-                  if order.financial_status == 'refunded'
+                  if order.financial_status == 'refunded' or order.financial_status == 'partially_refunded'
                     assign shipping_stage = -1
                     assign status_bucket = 'other'
                     assign status_badge_class = 'st--done'
-                    assign status_display_label = '환불됨'
+                    if order.financial_status == 'refunded'
+                      assign status_display_label = '환불됨'
+                    else
+                      assign status_display_label = '부분 환불'
+                    endif
                     assign status_description = '환불된 주문입니다. 자세한 내용은 주문 상세에서 확인해 주세요.'
-                  elsif order.financial_status != 'paid' and order.financial_status != 'partially_refunded'
+                  elsif order.financial_status != 'paid'
                     assign shipping_stage = -1
                     assign status_bucket = 'other'
                     assign status_badge_class = 'st--done'
@@ -281,7 +291,6 @@
                   <div class="tw-shipping" data-shipping-detail>
                     <ol class="tw-shipping__steps" data-shipping-steps aria-label="배송 단계"></ol>
                     <div data-shipping-packages>
-                      {% assign order_shipments = order.line_items | map: 'fulfillment' | compact | uniq %}
                       {% for shipment in order_shipments %}
                         {% if shipment.tracking_number != blank %}
                           {% assign tracking_carrier = shipment.tracking_company | upcase %}
@@ -298,6 +307,22 @@
                   <details class="oc__details">
                     <summary class="oc__detail">주문 상세 <span aria-hidden="true">→</span></summary>
                     <div class="oc__details-body">
+                      <h4>주문자 정보</h4>
+                      <div class="oc__detail-grid oc__detail-grid--customer">
+                        <section class="oc__detail-section">
+                          <h4>연락처</h4>
+                          {% if order.email != blank %}<p>{{ order.email | escape }}</p>{% endif %}
+                          {% if order.phone != blank %}<p>{{ order.phone | escape }}</p>{% endif %}
+                        </section>
+                        {% if order.shipping_address %}
+                          <section class="oc__detail-section">
+                            <h4>배송지</h4>
+                            <div class="oc__address">{{ order.shipping_address | format_address }}</div>
+                            {% if order.shipping_address.phone != blank %}<p>{{ order.shipping_address.phone | escape }}</p>{% endif %}
+                          </section>
+                        {% endif %}
+                      </div>
+
                       <h4>주문 상품</h4>
                       {% for item in order.line_items %}
                         <div class="oc__detail-item">
@@ -315,20 +340,6 @@
                       </dl>
 
                       <div class="oc__detail-grid">
-                        <section class="oc__detail-section">
-                          <h4>연락처</h4>
-                          {% if order.email != blank %}<p>{{ order.email | escape }}</p>{% endif %}
-                          {% if order.phone != blank %}<p>{{ order.phone | escape }}</p>{% endif %}
-                        </section>
-
-                        {% if order.shipping_address %}
-                          <section class="oc__detail-section">
-                            <h4>배송지</h4>
-                            <div class="oc__address">{{ order.shipping_address | format_address }}</div>
-                            {% if order.shipping_address.phone != blank %}<p>{{ order.shipping_address.phone | escape }}</p>{% endif %}
-                          </section>
-                        {% endif %}
-
                         {% if order.shipping_methods.first %}
                           <section class="oc__detail-section">
                             <h4>배송 방법</h4>

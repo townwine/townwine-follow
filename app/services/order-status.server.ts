@@ -11,13 +11,13 @@ export function safeTrackingUrl(value:string|null|undefined){
   try{const url=new URL(value||'');return ['https:','http:'].includes(url.protocol)?url.href:'';}catch{return '';}
 }
 function shipmentStage(f:Fulfillment):[number,string]{
-  if(f.deliveredAt||['DELIVERED','PICKED_UP'].includes(f.displayStatus||''))return [4,'배송 완료'];
+  if(f.deliveredAt||f.displayStatus==='DELIVERED')return [4,'배송 완료'];
+  if(!(f.trackingInfo||[]).some(t=>!!t.number))return [1,'배송 준비'];
   if(['FAILURE','ERROR'].includes(f.status)||['FAILURE','NOT_DELIVERED','ATTEMPTED_DELIVERY','DELAYED'].includes(f.displayStatus||''))return [3,'배송 확인 필요'];
   if(f.displayStatus==='READY_FOR_PICKUP')return [3,'수령 대기'];
   if(f.displayStatus==='OUT_FOR_DELIVERY')return [3,'배송 출발'];
   if(f.inTransitAt||['IN_TRANSIT','CARRIER_PICKED_UP'].includes(f.displayStatus||''))return [3,'배송 중'];
-  if(f.status==='SUCCESS'||['FULFILLED','MARKED_AS_FULFILLED'].includes(f.displayStatus||''))return [3,'배송중'];
-  return [1,'배송 준비'];
+  return [3,'배송중'];
 }
 export function orderSnapshot(node:OrderNode):OrderStatusSnapshot{
   const active=(node.fulfillments||[]).filter(f=>!['CANCELLED','CANCELED'].includes(f.status)&&f.displayStatus!=='CANCELED');
@@ -26,19 +26,16 @@ export function orderSnapshot(node:OrderNode):OrderStatusSnapshot{
   let stage=1,label='배송 준비',bucket:OrderStatusSnapshot['bucket']='paid',description='결제가 완료되어 상품 배송을 준비하고 있습니다.';
   const financial=node.displayFinancialStatus;
   if(node.cancelledAt){stage=-1;label='주문 취소';bucket='other';description='취소된 주문입니다.';}
-  else if(['REFUNDED','VOIDED'].includes(financial)){stage=-1;label=financial==='REFUNDED'?'환불됨':'결제 취소';bucket='other';description=financial==='REFUNDED'?'환불된 주문입니다. 자세한 내용은 주문 상세에서 확인해 주세요.':'결제가 취소된 주문입니다.';}
-  else if(!['PAID','PARTIALLY_REFUNDED'].includes(financial)){stage=-1;label='결제 확인 중';bucket='other';description='결제 완료 여부를 확인하고 있습니다.';}
+  else if(['REFUNDED','PARTIALLY_REFUNDED','VOIDED'].includes(financial)){stage=-1;label=financial==='REFUNDED'?'환불됨':financial==='PARTIALLY_REFUNDED'?'부분 환불':'결제 취소';bucket='other';description=financial==='VOIDED'?'결제가 취소된 주문입니다.':'환불된 주문입니다. 자세한 내용은 주문 상세에서 확인해 주세요.';}
+  else if(financial!=='PAID'){stage=-1;label='결제 확인 중';bucket='other';description='결제 완료 여부를 확인하고 있습니다.';}
   else if(shipments.length){
     // A delivered parcel must not mark a partially fulfilled order complete.
     const complete=node.displayFulfillmentStatus==='FULFILLED'&&active.length<100&&shipments.every(s=>s.stage===4);
     stage=complete?4:Math.min(3,Math.max(...shipments.map(s=>s.stage)));
     bucket=complete?'delivered':stage>=2?'shipping':'paid';
-    label=complete?'배송 완료':shipments.length===1&&shipments[0].stage!==4?shipments[0].label:'부분 배송';
-    if(!complete&&node.displayFulfillmentStatus==='PARTIALLY_FULFILLED')label='부분 배송';
-    description=complete?'주문의 모든 배송이 완료되었습니다.':label==='부분 배송'?'일부 상품의 배송이 진행 중입니다. 배송 건별 상태를 확인해 주세요.':stage===2?'배송을 준비하고 있습니다.':'운송장 번호로 배송 현황을 확인할 수 있습니다.';
+    label=complete?'배송 완료':stage>=2?shipments.length===1?'배송중':'부분 배송':'배송 준비';
+    description=complete?'주문의 모든 배송이 완료되었습니다.':stage>=2?'운송장 번호로 배송 현황을 확인할 수 있습니다.':'결제가 완료되어 상품 배송을 준비하고 있습니다.';
   }else if(node.displayFulfillmentStatus==='ON_HOLD'){label='배송 보류';description='배송이 보류되어 확인 중입니다.';}
-  else if(node.displayFulfillmentStatus==='FULFILLED'){stage=3;bucket='shipping';label='배송중';description='주문이 처리되어 배송 중입니다.';}
-  if(financial==='PARTIALLY_REFUNDED')description+=' 일부 금액이 환불된 주문입니다.';
   return {orderId:String(node.legacyResourceId||node.id.split('/').pop()),bucket,stage,label,description,trackingNumber:first.number||'',trackingCompany:first.company||'',trackingUrl:first.url||'',shipments};
 }
 export async function getOrderStatusSnapshots({admin,orderIds,customerId}:{admin:Admin;orderIds:string[];customerId:string}){
