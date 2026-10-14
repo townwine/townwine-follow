@@ -10,8 +10,13 @@ import {registerQuoteDraft} from '../services/quote-draft.server';
 const headers={'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'};
 let active=0;
 export async function loader({request}:LoaderFunctionArgs){
- await authenticate.public.appProxy(request);
- const customerId=new URL(request.url).searchParams.get('logged_in_customer_id')||'';
+ let customerId='';
+ try{
+  await authenticate.public.appProxy(request);
+  customerId=new URL(request.url).searchParams.get('logged_in_customer_id')||'';
+ }catch{
+  console.error('[group-buy-registration] storefront proxy authentication failed');
+ }
  return new Response(renderQuotePreview(Boolean(customerId)),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 async function boundedForm(request:Request){
@@ -22,11 +27,15 @@ async function boundedForm(request:Request){
  return new Response(Buffer.concat(parts),{headers:{'Content-Type':request.headers.get('content-type')||'application/x-www-form-urlencoded'}}).formData();
 }
 export async function action({request}:ActionFunctionArgs){
- const {admin}=await authenticate.public.appProxy(request);
  const params=new URL(request.url).searchParams,shop=params.get('shop')||'',customerId=params.get('logged_in_customer_id')||'';
  if(active>=3)return Response.json({error:'조회가 몰리고 있습니다. 잠시 후 다시 시도해 주세요.'},{status:429,headers});
  active++;
  try{
+  let context;
+  try{context=await authenticate.public.appProxy(request);}catch{
+   return Response.json({error:'페이지 연결이 만료됐습니다. 새로고침한 뒤 다시 시도해 주세요.',loginRequired:true},{status:401,headers});
+  }
+  const {admin}=context;
   const form=await boundedForm(request),intent=form.get('intent');
   if(intent==='label-image'){const bytes=await fetchLabelImage(String(form.get('imageUrl')||''));const type=imageFileType(bytes);return Response.json({image:'data:'+type.mime+';base64,'+bytes.toString('base64')},{headers});}
   if(intent==='extract')return Response.json({product:await previewRegistration(String(form.get('url')||''))},{headers});
