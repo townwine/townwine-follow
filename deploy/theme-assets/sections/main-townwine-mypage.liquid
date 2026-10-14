@@ -169,15 +169,15 @@
               <div class="of" role="toolbar" aria-label="주문 상태 필터">
                 <button class="chip is-on" type="button" data-order-filter="all" aria-pressed="true">
                   전체
-                  <span class="chip__c">{{ customer.orders_count }}</span>
+                  <span class="chip__c">{{ customer.orders.size }}</span>
                 </button>
                 <button class="chip" type="button" data-order-filter="paid" aria-pressed="false">배송 준비</button>
                 <button class="chip" type="button" data-order-filter="shipping" aria-pressed="false">배송 중</button>
-                <button class="chip" type="button" data-order-filter="delivered" aria-pressed="false">완료</button>
-                <button class="chip" type="button" data-order-filter="other" aria-pressed="false">취소·환불·결제 확인</button>
+                <button class="chip" type="button" data-order-filter="delivered" aria-pressed="false">배송 완료</button>
+                <button class="chip" type="button" data-order-filter="other" aria-pressed="false" aria-label="취소·환불·결제 확인">기타</button>
               </div>
 
-              {% if customer.orders_count > 0 %}
+              {% if customer.orders_count > 10 %}
                 <div class="op-head" data-order-pagination-toolbar>
                   <div class="op-head__summary" data-order-pagination-summary aria-live="polite"></div>
                   <div class="op-head__controls">
@@ -247,6 +247,13 @@
                     hidden
                   {% endif %}
                 >
+                  <div class="oc__head">
+                    <div class="oc__order"><strong>{{ order.name }}</strong><span>{{ order.created_at | date: '%Y.%m.%d' }}</span></div>
+                    <div class="oc__head-actions">
+                      <span class="st {{ status_badge_class }}" data-order-status-badge>{{ status_display_label }}</span>
+                      <a class="oc__detail" href="{{ order_detail_url }}">주문 상세 <span aria-hidden="true">→</span></a>
+                    </div>
+                  </div>
                   <div class="oc__top">
                     <div class="oc__m" aria-hidden="true">
                       {% if first_item.image != blank %}
@@ -256,10 +263,6 @@
                       {% endif %}
                     </div>
                     <div class="oc__bd">
-                      <div class="oc__sttop">
-                        <span class="st {{ status_badge_class }}" data-order-status-badge>{{ status_display_label }}</span>
-                        <span class="bd bd--out">주문번호 {{ order.name }}</span>
-                      </div>
                       <h3 class="oc__t">{{ first_item.title }}</h3>
                       <div class="oc__sub">
                         {{ first_item.vendor }}
@@ -267,7 +270,7 @@
                           · {{ first_item.variant_title }}
                         {% endif %}
                       </div>
-                      <div class="oc__meta"><span>{{ order.item_count }}개 상품</span><span>·</span><span>주문 {{ order.created_at | date: '%Y.%m.%d' }}</span></div>
+                      <div class="oc__meta"><span>{{ order.item_count }}개 상품</span></div>
                     </div>
                     <div class="oc__a">
                       <div class="oc__pr">{{ order.total_price | money }}</div>
@@ -275,10 +278,7 @@
                   </div>
 
                   <div class="cur">
-                    <div>
-                      <h4 class="cur__t" data-order-status-title>{{ status_display_label }}</h4>
-                      <p class="cur__d" data-order-status-description>{{ status_description }}</p>
-                    </div>
+                    <p class="cur__d" data-order-status-description>{{ status_description }}</p>
                   </div>
 
                   <div class="tw-shipping" data-shipping-detail>
@@ -295,14 +295,6 @@
                       {% endfor %}
                     </div>
                     <p class="tw-shipping__sync" data-shipping-sync role="status">배송 정보 확인 중</p>
-                  </div>
-                  <div class="oc__inf">
-                    <div class="oc__ia">
-                      <a class="btn btn--quiet btn--sm" href="{{ order_detail_url }}">주문 상세</a>
-                      {% if first_item.product %}
-                        <a class="btn btn--gh btn--sm" href="{{ first_item.product.url }}">상품 보기</a>
-                      {% endif %}
-                    </div>
                   </div>
                 </article>
                 {% else %}
@@ -336,10 +328,12 @@
 
               <nav class="op-pager" aria-label="주문 페이지 이동" data-order-pagination-nav hidden></nav>
 
-              {% if customer.orders_count > order_list_render_limit %}
-                <p class="mp-note op-note">
-                  최근 {{ order_list_render_limit }}건 주문을 기준으로 빠르게 조회할 수 있도록 먼저 불러오고 있습니다.
-                </p>
+              {% if paginate.pages > 1 %}
+                <nav class="op-history-nav" aria-label="이전 주문 목록 이동">
+                  {% if paginate.previous %}<a href="{{ paginate.previous.url }}#orders-management">← 더 최신 주문</a>{% else %}<span></span>{% endif %}
+                  <span>{{ paginate.current_page }} / {{ paginate.pages }}</span>
+                  {% if paginate.next %}<a href="{{ paginate.next.url }}#orders-management">더 이전 주문 →</a>{% else %}<span></span>{% endif %}
+                </nav>
               {% endif %}
             </div>
           {% endpaginate %}
