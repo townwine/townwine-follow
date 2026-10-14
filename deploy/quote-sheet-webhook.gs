@@ -49,7 +49,7 @@ function quoteRow_(headers,data,sequence) {
   put('No',sequence);put('견적번호','TW-'+data.requestId);put('상태','견적접수');
   put('이메일',data.email||'');put('닉네임',data.nickname);put('입력날짜',Utilities.formatDate(new Date(data.createdAt),'Asia/Seoul','yyyy-MM-dd'));
   put('상품명',data.title);put('구매병수',i.bottles);put('견적종류','공동구매');put('구매링크',data.sourceUrl||'');
-  put('원산지',i.origin==='EU'?'EU':i.origin==='US'?'미국':'미국외');put('FTA',q.fta?'Y':'N');
+  if(i.origin)put('원산지',i.origin==='EU'?'EU':i.origin==='US'?'미국':'미국외');put('FTA',q.fta?'Y':'N');
   put('구매사이트소재국가',COUNTRY_TABS[data.country]);
   put('환율적용날짜',q.fxDate);
   ['EUR','USD','HKD','GBP','JPY'].forEach(function(c){put(c,r.KRW/r[c]);});
