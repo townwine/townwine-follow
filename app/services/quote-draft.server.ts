@@ -57,6 +57,8 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
   if(!product){
    const quote=JSON.parse(row.quoteJson);const price=found.shop.currencyCode==='HKD'?quote.unitHkd:found.shop.currencyCode==='KRW'?quote.unitKrw:null;
    if(!price||!Number.isFinite(price))throw new Error('스토어 결제 통화를 확인해 주세요.');
+   const procurementRegistration={title,sourceUrl,quantity:input.bottles,unitPrice:Number(price).toFixed(2),currency:found.shop.currencyCode};
+   await prisma.quoteDraftRequest.update({where:{id},data:{procurementRegistration:JSON.stringify(procurementRegistration)}});
    if(bytes)imageUrl=await uploadImage(admin,bytes);
    const collectorFields=quoteCollectorFields(collector);
    const country=registrationCountries[input.country];

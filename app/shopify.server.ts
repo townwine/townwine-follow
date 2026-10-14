@@ -9,6 +9,7 @@ import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prism
 import db from "./db.server";
 import { startFollowNotificationWatchdog } from "./services/follow-notification-watchdog.server";
 import { startQuoteSheetWorker } from "./services/quote-sheet.server";
+import { startQuoteProcurementWorker } from "./services/quote-procurement.server";
 
 type ShopifyAppConfig = Parameters<typeof shopifyApp>[0];
 
@@ -73,3 +74,4 @@ export const sessionStorage = shopify.sessionStorage;
 
 startFollowNotificationWatchdog();
 startQuoteSheetWorker();
+startQuoteProcurementWorker();

@@ -124,6 +124,12 @@ model QuoteDraftRequest {
   approvalEmailSentAt DateTime?
   approvalEmailCheckedAt DateTime?
   approvalEmailLeaseAt DateTime?
+  procurementRegistration String?
+  procurementState String?
+  procurementCheckedAt DateTime?
+  procurementLeaseAt DateTime?
+  procurementSentAt DateTime?
+  procurementError String?
   error String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
