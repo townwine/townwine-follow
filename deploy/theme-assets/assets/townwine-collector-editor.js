@@ -301,9 +301,9 @@
                 "\uBC88\uC9F8 \uC8FC\uBB38\uC744 \uBCF4\uACE0 \uC788\uC5B4\uC694.")
             : (summaryNode.textContent = "")),
         nav instanceof HTMLElement &&
-          ((nav.hidden = totalPages <= 1),
+          ((nav.hidden = totalPages === 0),
           (nav.textContent = ""),
-          !(totalPages <= 1) &&
+          totalPages > 0 &&
             ((parts = buildOrderPaginationParts(totalPages, state.currentPage)),
             nav.appendChild(
               createOrderPaginationButton(
