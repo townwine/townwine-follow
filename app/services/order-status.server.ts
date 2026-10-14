@@ -16,7 +16,7 @@ function shipmentStage(f:Fulfillment):[number,string]{
   if(f.displayStatus==='READY_FOR_PICKUP')return [3,'수령 대기'];
   if(f.displayStatus==='OUT_FOR_DELIVERY')return [3,'배송 출발'];
   if(f.inTransitAt||['IN_TRANSIT','CARRIER_PICKED_UP'].includes(f.displayStatus||''))return [3,'배송 중'];
-  if(f.status==='SUCCESS'||['FULFILLED','MARKED_AS_FULFILLED'].includes(f.displayStatus||''))return [2,'출고 완료'];
+  if(f.status==='SUCCESS'||['FULFILLED','MARKED_AS_FULFILLED'].includes(f.displayStatus||''))return [3,'배송중'];
   return [1,'배송 준비'];
 }
 export function orderSnapshot(node:OrderNode):OrderStatusSnapshot{
@@ -35,9 +35,9 @@ export function orderSnapshot(node:OrderNode):OrderStatusSnapshot{
     bucket=complete?'delivered':stage>=2?'shipping':'paid';
     label=complete?'배송 완료':shipments.length===1&&shipments[0].stage!==4?shipments[0].label:'부분 배송';
     if(!complete&&node.displayFulfillmentStatus==='PARTIALLY_FULFILLED')label='부분 배송';
-    description=complete?'주문의 모든 배송이 완료되었습니다.':label==='부분 배송'?'일부 상품의 배송이 진행 중입니다. 배송 건별 상태를 확인해 주세요.':stage===2?'관리자가 출고 처리했습니다. 배송사 이동 정보는 접수 후 반영됩니다.':'배송 건별 진행 상황과 운송장 정보를 확인해 주세요.';
+    description=complete?'주문의 모든 배송이 완료되었습니다.':label==='부분 배송'?'일부 상품의 배송이 진행 중입니다. 배송 건별 상태를 확인해 주세요.':stage===2?'배송을 준비하고 있습니다.':'운송장 번호로 배송 현황을 확인할 수 있습니다.';
   }else if(node.displayFulfillmentStatus==='ON_HOLD'){label='배송 보류';description='배송이 보류되어 확인 중입니다.';}
-  else if(node.displayFulfillmentStatus==='FULFILLED'){stage=2;bucket='shipping';label='출고 완료';description='출고 처리되었습니다. 배송 완료 여부는 아직 확인되지 않았습니다.';}
+  else if(node.displayFulfillmentStatus==='FULFILLED'){stage=3;bucket='shipping';label='배송중';description='주문이 처리되어 배송 중입니다.';}
   if(financial==='PARTIALLY_REFUNDED')description+=' 일부 금액이 환불된 주문입니다.';
   return {orderId:String(node.legacyResourceId||node.id.split('/').pop()),bucket,stage,label,description,trackingNumber:first.number||'',trackingCompany:first.company||'',trackingUrl:first.url||'',shipments};
 }

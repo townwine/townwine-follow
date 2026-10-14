@@ -36,16 +36,20 @@
     packages.replaceChildren();
     (status.shipments || []).forEach(function (shipment, index) {
       var box = text('div', '', 'tw-shipping__package');
-      box.appendChild(text('strong', '배송 ' + (index + 1) + ' · ' + shipment.label));
+      if (status.shipments.length > 1) box.appendChild(text('strong', '배송 ' + (index + 1) + ' · ' + shipment.label));
       (shipment.tracking || []).forEach(function (tracking) {
-        var line = text('p', [tracking.company, tracking.number].filter(Boolean).join(' · '), 'tw-shipping__tracking');
+        if (!tracking.number) return;
+        var company = String(tracking.company || '운송장');
+        if (company.toUpperCase() === 'HANJIN') company = '한진';
+        var line = text('p', company + ' 추적: ', 'tw-shipping__tracking');
         var href = safeUrl(tracking.url);
-        if (href) { var link = text('a', '배송 조회'); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; line.appendChild(link); }
+        if (href) { var link = text('a', tracking.number); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; line.appendChild(link); }
+        else line.appendChild(document.createTextNode(tracking.number));
         box.appendChild(line);
       });
       var date = shipment.deliveredAt || shipment.estimatedDeliveryAt;
       if (date && !Number.isNaN(Date.parse(date))) box.appendChild(text('p', (shipment.deliveredAt ? '배송 완료: ' : '배송 예정: ') + new Date(date).toLocaleDateString('ko-KR')));
-      packages.appendChild(box);
+      if (box.childNodes.length) packages.appendChild(box);
     });
   }
   function boot(root) {
@@ -70,7 +74,7 @@
             batch.forEach(function (card) {
               var status = payload.statuses && payload.statuses[card.dataset.orderId];
               var note = card.querySelector('[data-shipping-sync]');
-              if (status) { render(card, status); if (note) note.textContent = '배송 정보 업데이트 ' + new Date().toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'}); }
+              if (status) { render(card, status); if (note) note.textContent = ''; }
               else if (note) note.textContent = '상세 배송 정보는 주문 상세 또는 배송사 조회에서 확인해 주세요.';
             });
           } catch (_) {

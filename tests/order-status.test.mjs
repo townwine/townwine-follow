@@ -9,7 +9,9 @@ const order={id:'gid://shopify/Order/1',legacyResourceId:'1',customer:{legacyRes
 const parcel={id:'parcel',status:'SUCCESS',displayStatus:'IN_TRANSIT',createdAt:'2026-10-14',estimatedDeliveryAt:null,inTransitAt:null,deliveredAt:null,trackingInfo:[{company:'Carrier',number:'123',url:'https://example.com/track'}]};
 test('shipping stages distinguish preparation, dispatch, transit and delivery',()=>{
   assert.equal(service.orderSnapshot({...order,displayFulfillmentStatus:'UNFULFILLED'}).stage,1);
-  for(const [displayStatus,stage] of [['MARKED_AS_FULFILLED',2],['IN_TRANSIT',3],['OUT_FOR_DELIVERY',3],['DELIVERED',4]])assert.equal(service.orderSnapshot({...order,fulfillments:[{...parcel,displayStatus}]}).stage,stage);
+  for(const [displayStatus,stage] of [['MARKED_AS_FULFILLED',3],['IN_TRANSIT',3],['OUT_FOR_DELIVERY',3],['DELIVERED',4]])assert.equal(service.orderSnapshot({...order,fulfillments:[{...parcel,displayStatus}]}).stage,stage);
+  const processed=service.orderSnapshot({...order,fulfillments:[{...parcel,displayStatus:'FULFILLED',trackingInfo:[{company:'HANJIN',number:'800223722664',url:'https://www.hanjin.com/track'}]}]});
+  assert.equal(processed.label,'배송중');assert.equal(processed.trackingNumber,'800223722664');
 });
 test('partial delivery and canceled parcels cannot complete an order',()=>{
   const delivered={...parcel,displayStatus:'DELIVERED'};

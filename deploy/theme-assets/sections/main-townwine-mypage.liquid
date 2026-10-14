@@ -200,7 +200,6 @@
                   assign status_display_label = '배송 준비'
                   assign status_description = '결제가 완료되어 상품 배송을 준비하고 있습니다.'
                   assign shipping_stage = 1
-                  assign order_detail_url = order.customer_url | default: order.order_status_url | default: routes.account_url
 
                   if order.fulfillment_status == 'partial'
                     assign status_bucket = 'shipping'
@@ -210,11 +209,11 @@
                     assign status_description = '일부 주문이 출고되어 배송이 진행 중입니다. 운송장이 등록되면 상세 배송 흐름을 바로 확인할 수 있어요.'
                   endif
                   if order.fulfillment_status == 'fulfilled'
-                    assign shipping_stage = 2
+                    assign shipping_stage = 3
                     assign status_bucket = 'shipping'
                     assign status_badge_class = 'st--ship'
-                    assign status_display_label = '출고 완료'
-                    assign status_description = '관리자가 출고 처리했습니다. 배송 완료 여부는 배송사 조회에서 확인할 수 있습니다.'
+                    assign status_display_label = '배송중'
+                    assign status_description = '주문이 처리되어 배송 중입니다.'
                   endif
                   if order.financial_status == 'refunded'
                     assign shipping_stage = -1
@@ -248,11 +247,11 @@
                   {% endif %}
                 >
                   <div class="oc__head">
-                    <div class="oc__order"><strong>{{ order.name }}</strong><span>{{ order.created_at | date: '%Y.%m.%d' }}</span></div>
-                    <div class="oc__head-actions">
-                      <span class="st {{ status_badge_class }}" data-order-status-badge>{{ status_display_label }}</span>
-                      <a class="oc__detail" href="{{ order_detail_url }}">주문 상세 <span aria-hidden="true">→</span></a>
-                    </div>
+                    <time class="oc__date" datetime="{{ order.created_at | date: '%Y-%m-%d' }}">{{ order.created_at | date: '%Y.%m.%d' }}</time>
+                  </div>
+                  <div class="oc__status-row">
+                    <span class="st {{ status_badge_class }}" data-order-status-badge>{{ status_display_label }}</span>
+                    <span class="oc__number">{{ order.name }}</span>
                   </div>
                   <div class="oc__top">
                     <div class="oc__m" aria-hidden="true">
@@ -271,8 +270,6 @@
                         {% endif %}
                       </div>
                       <div class="oc__meta"><span>{{ order.item_count }}개 상품</span></div>
-                    </div>
-                    <div class="oc__a">
                       <div class="oc__pr">{{ order.total_price | money }}</div>
                     </div>
                   </div>
@@ -287,15 +284,99 @@
                       {% assign order_shipments = order.line_items | map: 'fulfillment' | compact | uniq %}
                       {% for shipment in order_shipments %}
                         {% if shipment.tracking_number != blank %}
-                          <p class="tw-shipping__tracking">{{ shipment.tracking_company | escape }} · {{ shipment.tracking_number | escape }}
+                          {% assign tracking_carrier = shipment.tracking_company | upcase %}
+                          {% if tracking_carrier == 'HANJIN' %}{% assign tracking_carrier = '한진' %}{% else %}{% assign tracking_carrier = shipment.tracking_company %}{% endif %}
+                          <p class="tw-shipping__tracking">{{ tracking_carrier | escape }} 추적:
                             {% assign tracking_scheme = shipment.tracking_url | slice: 0, 8 %}
-                            {% if tracking_scheme == 'https://' %}<a href="{{ shipment.tracking_url | escape }}" target="_blank" rel="noopener noreferrer">배송 조회</a>{% endif %}
+                            {% if tracking_scheme == 'https://' %}<a href="{{ shipment.tracking_url | escape }}" target="_blank" rel="noopener noreferrer">{{ shipment.tracking_number | escape }}</a>{% else %}{{ shipment.tracking_number | escape }}{% endif %}
                           </p>
                         {% endif %}
                       {% endfor %}
                     </div>
                     <p class="tw-shipping__sync" data-shipping-sync role="status">배송 정보 확인 중</p>
                   </div>
+                  <details class="oc__details">
+                    <summary class="oc__detail">주문 상세 <span aria-hidden="true">→</span></summary>
+                    <div class="oc__details-body">
+                      <h4>주문 상품</h4>
+                      {% for item in order.line_items %}
+                        <div class="oc__detail-item">
+                          <div><strong>{{ item.title }}</strong><span>{{ item.quantity }}개{% if item.variant_title != blank %} · {{ item.variant_title }}{% endif %}</span></div>
+                          <strong>{{ item.original_line_price | money }}</strong>
+                        </div>
+                      {% endfor %}
+                      <dl class="oc__totals">
+                        <div><dt>소계 · 품목 {{ order.item_count }}개</dt><dd>{{ order.subtotal_price | money }}</dd></div>
+                        <div><dt>배송</dt><dd>{% if order.shipping_price %}{{ order.shipping_price | money }}{% else %}무료{% endif %}</dd></div>
+                        <div class="oc__total"><dt>총계</dt><dd>{{ order.total_net_amount | default: order.total_price | money }}</dd></div>
+                        {% if order.total_refunded_amount > 0 %}
+                          <div><dt>환불됨</dt><dd>-{{ order.total_refunded_amount | money }}</dd></div>
+                        {% endif %}
+                      </dl>
+
+                      <div class="oc__detail-grid">
+                        <section class="oc__detail-section">
+                          <h4>연락처</h4>
+                          {% if order.email != blank %}<p>{{ order.email | escape }}</p>{% endif %}
+                          {% if order.phone != blank %}<p>{{ order.phone | escape }}</p>{% endif %}
+                        </section>
+
+                        {% if order.shipping_address %}
+                          <section class="oc__detail-section">
+                            <h4>배송지</h4>
+                            <div class="oc__address">{{ order.shipping_address | format_address }}</div>
+                            {% if order.shipping_address.phone != blank %}<p>{{ order.shipping_address.phone | escape }}</p>{% endif %}
+                          </section>
+                        {% endif %}
+
+                        {% if order.shipping_methods.first %}
+                          <section class="oc__detail-section">
+                            <h4>배송 방법</h4>
+                            <p>{{ order.shipping_methods.first.title | escape }}</p>
+                          </section>
+                        {% endif %}
+
+                        <section class="oc__detail-section">
+                          <h4>결제</h4>
+                          {% assign payment_transactions = order.transactions | where: 'status', 'success' %}
+                          {% for transaction in payment_transactions %}
+                            {% if transaction.kind == 'sale' or transaction.kind == 'capture' %}
+                              <p>
+                                {% if transaction.payment_details.credit_card_company != blank %}
+                                  {{ transaction.payment_details.credit_card_company | escape }}{% if transaction.payment_details.credit_card_last_four_digits != blank %} · {{ transaction.payment_details.credit_card_last_four_digits | escape }}{% endif %}
+                                {% else %}
+                                  {{ transaction.gateway_display_name | default: transaction.gateway | escape }}
+                                {% endif %}
+                              </p>
+                              <p class="oc__detail-muted">{{ transaction.amount | money }} · {{ transaction.created_at | date: '%Y년 %-m월 %-d일' }}</p>
+                            {% endif %}
+                          {% else %}
+                            <p>{{ order.financial_status_label | default: status_display_label }}</p>
+                          {% endfor %}
+                          {% if payment_transactions.size == 0 %}<p>{{ order.financial_status_label | default: status_display_label }}</p>{% endif %}
+                        </section>
+
+                        {% assign detail_shipments = order.line_items | map: 'fulfillment' | compact | uniq %}
+                        {% if detail_shipments.size > 0 %}
+                          <section class="oc__detail-section">
+                            <h4>배송 및 운송장</h4>
+                            {% for detail_shipment in detail_shipments %}
+                              {% assign detail_carrier = detail_shipment.tracking_company | upcase %}
+                              {% if detail_carrier == 'HANJIN' %}{% assign detail_carrier = '한진' %}{% else %}{% assign detail_carrier = detail_shipment.tracking_company %}{% endif %}
+                              {% if detail_shipment.tracking_number != blank %}
+                                <p>{{ detail_carrier | escape }} 추적:
+                                  {% assign detail_tracking_scheme = detail_shipment.tracking_url | slice: 0, 8 %}
+                                  {% if detail_tracking_scheme == 'https://' %}<a href="{{ detail_shipment.tracking_url | escape }}" target="_blank" rel="noopener noreferrer">{{ detail_shipment.tracking_number | escape }}</a>{% else %}{{ detail_shipment.tracking_number | escape }}{% endif %}
+                                </p>
+                              {% else %}
+                                <p>{{ detail_carrier | default: '배송 정보' | escape }} · 운송장 등록 대기</p>
+                              {% endif %}
+                            {% endfor %}
+                          </section>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </details>
                 </article>
                 {% else %}
                   <article class="oc oc--empty">
