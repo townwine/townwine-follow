@@ -12,7 +12,7 @@ let active=0;
 export async function loader({request}:LoaderFunctionArgs){
  await authenticate.public.appProxy(request);
  const customerId=new URL(request.url).searchParams.get('logged_in_customer_id')||'';
- return new Response(renderQuotePreview(Boolean(customerId)),{headers:{...headers,'Content-Type':'text/html; charset=utf-8'}});
+ return new Response(renderQuotePreview(Boolean(customerId)),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 async function boundedForm(request:Request){
  const limit=11*1024*1024;
