@@ -5,6 +5,7 @@ export async function registrationRates():Promise<QuoteRates>{const r=await fetc
 export async function previewRegistration(url:string){const p=await fetchProductHtml(url);return parseDemandProduct(p.html,p.url);}
 export function parseRegistrationInput(form:FormData){
  const country=String(form.get('destination')) as QuoteInput['country'];if(!(Object.hasOwn(quoteCurrency,country)))throw new Error('배송센터를 선택하세요.');
+ if(country!=='US'&&country!=='FR')throw new Error('해당 국가는 오픈예정입니다. 미국 또는 프랑스를 선택해 주세요.');
  const currency=String(form.get('currency'));if(currency!==quoteCurrency[country])throw new Error('배송센터의 계산기 통화로 병당 상품가를 입력해 주세요.');
  if(form.get('localShipping')===''||form.get('localShipping')===null)throw new Error('현지 배송비를 확인해 주세요.');
  const origin=String(form.get('origin')||'OTHER');if(!['EU','US','OTHER'].includes(origin))throw new Error('원산지를 확인하세요.');
