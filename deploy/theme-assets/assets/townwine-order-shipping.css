@@ -1,0 +1,30 @@
+.tw-shipping{padding:0 24px 20px;min-width:0}
+.tw-shipping__steps{list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:0;margin:8px 0 18px}
+.tw-shipping__steps[hidden]{display:none}
+.tw-shipping__steps li{font-size:12px;color:#737373;border-top:3px solid #dedede;padding-top:8px;overflow-wrap:anywhere;letter-spacing:0}
+.tw-shipping__steps li.is-complete{border-color:#498373;color:#435b53}
+.tw-shipping__steps li.is-current{border-color:#232323;color:#232323;font-weight:700}
+.tw-shipping__package{border-top:1px solid #dedede;padding:12px 0;font-size:13px;overflow-wrap:anywhere}
+.tw-shipping__package p{margin:6px 0}
+.tw-shipping__tracking{font-size:13px;overflow-wrap:anywhere}
+.tw-shipping__tracking a{display:inline-block;margin-left:10px;text-decoration:underline;text-underline-offset:3px;color:inherit}
+.tw-shipping__sync{font-size:12px;color:#737373;margin:8px 0 0;overflow-wrap:anywhere}
+@media(max-width:600px){.tw-shipping{padding:0 16px 16px}.tw-shipping__steps{gap:5px}.tw-shipping__steps li{font-size:11px}}
+.tw-mypage .orders{gap:12px}
+.tw-mypage .oc__top{grid-template-columns:68px minmax(0,1fr) auto;gap:16px;padding:18px 20px;border-bottom:0}
+.tw-mypage .oc__m{width:68px;height:68px}
+.tw-mypage .oc__bd{gap:4px}
+.tw-mypage .oc__sttop{margin-bottom:2px}
+.tw-mypage .oc__t{font-weight:600}
+.tw-mypage .oc__meta{gap:8px;margin-top:2px}
+.tw-mypage .oc__a{align-self:center}
+.tw-mypage .oc .cur{display:block;margin:0 20px;padding:12px 0;border:0;border-top:1px solid #e9e4dd;border-radius:0;background:transparent}
+.tw-mypage .oc .cur__t{font-size:14px;font-weight:600;line-height:1.4;margin:0 0 3px}
+.tw-mypage .oc .cur__d{font-size:12px;line-height:1.5;color:#6e6962}
+.tw-mypage .oc .tw-shipping{padding:0 20px 12px}
+.tw-mypage .oc[data-shipping-stage="-1"] .tw-shipping{display:none}
+.tw-mypage .oc .tw-shipping__steps{margin:0 0 8px}
+.tw-mypage .oc .tw-shipping__sync{margin-top:4px}
+.tw-mypage .oc .oc__inf{justify-content:flex-end;padding:8px 20px;background:transparent;border-top:1px solid #e9e4dd}
+.tw-mypage .oc .oc__ia .btn{min-height:34px;padding:7px 12px;font-size:12px}
+@media(max-width:600px){.tw-mypage .oc__top{grid-template-columns:56px minmax(0,1fr);gap:11px;padding:14px}.tw-mypage .oc__m{width:56px;height:56px}.tw-mypage .oc__a{grid-column:2;align-items:flex-start;padding:0}.tw-mypage .oc__sttop{gap:4px}.tw-mypage .oc .cur{margin:0 14px;padding:10px 0}.tw-mypage .oc .tw-shipping{padding:0 14px 10px}.tw-mypage .oc .oc__inf{padding:8px 14px}}

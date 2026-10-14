@@ -1,78 +1,25 @@
-import type { LoaderFunctionArgs } from "react-router";
-import { readOrderStatusRequest } from "../services/follow-request.server";
-import { getOrderStatusSnapshots } from "../services/order-status.server";
-import { resolveStorefrontAdmin } from "../services/storefront-admin.server";
-
-export async function loader({ request }: LoaderFunctionArgs) {
-  const url = new URL(request.url);
-
-  try {
-    const requestedShop = url.searchParams.get("shop") || "";
-    const customerId = url.searchParams.get("logged_in_customer_id") || "";
-    const payload = await readOrderStatusRequest(request);
-
-    if (!payload.orderIds.length) {
-      return Response.json({
-        statuses: {},
-        loggedIn: Boolean(customerId),
-      });
-    }
-
-    const adminContext = await resolveStorefrontAdmin({
-      request,
-      shop: requestedShop,
-      required: false,
-      logPrefix: "[order-status]",
-    });
-
-    if (!adminContext.admin) {
-      return Response.json({
-        statuses: {},
-        loggedIn: Boolean(customerId),
-      });
-    }
-
-    if (!customerId) {
-      return Response.json({
-        statuses: {},
-        loggedIn: false,
-      });
-    }
-
-    const snapshots = await getOrderStatusSnapshots({
-      admin: adminContext.admin,
-      orderIds: payload.orderIds,
-      customerId,
-    });
-
-    const statusMap = snapshots.reduce<Record<string, typeof snapshots[number]>>(
-      (result, snapshot) => {
-        result[snapshot.orderId] = snapshot;
-        return result;
-      },
-      {},
-    );
-
-    return Response.json({
-      statuses: statusMap,
-      loggedIn: true,
-      generatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("[order-status] request failed", {
-      method: request.method,
-      url: request.url,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-
-    return Response.json(
-      {
-        statuses: {},
-        loggedIn: false,
-        error: "ORDER_STATUS_FAILED",
-      },
-      { status: 500 },
-    );
+import type {LoaderFunctionArgs} from 'react-router';
+import {authenticate} from '../shopify.server';
+import {readOrderStatusRequest} from '../services/follow-request.server';
+import {getOrderStatusSnapshots} from '../services/order-status.server';
+const headers={'Cache-Control':'private, no-store, max-age=0'};
+export async function loader({request}:LoaderFunctionArgs){
+  // Never use an offline admin after a failed customer proxy signature.
+  let context;
+  try{context=await authenticate.public.appProxy(request);}catch{
+    return Response.json({statuses:{},error:'UNAUTHORIZED'},{status:401,headers});
+  }
+  const customerIds=new URL(request.url).searchParams.getAll('logged_in_customer_id');
+  const customerId=customerIds.length===1?customerIds[0]:'';
+  if(!/^\d+$/.test(customerId))return Response.json({statuses:{},loggedIn:false},{status:401,headers});
+  if(!context.admin)return Response.json({statuses:{},error:'SERVICE_UNAVAILABLE'},{status:503,headers});
+  try{
+    const {orderIds}=await readOrderStatusRequest(request);
+    if(orderIds.length>50)return Response.json({statuses:{},error:'TOO_MANY_ORDERS'},{status:400,headers});
+    const snapshots=await getOrderStatusSnapshots({admin:context.admin,orderIds,customerId});
+    return Response.json({statuses:Object.fromEntries(snapshots.map(s=>[s.orderId,s])),loggedIn:true,generatedAt:new Date().toISOString()},{headers});
+  }catch{
+    console.error('[order-status] authenticated order query failed');
+    return Response.json({statuses:{},error:'ORDER_STATUS_FAILED'},{status:502,headers});
   }
 }

@@ -1,4 +1,8 @@
 {{ 'townwine.css' | asset_url | stylesheet_tag }}
+{{ 'townwine-order-shipping.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'townwine-order-shipping.js' | asset_url }}" defer="defer"></script>
+{{ 'townwine-mypage-improvements.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'townwine-mypage-improvements.js' | asset_url }}" defer="defer"></script>
 {{ 'townwine-collector-editor.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'townwine-collector-editor.js' | asset_url }}" defer="defer"></script>
 
@@ -85,22 +89,24 @@
 
 {% render 'townwine-header', current: 'mypage' %}
 
-<main class="container">
+<main class="container tw-mypage">
   {% if customer %}
     <section class="mhero" aria-label="요약">
       <div class="mhero__head">
         <div>
-          <h1 class="mhero__t">안녕하세요, <em>{{ collector_display_name | default: customer.first_name | default: customer.name }}</em>님의 공동구매 현황입니다</h1>
+          <div class="mhero__l">MY TOWNWINE</div><h1 class="mhero__t">마이페이지</h1><p class="mp-welcome">{{ collector_display_name | default: customer.first_name | default: customer.name | escape }}님, 주문과 계정 정보를 한곳에서 관리하세요.</p>
         </div>
+        <div class="mhero__a"><span class="mp-session">로그인 중</span><a class="btn btn--gh btn--sm" href="{{ routes.account_logout_url }}">로그아웃</a></div>
       </div>
 
       <div class="stats">
-        <div class="stat"><div class="stat__l">총 주문 수</div><div class="stat__v">{{ customer.orders_count }}</div><div class="stat__d">전체 주문 합계</div></div>
+        <div class="stat"><div class="stat__l">총 주문 수</div><div class="stat__v">{{ customer.orders_count }}</div><div class="stat__d">누적 주문 건수</div></div>
         <div class="stat"><div class="stat__l">기본 배송지</div><div class="stat__v">{% if customer.default_address %}설정됨{% else %}미설정{% endif %}</div><div class="stat__d"><a href="{{ account_addresses_url }}">{% if customer.default_address %}배송지 수정하기{% else %}배송지 설정하기{% endif %}</a></div></div>
-        <div class="stat"><div class="stat__l">알림</div><div class="stat__v">켜짐 · 4</div><div class="stat__d">상태 알림, 배송 알림 활성</div></div>
+        <div class="stat"><div class="stat__l">내 계정</div><div class="stat__v">로그인 중</div><div class="stat__d"><a href="#account-management">계정 관리하기</a></div></div>
         <div class="stat"><div class="stat__l">최근 주문</div><div class="stat__v">{% if customer.orders.first %}{{ customer.orders.first.created_at | date: '%m.%d' }}{% else %}없음{% endif %}</div><div class="stat__d">최근 결제 기준</div></div>
       </div>
     </section>
+    <div class="mp-workspace">
     <div class="tabs mp-tabs" role="tablist" aria-label="마이페이지 메뉴" data-mypage-tabs>
       <button
         class="tab is-on"
@@ -111,7 +117,7 @@
         aria-selected="true"
         data-mypage-tab="orders"
       >
-        주문관리
+        주문·배송
         <span class="tab__c">{{ customer.orders_count }}</span>
       </button>
 <button
@@ -134,7 +140,7 @@
         aria-selected="false"
         data-mypage-tab="account"
       >
-        계정관리
+        계정·프로필
       </button>
     </div>
 
@@ -145,6 +151,7 @@
       aria-labelledby="mypage-orders-tab"
       data-mypage-panel="orders"
     >
+      <div class="mp-section-heading"><h2>주문·배송</h2><p>주문 상태와 배송 진행 상황을 확인하세요.</p></div>
       <div class="page-grid">
         <section aria-label="주문 목록">
           {% liquid
@@ -154,6 +161,7 @@
           {% paginate customer.orders by order_list_render_limit %}
             <div
               data-order-management
+              data-live-shipping
               data-proxy-base="{{ follow_proxy_base | escape }}"
               data-order-page-size-default="10"
               data-order-page-size-options="{{ order_page_size_options }}"
@@ -163,9 +171,10 @@
                   전체
                   <span class="chip__c">{{ customer.orders_count }}</span>
                 </button>
-                <button class="chip" type="button" data-order-filter="paid" aria-pressed="false">결제 완료</button>
+                <button class="chip" type="button" data-order-filter="paid" aria-pressed="false">배송 준비</button>
                 <button class="chip" type="button" data-order-filter="shipping" aria-pressed="false">배송 중</button>
                 <button class="chip" type="button" data-order-filter="delivered" aria-pressed="false">완료</button>
+                <button class="chip" type="button" data-order-filter="other" aria-pressed="false">취소·환불·결제 확인</button>
               </div>
 
               {% if customer.orders_count > 0 %}
@@ -188,15 +197,44 @@
                   assign first_item = order.line_items.first
                   assign status_bucket = 'paid'
                   assign status_badge_class = 'st--confirm'
-                  assign status_display_label = '결제 완료'
-                  assign status_description = '주문이 처리되었고 배송 준비 중입니다. 운송장이 등록되면 배송 중으로 자동 변경됩니다.'
+                  assign status_display_label = '배송 준비'
+                  assign status_description = '결제가 완료되어 상품 배송을 준비하고 있습니다.'
+                  assign shipping_stage = 1
                   assign order_detail_url = order.customer_url | default: order.order_status_url | default: routes.account_url
 
                   if order.fulfillment_status == 'partial'
                     assign status_bucket = 'shipping'
                     assign status_badge_class = 'st--ship'
-                    assign status_display_label = '배송 중'
+                    assign shipping_stage = 2
+                    assign status_display_label = '부분 배송'
                     assign status_description = '일부 주문이 출고되어 배송이 진행 중입니다. 운송장이 등록되면 상세 배송 흐름을 바로 확인할 수 있어요.'
+                  endif
+                  if order.fulfillment_status == 'fulfilled'
+                    assign shipping_stage = 2
+                    assign status_bucket = 'shipping'
+                    assign status_badge_class = 'st--ship'
+                    assign status_display_label = '출고 완료'
+                    assign status_description = '관리자가 출고 처리했습니다. 배송 완료 여부는 배송사 조회에서 확인할 수 있습니다.'
+                  endif
+                  if order.financial_status == 'refunded'
+                    assign shipping_stage = -1
+                    assign status_bucket = 'other'
+                    assign status_badge_class = 'st--done'
+                    assign status_display_label = '환불됨'
+                    assign status_description = '환불된 주문입니다. 자세한 내용은 주문 상세에서 확인해 주세요.'
+                  elsif order.financial_status != 'paid' and order.financial_status != 'partially_refunded'
+                    assign shipping_stage = -1
+                    assign status_bucket = 'other'
+                    assign status_badge_class = 'st--done'
+                    assign status_display_label = order.financial_status_label
+                    assign status_description = '주문 상세에서 결제 및 환불 내역을 확인할 수 있습니다.'
+                  endif
+                  if order.cancelled
+                    assign shipping_stage = -1
+                    assign status_bucket = 'other'
+                    assign status_badge_class = 'st--done'
+                    assign status_display_label = '주문 취소'
+                    assign status_description = '취소된 주문입니다.'
                   endif
                 %}
                 <article
@@ -204,6 +242,7 @@
                   data-order-card
                   data-order-id="{{ order.id }}"
                   data-order-status="{{ status_bucket }}"
+                  data-shipping-stage="{{ shipping_stage }}"
                   {% if forloop.index > 10 %}
                     hidden
                   {% endif %}
@@ -228,27 +267,36 @@
                           · {{ first_item.variant_title }}
                         {% endif %}
                       </div>
-                      <div class="oc__meta"><span><b>{{ order.item_count }}개 상품</b></span><span>·</span><span>주문 {{ order.created_at | date: '%Y.%m.%d' }}</span><span>·</span><span>결제 {{ order.total_price | money }}</span></div>
+                      <div class="oc__meta"><span>{{ order.item_count }}개 상품</span><span>·</span><span>주문 {{ order.created_at | date: '%Y.%m.%d' }}</span></div>
                     </div>
                     <div class="oc__a">
                       <div class="oc__pr">{{ order.total_price | money }}</div>
-                      <div class="oc__qty">{{ order.financial_status_label | default: '결제 상태 확인' }}</div>
                     </div>
                   </div>
 
                   <div class="cur">
                     <div>
-                      <div class="cur__h">현재 상태</div>
                       <h4 class="cur__t" data-order-status-title>{{ status_display_label }}</h4>
                       <p class="cur__d" data-order-status-description>{{ status_description }}</p>
                     </div>
                   </div>
 
-                  <div class="oc__inf">
-                    <div class="oc__ii">
-                      <div class="oc__iav">{{ first_item.vendor | slice: 0 }}</div>
-                      <div class="oc__inm">{{ first_item.vendor }}<span>{{ first_item.product.url }}</span></div>
+                  <div class="tw-shipping" data-shipping-detail>
+                    <ol class="tw-shipping__steps" data-shipping-steps aria-label="배송 단계"></ol>
+                    <div data-shipping-packages>
+                      {% assign order_shipments = order.line_items | map: 'fulfillment' | compact | uniq %}
+                      {% for shipment in order_shipments %}
+                        {% if shipment.tracking_number != blank %}
+                          <p class="tw-shipping__tracking">{{ shipment.tracking_company | escape }} · {{ shipment.tracking_number | escape }}
+                            {% assign tracking_scheme = shipment.tracking_url | slice: 0, 8 %}
+                            {% if tracking_scheme == 'https://' %}<a href="{{ shipment.tracking_url | escape }}" target="_blank" rel="noopener noreferrer">배송 조회</a>{% endif %}
+                          </p>
+                        {% endif %}
+                      {% endfor %}
                     </div>
+                    <p class="tw-shipping__sync" data-shipping-sync role="status">배송 정보 확인 중</p>
+                  </div>
+                  <div class="oc__inf">
                     <div class="oc__ia">
                       <a class="btn btn--quiet btn--sm" href="{{ order_detail_url }}">주문 상세</a>
                       {% if first_item.product %}
@@ -329,7 +377,7 @@
         <div class="fm__head">
           <div>
             <div class="fm__eyebrow">Follow Management</div>
-            <h2 class="fm__title">내가 팔로우한 컬렉터 관리</h2>
+            <h2 class="fm__title">팔로우한 컬렉터</h2>
             <p class="fm__desc">
               실제 스토어 팔로우 데이터를 기준으로 내가 팔로우 중인 컬렉터만
               한곳에서 확인하고 관리할 수 있어요.
@@ -475,7 +523,63 @@
       hidden
     >
       <div class="page-grid mp-account-grid">
-        <section aria-label="계정 관리">
+        <div class="mp-account-overview" aria-label="계정 정보">
+          <div class="ship">
+            <div class="ship__h">
+              <div class="ship__h__l">계정 정보</div>
+            </div>
+            <dl class="ship__rows">
+              <div class="ship__r">
+                <dt>아이디</dt>
+                <dd class="mono">{{ customer_login_id | escape }}</dd>
+              </div>
+              <div class="ship__r">
+                <dt>기본 배송지</dt>
+                {% if customer.default_address %}
+                  <dd>
+                    {{ customer.default_address.name | escape }}
+                    {% if customer.default_address.phone != blank %}
+                      <small>{{ customer.default_address.phone | escape }}</small>
+                    {% endif %}
+                    {% if customer.default_address.address1 != blank or customer.default_address.address2 != blank %}
+                      <small>
+                        {{ customer.default_address.address1 | escape }}{% if customer.default_address.address2 != blank %} {{ customer.default_address.address2 | escape }}{% endif %}
+                      </small>
+                    {% endif %}
+                    {% capture default_address_locality %}
+                      {% if customer.default_address.city != blank %}{{ customer.default_address.city | escape }}{% endif %}
+                      {% if customer.default_address.province != blank %}{% if customer.default_address.city != blank %}, {% endif %}{{ customer.default_address.province | escape }}{% endif %}
+                      {% if customer.default_address.zip != blank %} {{ customer.default_address.zip | escape }}{% endif %}
+                    {% endcapture %}
+                    {% assign default_address_locality_text = default_address_locality | strip %}
+                    {% if default_address_locality_text != blank %}
+                      <small>{{ default_address_locality_text }}</small>
+                    {% endif %}
+                  </dd>
+                {% else %}
+                  <dd class="muted">아직 설정된 배송지가 없습니다.</dd>
+                {% endif %}
+              </div>
+            </dl>
+            <div class="ship__btn">
+              <a class="btn btn--gh btn--sm" href="{{ account_addresses_url }}">
+                {% if customer.default_address %}배송지 수정하기{% else %}배송지 설정하기{% endif %}
+              </a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__h">계정 바로가기</div>
+            <div class="hl">
+              <a href="{{ routes.account_profile_url }}">회원 정보 관리<span class="hl__arrow">→</span></a>
+              <a href="{{ routes.account_logout_url }}">로그아웃<span class="hl__arrow">→</span></a>
+              <a href="{{ guide_url }}">공동구매 정책 보기<span class="hl__arrow">→</span></a>
+              <a href="{{ pages['collectors'].url | default: '#' }}">컬렉터 둘러보기<span class="hl__arrow">→</span></a>
+            </div>
+          </div>
+
+        </div>
+        <details class="mp-profile-details" data-profile-details><summary><span><strong>컬렉터 소개 · 취향 설정</strong><small>소개와 선호하는 와인을 내 컬렉터 페이지에 보여주세요.</small></span><span class="mp-profile-toggle" aria-hidden="true">＋</span></summary>
           <section
             id="collector-profile-editor"
             class="cpe"
@@ -716,80 +820,20 @@
               </div>
             </form>
           </section>
-        </section>
+        </details>
 
-        <aside class="side" aria-label="계정관리 도움말">
-          <div class="ship">
-            <div class="ship__h">
-              <div class="ship__h__l">계정 정보</div>
-            </div>
-            <dl class="ship__rows">
-              <div class="ship__r">
-                <dt>아이디</dt>
-                <dd class="mono">{{ customer_login_id | escape }}</dd>
-              </div>
-              <div class="ship__r">
-                <dt>기본 배송지</dt>
-                {% if customer.default_address %}
-                  <dd>
-                    {{ customer.default_address.name | escape }}
-                    {% if customer.default_address.phone != blank %}
-                      <small>{{ customer.default_address.phone | escape }}</small>
-                    {% endif %}
-                    {% if customer.default_address.address1 != blank or customer.default_address.address2 != blank %}
-                      <small>
-                        {{ customer.default_address.address1 | escape }}{% if customer.default_address.address2 != blank %} {{ customer.default_address.address2 | escape }}{% endif %}
-                      </small>
-                    {% endif %}
-                    {% capture default_address_locality %}
-                      {% if customer.default_address.city != blank %}{{ customer.default_address.city | escape }}{% endif %}
-                      {% if customer.default_address.province != blank %}{% if customer.default_address.city != blank %}, {% endif %}{{ customer.default_address.province | escape }}{% endif %}
-                      {% if customer.default_address.zip != blank %} {{ customer.default_address.zip | escape }}{% endif %}
-                    {% endcapture %}
-                    {% assign default_address_locality_text = default_address_locality | strip %}
-                    {% if default_address_locality_text != blank %}
-                      <small>{{ default_address_locality_text }}</small>
-                    {% endif %}
-                  </dd>
-                {% else %}
-                  <dd class="muted">아직 설정된 배송지가 없습니다.</dd>
-                {% endif %}
-              </div>
-            </dl>
-            <div class="ship__btn">
-              <a class="btn btn--gh btn--sm" href="{{ account_addresses_url }}">
-                {% if customer.default_address %}배송지 수정하기{% else %}배송지 설정하기{% endif %}
-              </a>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__h">계정 바로가기</div>
-            <div class="hl">
-              <a href="{{ guide_url }}">공동구매 정책 보기<span class="hl__arrow">→</span></a>
-              <a href="{{ pages['collectors'].url | default: '#' }}">Collectors 보기<span class="hl__arrow">→</span></a>
-            </div>
-          </div>
-
-          <div class="card card--alt">
-            <div class="card__h">작성 안내</div>
-            <p class="mp-note">
-              소개, 선호 산지, 선호 스타일, 테이스팅 프로파일은 입력한 항목만
-              컬렉터 페이지에 노출됩니다. 비워둔 항목은 자동으로 숨겨집니다.
-            </p>
-          </div>
-        </aside>
       </div>
     </section>
+    </div>
   {% else %}
     <section class="mhero" aria-label="로그인 안내">
       <div class="mhero__head">
         <div>
-          <div class="mhero__l">로그인이 필요합니다</div>
-          <h1 class="mhero__t">공동구매 트래커는 <em>회원 로그인 후</em> 확인할 수 있어요</h1>
+          <div class="mhero__l">마이페이지</div>
+          <h1 class="mhero__t">로그인하고 <em>나의 공구 내역을 확인하세요</em></h1>
         </div>
         <div class="mhero__a">
-          <a class="btn btn--dark" href="/customer_authentication/login?return_to=%2Fpages%2Fmy-page%23orders-management">로그인 / 회원가입</a>
+          <a class="btn btn--dark" href="/customer_authentication/login?return_to=%2Fpages%2Fmy-page%23orders-management">로그인 / 회원가입</a><a class="btn btn--gh" href="{{ pages['deals-latest-20260529'].url }}">진행 중인 공구 둘러보기</a>
         </div>
       </div>
     </section>
