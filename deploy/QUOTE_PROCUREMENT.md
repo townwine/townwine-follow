@@ -9,7 +9,9 @@ Send conditions:
 
 The approval operator must enable inventory tracking and set the registered bottle count as Shopify inventory before publishing. Draft registration does not choose a fulfillment location or initialize location inventory.
 
-Recipients are `ted1990@gmail.com` and `Info@town.wine`. Each receives one procurement notice per registration. Successful recipients are persisted independently; failed recipients retry with the same provider idempotency key and message snapshot. A restock does not start a new procurement cycle.
+Recipients are `ted1990@gmail.com` and `info@town.wine` (updated 2026-10-14). Currently only US registrations send procurement notices, based on the immutable quote country. GB and HK remain disabled until explicitly opened; other countries and unknown countries do not send, even with a previously prepared notice. Storefront country availability is unchanged by this mail-only restriction.
+
+Each recipient receives one procurement notice per registration. Successful recipients are persisted independently; failed recipients retry with the same provider idempotency key and message snapshot. A restock does not start a new procurement cycle. The existing `Info@town.wine` provider key is preserved and sent-recipient comparison is case-insensitive, so capitalization cleanup does not resend notices.
 
 The notice includes the original merchant URL, registered bottle count, registered unit price, and registered unit price multiplied by the registered count, in store currency. It is not discounted order revenue. New registrations snapshot the actual submitted variant price; older registrations use the immutable quote and existing store-currency pricing rule. If the store currency has changed since an older registration, review its snapshot before sending.
 

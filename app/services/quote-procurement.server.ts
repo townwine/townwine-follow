@@ -3,7 +3,9 @@ import {deliverEmailMessage, getEmailDeliveryRuntimeStatus} from './email.server
 import {refreshingNotificationAdmin} from './notification-query.server';
 import {isSoldOut, queryProcurement, refreshPaidQuantities, registeredTotal, type OrderLedger, type Registration, type StockProduct} from './quote-procurement-data.server';
 
-export const PROCUREMENT_RECIPIENTS=['ted1990@gmail.com','Info@town.wine'] as const;
+export const PROCUREMENT_RECIPIENTS=['ted1990@gmail.com','info@town.wine'] as const;
+// GB and HK stay disabled until their procurement workflow is opened.
+export const PROCUREMENT_COUNTRIES:readonly string[]=['US'];
 type Notice = {registration:Registration; paidQuantity:number; productUrl:string; detectedAt:string};
 type State = OrderLedger & {notice?:Notice; sentTo?:string[]};
 const escapeHtml=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -34,6 +36,8 @@ export async function processQuoteProcurement(id:string){
   if(!claim.count)return;
   try{
     const row=await prisma.quoteDraftRequest.findUniqueOrThrow({where:{id}});
+    const country=JSON.parse(row.quoteJson).country;
+    if(!PROCUREMENT_COUNTRIES.includes(country))return;
     let state:State=row.procurementState?JSON.parse(row.procurementState):{checkpoint:row.createdAt.toISOString(),orders:{}};
     const persist=async()=>{
       const saved=await prisma.quoteDraftRequest.updateMany({where:{id,procurementLeaseAt:lease},data:{procurementState:JSON.stringify(state),procurementError:null}});
@@ -79,9 +83,11 @@ export async function processQuoteProcurement(id:string){
     if(getEmailDeliveryRuntimeStatus().mode!=='live')throw new Error('메일 실발송 설정 확인 필요');
     const message=procurementEmail(state.notice);
     for(const to of PROCUREMENT_RECIPIENTS){
-      if(state.sentTo?.includes(to))continue;
+      if(state.sentTo?.some(sent=>sent.toLowerCase()===to.toLowerCase()))continue;
       await persist();
-      const result=await deliverEmailMessage({...message,to,idempotencyKey:'quote-procurement-'+id+'-'+to,logLabel:'Quote procurement email',logContext:{requestId:id}});
+      // Keep the existing provider key across the address capitalization cleanup.
+      const recipientKey=to==='info@town.wine'?'Info@town.wine':to;
+      const result=await deliverEmailMessage({...message,to,idempotencyKey:'quote-procurement-'+id+'-'+recipientKey,logLabel:'Quote procurement email',logContext:{requestId:id}});
       if(result.mode==='log-only'||result.isTestOverride)throw new Error('실제 수신자 발송 미완료');
       state.sentTo=[...(state.sentTo||[]),to];
       await persist();

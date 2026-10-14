@@ -47,8 +47,8 @@ test('API failure and missing historical coverage fail closed',async()=>{
   await assert.rejects(data.refreshPaidQuantities(admin,'product',{checkpoint:'2020-01-01',orders:{}}));
 });
 
-function harness({stock=product,paid=6,failRecipient='',mode='live'}={}){
-  const row={id:'request',productId:'product',shop:'test.myshopify.com',createdAt:new Date(),procurementRegistration:JSON.stringify(registration),procurementState:null,procurementLeaseAt:null,procurementSentAt:null};
+function harness({stock=product,paid=6,failRecipient='',mode='live',country='US'}={}){
+  const row={id:'request',productId:'product',shop:'test.myshopify.com',quoteJson:JSON.stringify({country}),createdAt:new Date(),procurementRegistration:JSON.stringify(registration),procurementState:null,procurementLeaseAt:null,procurementSentAt:null};
   const calls=[];let failure=failRecipient;
   const db={findUniqueOrThrow:async()=>({...row}),update:async({data})=>Object.assign(row,data),updateMany:async({where,data})=>{
     if(where.OR){if(row.procurementLeaseAt||row.procurementSentAt)return {count:0};}
@@ -66,12 +66,27 @@ function harness({stock=product,paid=6,failRecipient='',mode='live'}={}){
 }
 test('sold-out registration sends both requested addresses exactly once',async()=>{
   const h=harness();await Promise.all([h.service.processQuoteProcurement('request'),h.service.processQuoteProcurement('request')]);await h.service.processQuoteProcurement('request');
-  assert.deepEqual(h.calls.map(x=>x.to),['ted1990@gmail.com','Info@town.wine']);assert(h.row.procurementSentAt);
+  assert.deepEqual(h.calls.map(x=>x.to),['ted1990@gmail.com','info@town.wine']);assert(h.row.procurementSentAt);
   for(const mail of h.calls){assert(mail.text.includes('740.70 HKD'));assert(mail.text.includes('6병'));assert(mail.text.includes(registration.sourceUrl));assert(mail.html.includes('&lt;Wine&gt;'));}
 });
 test('one recipient failure retries only that recipient with a stable key and body',async()=>{
-  const h=harness({failRecipient:'Info@town.wine'});await assert.rejects(h.service.processQuoteProcurement('request'));assert.equal(h.row.procurementSentAt,null);assert.equal(h.row.procurementLeaseAt,null);
-  h.allowDelivery();await h.service.processQuoteProcurement('request');assert.deepEqual(h.calls.map(x=>x.to),['ted1990@gmail.com','Info@town.wine','Info@town.wine']);assert.equal(h.calls[1].idempotencyKey,h.calls[2].idempotencyKey);assert.equal(h.calls[1].text,h.calls[2].text);assert(h.row.procurementSentAt);
+  const h=harness({failRecipient:'info@town.wine'});await assert.rejects(h.service.processQuoteProcurement('request'));assert.equal(h.row.procurementSentAt,null);assert.equal(h.row.procurementLeaseAt,null);
+  h.allowDelivery();await h.service.processQuoteProcurement('request');assert.deepEqual(h.calls.map(x=>x.to),['ted1990@gmail.com','info@town.wine','info@town.wine']);assert.equal(h.calls[1].idempotencyKey,h.calls[2].idempotencyKey);assert.equal(h.calls[1].text,h.calls[2].text);assert(h.row.procurementSentAt);
+});
+test('non-US and unknown countries never send, including previously prepared notices',async()=>{
+  for(const country of ['GB','HK','FR','DE','JP','',null]){
+    const h=harness({country});
+    await h.service.processQuoteProcurement('request');
+    h.row.procurementState=JSON.stringify({orders:{},notice:{registration,paidQuantity:6,productUrl:'https://test.myshopify.com/products/wine',detectedAt:new Date().toISOString()},sentTo:[]});
+    await h.service.processQuoteProcurement('request');
+    assert.equal(h.calls.length,0);assert.equal(h.row.procurementSentAt,null);assert.equal(h.row.procurementLeaseAt,null);
+  }
+});
+test('legacy recipient capitalization does not resend an already delivered notice',async()=>{
+  const h=harness();
+  h.row.procurementState=JSON.stringify({orders:{},notice:{registration,paidQuantity:6,productUrl:'https://test.myshopify.com/products/wine',detectedAt:new Date().toISOString()},sentTo:['ted1990@gmail.com','Info@town.wine']});
+  await h.service.processQuoteProcurement('request');
+  assert.equal(h.calls.length,0);assert(h.row.procurementSentAt);
 });
 test('unpaid target, untracked inventory, draft and log-only mode never send mail',async()=>{
   for(const options of [{paid:5},{stock:{...product,status:'DRAFT'}},{stock:{...product,variants:page([{...product.variants.nodes[0],inventoryItem:{tracked:false}}])}},{mode:'log-only'}]){
