@@ -10,5 +10,6 @@ export function parseRegistrationInput(form:FormData){
  if(form.get('localShipping')===''||form.get('localShipping')===null)throw new Error('현지 배송비를 확인해 주세요.');
  const origin=String(form.get('origin')||'OTHER');if(!['EU','US','OTHER'].includes(origin))throw new Error('원산지를 확인하세요.');
  const input:QuoteInput={country,bottlePrice:Number(form.get('price')),bottles:Number(form.get('quantity')),localShipping:Number(form.get('localShipping')),origin:origin as QuoteInput['origin'],ftaConfirmed:form.get('ftaConfirmed')==='on',germanyVatRefund:form.get('germanyVatRefund')==='on',ukLocalTax:Number(form.get('ukLocalTax')||2.67)};
+ if(input.origin!==(country==='US'?'US':'EU'))input.ftaConfirmed=false;
  return input;
 }

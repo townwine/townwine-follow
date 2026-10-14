@@ -2,6 +2,7 @@ import {createHmac} from 'node:crypto';
 import {prisma} from '../db.server';
 import type {QuoteInput, calculateDemandQuote} from './demand-quote';
 import {findCollectorProfileByCustomerId} from './collector-profiles.server';
+import {retryQuoteApprovals} from './quote-approval.server';
 
 export type SheetPayload = {
   requestId:string; country:QuoteInput['country']; customerId:string;
@@ -67,6 +68,6 @@ export async function retryQuoteSheets() {
 export function startQuoteSheetWorker() {
   const state=globalThis as typeof globalThis & {quoteSheetTimer?:ReturnType<typeof setInterval>};
   if(state.quoteSheetTimer)return;
-  const run=()=>{void retryQuoteSheets().catch(()=>console.error('[quote-sheet] retry worker failed'));};
+  const run=()=>{void retryQuoteSheets().catch(()=>console.error('[quote-sheet] retry worker failed'));void retryQuoteApprovals().catch(()=>console.error('[quote-approval] retry worker failed'));};
   state.quoteSheetTimer=setInterval(run,60000);state.quoteSheetTimer.unref();run();
 }

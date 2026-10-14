@@ -121,6 +121,9 @@ model QuoteDraftRequest {
   sheetStatus String @default("PENDING")
   sheetError String?
   sheetSyncedAt DateTime?
+  approvalEmailSentAt DateTime?
+  approvalEmailCheckedAt DateTime?
+  approvalEmailLeaseAt DateTime?
   error String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

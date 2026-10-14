@@ -453,7 +453,7 @@ async function sendViaResend(params: {
   });
 }
 
-async function deliverEmailMessage(
+export async function deliverEmailMessage(
   params: DeliverEmailMessageParams,
 ): Promise<EmailSendResult> {
   const from = String(process.env.EMAIL_FROM || "").trim();
