@@ -1,7 +1,7 @@
 import {prisma} from '../db.server';
 import {createHash} from 'node:crypto';
 export async function ownedDemand(shop:string,customerId:string,id:string){
- const survey=await prisma.demandSurvey.findFirst({where:{id,shop,ownerId:customerId}});
+ const survey=await prisma.demandSurvey.findFirst({where:{id,shop,ownerId:customerId,status:{not:'DELETED'}}});
  if(!survey)throw Error('본인이 등록한 수요조사만 관리할 수 있습니다.');
  return survey;
 }

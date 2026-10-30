@@ -12,8 +12,8 @@ const headers={'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'};
 async function identity(request:Request){const context=await authenticate.public.appProxy(request);const params=new URL(request.url).searchParams;const shop=context.session?.shop||params.get('shop')||'';if(!shop)throw new Response('인증이 필요합니다.',{status:401});return {...context,shop,customerId:params.get('logged_in_customer_id')||''};}
 export async function loader({request}:LoaderFunctionArgs){
  const {shop,customerId,admin}=await identity(request),url=new URL(request.url),id=url.searchParams.get('id')||'',view=url.searchParams.get('view')||'all';
- if(url.searchParams.get('image')){const image=await prisma.demandSurvey.findFirst({where:{shop,id:url.searchParams.get('image')||''},select:{imageData:true,imageMime:true}});if(!image?.imageData)return new Response('Not found',{status:404});return new Response(Buffer.from(image.imageData),{headers:{'Content-Type':image.imageMime||'image/png','Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'}});}
- const where={shop,...(id?{id}:{}),...(view==='mine'?{ownerId:customerId||'unauthenticated'}:{})};
+ if(url.searchParams.get('image')){const image=await prisma.demandSurvey.findFirst({where:{shop,id:url.searchParams.get('image')||'',status:{not:'DELETED'}},select:{imageData:true,imageMime:true}});if(!image?.imageData)return new Response('Not found',{status:404});return new Response(Buffer.from(image.imageData),{headers:{'Content-Type':image.imageMime||'image/png','Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'}});}
+ const where={shop,status:{not:'DELETED'},...(id?{id}:{}),...(view==='mine'?{ownerId:customerId||'unauthenticated'}:{})};
  const surveys=await prisma.demandSurvey.findMany({where,orderBy:{createdAt:'desc'},take:id?1:100,select:{id:true,ownerId:true,ownerName:true,title:true,description:true,imageUrl:true,sourceUrl:true,expectedPrice:true,targetQuantity:true,closesAt:true,status:true,productId:true,entries:{select:{customerId:true,displayName:true,quantity:true,createdAt:true}}}});
  let productUrl='';
  if(id&&surveys[0]?.productId&&admin){try{const response=await admin.graphql('query($id:ID!){product(id:$id){status onlineStoreUrl}}',{variables:{id:surveys[0].productId}});const data=await response.json();const product=data.data?.product;if(product?.status==='ACTIVE'&&product.onlineStoreUrl){const u=new URL(product.onlineStoreUrl);if(u.protocol==='https:')productUrl=u.href;}}catch{console.error('[demand-survey] linked product unavailable');}}
@@ -48,13 +48,18 @@ export async function action({request}:ActionFunctionArgs){
    const key=String(form.get('key')||'');if(!/^[a-f0-9-]{36}$/.test(key))throw Error('페이지를 새로고침해 주세요.');
    const existing=await prisma.demandSurvey.findUnique({where:{id:key}});if(existing&&(existing.shop!==shop||existing.ownerId!==customerId))throw Error('다시 등록해 주세요.');
    const survey=existing||await prisma.demandSurvey.create({data:{...data,imageData,imageMime,imageUrl:demandPath+'?image='+encodeURIComponent(key),id:key,shop,ownerId:customerId,ownerName:profile.fields.displayName||'컬렉터'}});id=survey.id;notice='수요조사를 등록했습니다.';
+  }else if(intent==='delete'){
+   await ownedDemand(shop,customerId,id);
+   const deleted=await prisma.demandSurvey.updateMany({where:{id,shop,ownerId:customerId,status:{not:'DELETED'}},data:{status:'DELETED'}});
+   if(!deleted.count)throw Error('삭제할 수요조사를 찾을 수 없습니다.');
+   id='';notice='수요조사를 삭제했습니다.';
   }else if(intent==='close'){
    await ownedDemand(shop,customerId,id);await prisma.demandSurvey.updateMany({where:{id,shop,ownerId:customerId,status:'OPEN'},data:{status:'CLOSED'}});notice='수요조사를 종료했습니다. 공구 초안은 나중에도 만들 수 있어요.';
   }else if(intent==='join'||intent==='cancel'){
    const quantity=intent==='join'?demandInteger(form.get('quantity'),1,120):0;
    const displayName=String(form.get('displayName')||'참여자').trim();if(displayName.length>40)throw Error('닉네임은 40자 이내로 입력해 주세요.');
    await prisma.$transaction(async tx=>{
-    const survey=await tx.demandSurvey.findFirst({where:{id,shop}});if(!survey)throw Error('수요조사를 찾을 수 없습니다.');
+    const survey=await tx.demandSurvey.findFirst({where:{id,shop}});if(!survey||survey.status==='DELETED')throw Error('수요조사를 찾을 수 없습니다.');
     if(intent==='cancel'){await tx.demandEntry.deleteMany({where:{surveyId:id,customerId}});return;}
     if(!surveyOpen(survey))throw Error('참여가 마감된 수요조사입니다.');if(survey.ownerId===customerId)throw Error('본인의 수요조사에는 참여할 수 없습니다.');
     await tx.demandEntry.upsert({where:{surveyId_customerId:{surveyId:id,customerId}},create:{surveyId:id,customerId,displayName:displayName||'참여자',quantity},update:{quantity,displayName:displayName||'참여자'}});
