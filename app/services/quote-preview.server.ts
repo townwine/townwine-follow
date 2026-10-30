@@ -1,7 +1,20 @@
 import {quoteCurrency,type QuoteInput,type QuoteRates} from './demand-quote';
-import {parseReferenceRates} from './wine-merchants.server';
+import {createHmac} from 'node:crypto';
 import {fetchProductHtml,parseDemandProduct} from './demand-product.server';
-export async function registrationRates():Promise<QuoteRates>{const r=await fetch('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml',{signal:AbortSignal.timeout(8000),redirect:'error'});if(!r.ok)throw new Error('최신 환율 조회 실패');const f=parseReferenceRates(await r.text());return {date:f.date,...f.rates} as QuoteRates;}
+const rateCaches=new Map<string,{expires:number;rates:QuoteRates}>();
+export async function registrationRates(country:QuoteInput['country']='US'):Promise<QuoteRates>{
+ const rateCache=rateCaches.get(country);
+ if(rateCache&&rateCache.expires>Date.now())return rateCache.rates;
+ const endpoint=process.env.QUOTE_SHEET_WEBHOOK_URL,secret=process.env.QUOTE_SHEET_SECRET;
+ if(!endpoint||!secret)throw new Error('견적표 환율 연결을 확인해 주세요.');
+ const url=new URL(endpoint);if(url.protocol!=='https:'||url.hostname!=='script.google.com'||!url.pathname.endsWith('/exec'))throw new Error('견적표 연결 주소를 확인해 주세요.');
+ const payload=JSON.stringify({action:'rates',country}),timestamp=String(Date.now()),signature=createHmac('sha256',secret).update(timestamp+'.'+payload).digest('hex');
+ const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload,timestamp,signature}),signal:AbortSignal.timeout(20000)});
+ if(!response.ok)throw new Error('견적표 환율 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+ const result=await response.json();if(!result.ok||!result.rates)throw new Error('견적표 환율을 확인할 수 없습니다.');
+ const rates=result.rates as QuoteRates;for(const c of ['KRW','USD','HKD','EUR','GBP','JPY'] as const)if(!Number.isFinite(rates[c])||rates[c]<=0)throw new Error('견적표 환율 값이 올바르지 않습니다.');
+ rateCaches.set(country,{expires:Date.now()+60000,rates});return rates;
+}
 export async function previewRegistration(url:string){const p=await fetchProductHtml(url);return parseDemandProduct(p.html,p.url);}
 export function parseRegistrationInput(form:FormData){
  const country=String(form.get('destination')) as QuoteInput['country'];if(!(Object.hasOwn(quoteCurrency,country)))throw new Error('배송센터를 선택하세요.');
@@ -10,6 +23,6 @@ export function parseRegistrationInput(form:FormData){
  if(form.get('localShipping')===''||form.get('localShipping')===null)throw new Error('현지 배송비를 확인해 주세요.');
  const origin=String(form.get('origin')||'OTHER');if(!['EU','US','OTHER'].includes(origin))throw new Error('원산지를 확인하세요.');
  const input:QuoteInput={country,bottlePrice:Number(form.get('price')),bottles:Number(form.get('quantity')),localShipping:Number(form.get('localShipping')),origin:origin as QuoteInput['origin'],ftaConfirmed:form.get('ftaConfirmed')==='on',germanyVatRefund:form.get('germanyVatRefund')==='on',ukLocalTax:Number(form.get('ukLocalTax')||2.67)};
- if(input.origin!==(country==='US'?'US':'EU'))input.ftaConfirmed=false;
+ input.ftaConfirmed=input.origin===(country==='US'?'US':'EU');
  return input;
 }

@@ -25,7 +25,7 @@ test('failed delivery releases lease and remains retryable',async()=>{
  const h=harness({fail:true});await assert.rejects(h.service.notifyQuoteApproval('test'));assert.equal(h.row.approvalEmailSentAt,null);assert.equal(h.row.approvalEmailLeaseAt,null);
 });
 test('server forces FTA N for other origins',()=>{
- const service=module('quote-preview.server.ts',{'./demand-quote':{quoteCurrency:{US:'USD',FR:'EUR'}},'./wine-merchants.server':{},'./demand-product.server':{}});
+ const service=module('quote-preview.server.ts',{'./demand-quote':{quoteCurrency:{US:'USD',FR:'EUR'}},'node:crypto':{},'./demand-product.server':{}});
  for(const [country,currency,origin,expected] of [['US','USD','OTHER',false],['US','USD','EU',false],['US','USD','US',true],['FR','EUR','EU',true],['FR','EUR','OTHER',false]]){
  const form=new FormData();for(const [k,v] of Object.entries({destination:country,currency,origin,ftaConfirmed:'on',price:'200',quantity:'6',localShipping:'0'}))form.set(k,v);assert.equal(service.parseRegistrationInput(form).ftaConfirmed,expected);
  }

@@ -32,4 +32,4 @@ test('registration actions report expired proxy auth as a recoverable JSON respo
  assert.equal(response.status,401);assert.equal((await response.json()).loginRequired,true);
 });
 
-test('registration entry starts with demand surveys',async()=>{const {route}=load();const response=await route.loader({request:new Request('https://shop.example/apps/group-buy-registration')});assert.equal(await response.text(),'survey-page');});
+test('registration entry starts with the price calculator',async()=>{const {route}=load();const response=await route.loader({request:new Request('https://shop.example/apps/group-buy-registration')});assert.equal(await response.text(),'public-page');});

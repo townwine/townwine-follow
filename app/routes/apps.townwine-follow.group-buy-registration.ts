@@ -14,7 +14,8 @@ let active=0;
 export async function loader(args:LoaderFunctionArgs){
  const {request}=args;
  const entryParams=new URL(request.url).searchParams;
- if(entryParams.get('step')!=='register'&&!entryParams.get('demandId'))return demandLoader(args);
+ if(entryParams.get('step')==='survey')return demandLoader(args);
+ const calculatorOnly=entryParams.get('step')!=='register'&&!entryParams.get('demandId');
  let customerId='';
  try{
   await authenticate.public.appProxy(request);
@@ -28,7 +29,7 @@ export async function loader(args:LoaderFunctionArgs){
   if(!customerId)return new Response('로그인 후 다시 열어 주세요.',{status:401,headers});
   try{prefill=await demandPrefill(new URL(request.url).searchParams.get('shop')||'',customerId,demandId);}catch{return new Response('수요조사에 접근할 수 없거나 이미 공구 초안이 생성되었습니다.',{status:403,headers});}
  }
- return new Response(renderQuotePreview(Boolean(customerId),prefill),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
+ return new Response(renderQuotePreview(Boolean(customerId),prefill,calculatorOnly),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 async function boundedForm(request:Request){
  const limit=11*1024*1024;
@@ -51,7 +52,7 @@ export async function action({request}:ActionFunctionArgs){
   if(intent==='label-image'){const bytes=await fetchLabelImage(String(form.get('imageUrl')||''));const type=imageFileType(bytes);return Response.json({image:'data:'+type.mime+';base64,'+bytes.toString('base64')},{headers});}
   if(intent==='extract')return Response.json({product:await previewRegistration(String(form.get('url')||''))},{headers});
   if(intent==='quote'){
-   const input=parseRegistrationInput(form),quote=calculateDemandQuote(input,await registrationRates());
+   const input=parseRegistrationInput(form),quote=calculateDemandQuote(input,await registrationRates(input.country));
    const quoteToken=issueQuoteToken({input,quote,shop,customerId},process.env.SHOPIFY_API_SECRET||'');
    return Response.json({quote,quoteToken},{headers});
   }
