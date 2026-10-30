@@ -5,6 +5,7 @@ import {findCollectorProfileByCustomerId} from '../services/collector-profiles.s
 import {demandPath,demandToken,verifyDemandToken,demandInput,demandInteger,surveyOpen} from '../services/demand-survey';
 import {ownedDemand} from '../services/demand-survey.server';
 import {imageFileType} from '../services/quote-draft.server';
+import {fetchLabelImage} from '../services/demand-product.server';
 import {previewRegistration} from '../services/quote-preview.server';
 import {renderDemandPage} from '../services/demand-survey-page.server';
 const headers={'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'};
@@ -30,7 +31,15 @@ export async function action({request}:ActionFunctionArgs){
  let id=String(form.get('id')||''),notice='저장했습니다.';
  try{
   const intent=String(form.get('intent')||'');
-  if(intent==='extract'){try{return Response.json({product:await previewRegistration(String(form.get('sourceUrl')||''))},{headers});}catch{return Response.json({error:'상품 정보를 가져오지 못했습니다. 와인명과 썸네일을 직접 등록해 주세요.'},{status:400,headers});}}
+  if(intent==='extract'){
+   try{
+    const product=await previewRegistration(String(form.get('sourceUrl')||''));
+    let thumbnail='',thumbnailWarning='';
+    if(product.image){try{const bytes=await fetchLabelImage(product.image);if(bytes.length>5*1024*1024)throw Error('too large');const type=imageFileType(bytes);thumbnail='data:'+type.mime+';base64,'+bytes.toString('base64');}catch{thumbnailWarning='판매처 이미지를 가져올 수 없습니다. 썸네일 파일을 직접 등록해 주세요.';}}
+    else thumbnailWarning='상품 페이지에 이미지가 없습니다. 썸네일 파일을 직접 등록해 주세요.';
+    return Response.json({product,thumbnail,thumbnailWarning},{headers});
+   }catch{return Response.json({error:'상품 정보를 가져오지 못했습니다. 와인명과 썸네일을 직접 등록해 주세요.'},{status:400,headers});}
+  }
   if(intent==='create'){
    const profile=await findCollectorProfileByCustomerId(admin,customerId);if(!profile)throw Error('마이페이지에서 컬렉터 프로필을 먼저 등록해 주세요.');
    const data=demandInput(form);const file=form.get('imageFile');
