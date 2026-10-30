@@ -23,7 +23,7 @@ export async function notifyQuoteRequestRegistered(id:string){
   const sourceUrl=String(saved.sourceUrl||'');
   const productUrl='https://'+row.shop+'/products/'+encodeURIComponent(product.handle);
   const adminUrl='https://admin.shopify.com/store/'+encodeURIComponent(row.shop.replace('.myshopify.com',''))+'/products/'+encodeURIComponent(row.productId!.replace(/^gid:\/\/shopify\/Product\//,''));
-  const lines=['공구 요청이 등록됐습니다.','',`와인명: ${product.title}`,...(country?[`국가/센터: ${country}`]:[]),...(count?[`요청 수량: ${count}병`]:[]),...(saved.items?.length?saved.items.flatMap((item:{title:string;sourceUrl:string;input:{bottles:number;country:string}})=>[`${item.title} · ${item.input.bottles}병 · ${item.input.country}`,`원본 상품 URL: ${item.sourceUrl}`]):sourceUrl?[`원본 상품 URL: ${sourceUrl}`]:[]),`Shopify 초안: ${adminUrl}`,`스토어 상품 경로: ${productUrl}`];
+  const lines=['공구 요청이 등록됐습니다.','',`와인명: ${product.title}`,`컬렉터명: ${saved.nickname||'미확인'}`,`이메일: ${saved.email||'미확인'}`,...(country?[`국가/센터: ${country}`]:[]),...(count?[`요청 수량: ${count}병`]:[]),...(saved.items?.length?saved.items.flatMap((item:{title:string;sourceUrl:string;input:{bottles:number;country:string}})=>[`${item.title} · ${item.input.bottles}병 · ${item.input.country}`,`원본 상품 URL: ${item.sourceUrl}`]):sourceUrl?[`원본 상품 URL: ${sourceUrl}`]:[]),`Shopify 초안: ${adminUrl}`,`스토어 상품 경로 (초안 상태에서는 구매 불가): ${productUrl}`];
   const text=lines.join('\n');
   const html='<h2>공구 요청이 등록됐습니다</h2>'+lines.slice(2).map(line=>'<p>'+escapeHtml(line)+'</p>').join('');
   const sent=await deliverEmailMessage({to:'info@town.wine',subject:'[타운와인] 공구 요청이 등록됐습니다',text,html,idempotencyKey:'quote-request-'+id,logLabel:'Quote request email',logContext:{requestId:id}});

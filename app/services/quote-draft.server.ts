@@ -1,3 +1,4 @@
+import {groupBuySuppliers,groupBuyTitle,parseGroupSchedule,shippingPolicy,refundPolicy} from './group-buy-details';
 import {ownedDemand,demandSubmissionKey} from './demand-survey.server';
 import {findCollectorProfileByCustomerId} from './collector-profiles.server';
 import {createHash} from 'node:crypto';
@@ -36,6 +37,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
  if(form.get('confirmed')!=='on')throw new Error('상품 정보와 예상 판매가를 확인해 주세요.');
  const title=String(form.get('title')||'').trim(),note=String(form.get('shippingNote')||'').trim();
  if(!title||title.length>240||note.length>1000)throw new Error('와인명과 배송 안내를 확인해 주세요.');
+ const schedule=parseGroupSchedule(String(form.get('openDate')||''),String(form.get('purchaseAt')||''));
  const source=String(form.get('url')||'').trim();let sourceUrl='';try{if(source)sourceUrl=productUrl(source).href;}catch{/* Manual quotes do not require a source URL. */}
  const file=form.get('imageFile');const bytes=file instanceof File&&file.size?new Uint8Array(await file.arrayBuffer()):null;
  if(bytes)imageFileType(bytes);
@@ -60,7 +62,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
  if(!items[0].title||items[0].title.length>200)throw new Error('상품명은 200자 이내로 입력해 주세요.');
  const itemSnapshot=items.map(({bytes,...item})=>({...item,imageHash:bytes?createHash('sha256').update(bytes).digest('hex'):item.imageUrl}));
  const imageHash=bytes?createHash('sha256').update(bytes).digest('hex'):imageUrl;
- const payloadHash=createHash('sha256').update(JSON.stringify({title,note,sourceUrl,input,imageHash,...(extras.length?{items:itemSnapshot}:{})})).digest('hex');
+ const payloadHash=createHash('sha256').update(JSON.stringify({title,note,schedule,sourceUrl,input,imageHash,...(extras.length?{items:itemSnapshot}:{})})).digest('hex');
  const id=createHash('sha256').update(shop+':'+customerId+':'+key).digest('hex');const handle='townwine-request-'+id.slice(0,32);
  let row=await prisma.quoteDraftRequest.findUnique({where:{id}});
  if(row&&row.payloadHash!==payloadHash)throw new Error('앞선 등록 요청과 내용이 다릅니다. 새 요청으로 다시 등록해 주세요.');
@@ -88,12 +90,15 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    imageUrl=items[0].imageUrl;
    const collectorFields=quoteCollectorFields(collector);
    const country=registrationCountries[input.country];
-   const metadata={customerId,collectorName:collector.fields.displayName,collectorHandle:collector.handle,country:input.country,sourceUrl,quantity:input.bottles,shippingNote:note,quote,requestId:id,...(extras.length?{items:itemSnapshot}: {})};
+   const countries=[...new Set(items.map(item=>item.input.country))];
+   const displayTitle=groupBuyTitle(title,collector.fields.displayName,schedule.openDate);
+   if(displayTitle.length>255)throw Error('날짜와 컬렉터명을 포함한 제목은 255자 이내로 입력해 주세요.');
+   const metadata={baseTitle:title,...schedule,customerId,collectorName:collector.fields.displayName,collectorHandle:collector.handle,country:input.country,sourceUrl,quantity:input.bottles,shippingNote:note,quote,requestId:id,...(extras.length?{items:itemSnapshot}: {})};
    const data=await query(admin,'mutation($input:ProductSetInput!){productSet(input:$input,synchronous:true){product{id status handle} userErrors{message}}}',{input:{
-    title,handle,status:'DRAFT',productType:'Wine',vendor:'TOWN WINE',tags:['공구등록요청','승인대기',country,'customer-'+customerId],
+    title:displayTitle,handle,status:'DRAFT',productType:'Wine',vendor:countries.map(c=>groupBuySuppliers[c]).join(' / '),tags:['공구등록요청','승인대기',country,'customer-'+customerId],
     descriptionHtml:'<h2>'+escape(title)+'</h2>'+items.map(item=>'<h3>'+escape(item.title)+'</h3><p>750ml · 모집 수량 '+item.input.bottles+'병 · 배송센터: '+escape(registrationCountries[item.input.country])+'</p>').join('')+(note?'<p>'+escape(note)+'</p>':''),
     productOptions:[{name:extras.length?'상품':'Title',values:items.map((item,index)=>({name:extras.length?(index+1)+'. '+item.title:'Default Title'}))}],variants:items.map((item,index)=>({optionValues:[{optionName:extras.length?'상품':'Title',name:extras.length?(index+1)+'. '+item.title:'Default Title'}],price:itemPrices[index],inventoryPolicy:'DENY',...(item.imageUrl?{file:{originalSource:item.imageUrl,contentType:'IMAGE',alt:item.title}}:{})})),
-    metafields:[...collectorFields,{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)},...(sourceUrl?[{namespace:'custom',key:'quote_source_url',type:'url',value:sourceUrl}]:[])],
+    metafields:[...collectorFields,{namespace:'custom',key:'policy_shipping',type:'multi_line_text_field',value:shippingPolicy(countries)},{namespace:'custom',key:'policy_refund',type:'multi_line_text_field',value:refundPolicy(schedule.purchaseAtKst)},{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)},...(sourceUrl?[{namespace:'custom',key:'quote_source_url',type:'url',value:sourceUrl}]:[])],
     files:Array.from(new Map(items.filter(item=>item.imageUrl).map(item=>[item.imageUrl,{originalSource:item.imageUrl,contentType:'IMAGE',alt:item.title}])).values())
    }});product=data.productSet.product;
    if(!product?.id)throw new Error('초안 상품 생성 결과를 확인하지 못했습니다. 다시 시도해 주세요.');

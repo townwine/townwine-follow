@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+const load=(name,deps={})=>{const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../app/services/'+name,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:n=>deps[n],Date,Set,Error});return exports;};
+const {groupBuySuppliers,groupBuyTitle,parseGroupSchedule,shippingPolicy,refundPolicy}=load('group-buy-details.ts',{'./demand-quote':{registrationCountries:{FR:'프랑스',US:'미국',JP:'일본',HK:'홍콩',DE:'독일',GB:'영국'}}});
+test('all departure countries map to the requested supplier and exporter',()=>{for(const [c,v] of Object.entries({FR:'GV Globus France',US:'townwine US-OR',JP:'townwine JP',HK:'townwine HK',DE:'Menetz International GmbH',GB:'GV Globus UK'})){assert.equal(groupBuySuppliers[c],v);assert.ok(shippingPolicy([c]).includes('5. 수출자 정보 : '+v));}assert.ok(shippingPolicy(['US','FR','US']).includes('미국 · 프랑스에서'));});
+test('title uses selected opening date and collector without doubled honorific',()=>{assert.equal(groupBuyTitle('Wine','르방','2026-10-26'),'2026.10.26 르방님 pick - Wine');assert.equal(groupBuyTitle('Wine','르방님','2026-10-26'),'2026.10.26 르방님 pick - Wine');});
+test('purchase policy derives weekday and time in Korea independently of opening date',()=>{const s=parseGroupSchedule('2026-10-26','2026-10-28T22:30');assert.ok(refundPolicy(s.purchaseAtKst).startsWith('한국시간 10/28(수) 오후 10시 30분'));assert.ok(refundPolicy('2026-10-28T00:00:00+09:00').includes('오전 12시'));assert.ok(refundPolicy('2026-10-28T12:00:00+09:00').includes('오후 12시'));});
+test('invalid and reversed dates cannot generate purchase commitments',()=>{for(const [d,t] of [['',''],['2026-02-30','2026-03-01T12:00'],['2026-10-28','2026-10-27T22:00'],['2026-10-28','2026-10-28T24:30']])assert.throws(()=>parseGroupSchedule(d,t));});
+test('registration schedule fields and inline script are valid',()=>{const html=load('group-registration-page.server.ts').renderGroupRegistration();assert.ok(html.includes('name="purchaseAt" type="datetime-local" required'));assert.ok(html.includes("body.set('purchaseAt',form.purchaseAt.value)"));new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);});

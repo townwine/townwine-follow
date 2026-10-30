@@ -10,3 +10,10 @@ test('invalid money and quantities rejected',()=>{for(const v of [0,-1,NaN,Infin
 test('private and metadata destinations rejected',()=>{for(const ip of ['127.0.0.1','10.0.0.1','169.254.169.254','172.16.0.1','192.168.1.1','100.64.0.1','::1'])assert.equal(allowedProductAddress(ip),false);assert.equal(allowedProductAddress('8.8.8.8'),true);assert.throws(()=>productUrl('http://example.com'));assert.throws(()=>productUrl('https://user:password@example.com'));});
 test('extract product and explicit shipping; never invent missing shipping',()=>{const p=parseDemandProduct('<script type="application/ld+json">{"@type":"Product","name":"Wine","image":"/wine.jpg","offers":{"price":"80","priceCurrency":"HKD"}}</script>','https://example.com/wine');assert.equal(p.price,80);assert.equal(p.image,'https://example.com/wine.jpg');assert.deepEqual(p.shipping,[]);});
 test('multiple offers do not choose a potentially wrong bottle price',()=>{const p=parseDemandProduct('<script type="application/ld+json">{"@type":"Product","name":"Wine","offers":[{"price":80},{"price":400}]}</script>','https://example.com/wine');assert.equal(p.price,null);assert.equal(p.multipleOffers,true);});
+
+test('matches current official US and France workbook rows 2–4 read on 2026-10-30',()=>{
+ const fx={date:'2026-10-30',KRW:1,USD:1/1334.47,EUR:1/1492.67,HKD:1/170.1241,GBP:1/1700,JPY:1/9};
+ for(const [country,bottlePrice,bottles,localShipping,origin,expected] of [['US',200,1,30,'US',503400],['US',250,12,45,'US',573200],['US',200,4,45,'OTHER',542700],['FR',115,3,19.9,'EU',271100],['FR',129,3,0,'EU',287000],['FR',130,1,0,'EU',288800]]){
+  assert.equal(calculateDemandQuote({...input,country,bottlePrice,bottles,localShipping,origin,ftaConfirmed:true},fx).unitKrw,expected);
+ }
+});
