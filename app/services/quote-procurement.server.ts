@@ -18,7 +18,7 @@ export function procurementEmail(notice:Notice){
     '와인명: '+r.title,
     '와인 상품 URL: '+(r.sourceUrl||'미입력 - 발주 전 원본 판매처 확인 필요'),
     '발주 수량: '+r.quantity+'병',
-    '등록 판매가 (병당): '+r.unitPrice+' '+r.currency,
+    ...(r.items?r.items.flatMap(item=>['상품: '+item.title,'판매처: '+item.sourceUrl,'수량: '+item.quantity+'병 · 병당 '+item.unitPrice+' '+item.currency]):['등록 판매가 (병당): '+r.unitPrice+' '+r.currency]),
     '판매 상품 금액 (등록 판매가 × 등록 병수): '+registeredTotal(r)+' '+r.currency,
     '확인된 결제 완료 수량: '+notice.paidQuantity+'병',
     '타운와인 상품: '+notice.productUrl,
@@ -36,7 +36,9 @@ export async function processQuoteProcurement(id:string){
   if(!claim.count)return;
   try{
     const row=await prisma.quoteDraftRequest.findUniqueOrThrow({where:{id}});
-    const country=JSON.parse(row.quoteJson).country;
+    const savedQuote=JSON.parse(row.quoteJson);
+    const country=savedQuote.country;
+    if(savedQuote.items?.some((item:{input:{country:string}})=>!PROCUREMENT_COUNTRIES.includes(item.input.country)))return;
     if(!PROCUREMENT_COUNTRIES.includes(country))return;
     let state:State=row.procurementState?JSON.parse(row.procurementState):{checkpoint:row.createdAt.toISOString(),orders:{}};
     const persist=async()=>{

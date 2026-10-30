@@ -1,7 +1,7 @@
 import type {DraftAdmin} from './quote-draft.server';
 import {readNotificationQuery} from './notification-query.server';
 
-export type Registration = {title:string; sourceUrl:string; quantity:number; unitPrice:string; currency:string};
+export type Registration = {title:string; sourceUrl:string; quantity:number; unitPrice:string; currency:string; items?:Registration[]};
 export type OrderLedger = {checkpoint:string; orders:Record<string,number>};
 type Page<T> = {nodes:T[]; pageInfo:{hasNextPage:boolean; endCursor:string|null}};
 type Line = {currentQuantity:number; product:{id:string}|null};
@@ -24,6 +24,11 @@ export function isSoldOut(product:StockProduct|null):boolean {
 }
 
 export function registeredTotal(registration:Registration):string {
+  if(registration.items?.length){
+    if(registration.items.some(item=>item.items||item.currency!==registration.currency)||registration.quantity!==registration.items.reduce((n,item)=>n+item.quantity,0))throw new Error('상품별 등록 수량과 통화를 확인해 주세요.');
+    const cents=registration.items.reduce((n,item)=>n+BigInt(registeredTotal(item).replace('.','')),0n);
+    return (cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0');
+  }
   if(!Number.isSafeInteger(registration.quantity)||registration.quantity<=0||
     !/^\d+(?:\.\d{1,2})?$/.test(registration.unitPrice)||!['HKD','KRW'].includes(registration.currency)){
     throw new Error('등록 당시 판매가·수량·통화 확인 필요');

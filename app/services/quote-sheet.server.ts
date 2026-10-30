@@ -8,7 +8,7 @@ import {retryQuoteRequestEmails} from './quote-request-email.server';
 export type SheetPayload = {
   requestId:string; country:QuoteInput['country']; customerId:string;
   email:string; nickname:string; title:string; sourceUrl:string; createdAt:string;
-  input:QuoteInput; quote:ReturnType<typeof calculateDemandQuote>;
+  input:QuoteInput; quote:ReturnType<typeof calculateDemandQuote>; items?:SheetPayload[];
 };
 
 export async function syncQuoteSheet(id:string) {
@@ -19,12 +19,15 @@ export async function syncQuoteSheet(id:string) {
   try {
     const url=new URL(endpoint);
     if(url.protocol!=='https:'||url.hostname!=='script.google.com'||!url.pathname.endsWith('/exec'))throw new Error('Invalid sheet endpoint');
-    const payload=JSON.stringify({...JSON.parse(row.sheetPayload),productId:row.productId});
-    const timestamp=String(Date.now());
-    const signature=createHmac('sha256',secret).update(timestamp+'.'+payload).digest('hex');
-    const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload,timestamp,signature}),signal:AbortSignal.timeout(20000)});
-    const result=await response.json();
-    if(!response.ok||result.ok!==true||result.requestId!==id)throw new Error('Sheet write not acknowledged');
+    const saved=JSON.parse(row.sheetPayload) as SheetPayload;
+    for(const item of saved.items||[saved]){
+     const payload=JSON.stringify({...item,productId:row.productId});
+     const timestamp=String(Date.now());
+     const signature=createHmac('sha256',secret).update(timestamp+'.'+payload).digest('hex');
+     const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload,timestamp,signature}),signal:AbortSignal.timeout(20000)});
+     const result=await response.json();
+     if(!response.ok||result.ok!==true||result.requestId!==item.requestId)throw new Error('Sheet write not acknowledged');
+    }
     await prisma.quoteDraftRequest.update({where:{id},data:{sheetStatus:'SYNCED',sheetError:null,sheetSyncedAt:new Date()}});
     return 'SYNCED';
   } catch {

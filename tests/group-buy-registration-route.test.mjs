@@ -14,6 +14,7 @@ function load({proxyError}={}){
   '../shopify.server':{authenticate:{public:{appProxy:async()=>{calls.push('auth');if(proxyError)throw Error('proxy failed');return {admin:{}};}}}},
   '../services/demand-quote':{calculateDemandQuote:()=>({})},
   '../services/quote-preview.server':{registrationRates:async()=>({}),parseRegistrationInput:()=>({}),previewRegistration:async()=>({})},
+  '../services/group-registration-page.server':{renderGroupRegistration:loggedIn=>loggedIn?'logged-in-page':'public-page'},
   '../services/quote-preview-page.server':{renderQuotePreview:loggedIn=>loggedIn?'logged-in-page':'public-page'},
   '../services/quote-draft-token.server':{issueQuoteToken:()=>''},
   '../services/demand-product.server':{fetchLabelImage:async()=>new Uint8Array()},

@@ -3,6 +3,7 @@ import type {LoaderFunctionArgs, ActionFunctionArgs} from 'react-router';
 import {authenticate} from '../shopify.server';
 import {calculateDemandQuote} from '../services/demand-quote';
 import {registrationRates,parseRegistrationInput,previewRegistration} from '../services/quote-preview.server';
+import {renderGroupRegistration} from '../services/group-registration-page.server';
 import {renderQuotePreview} from '../services/quote-preview-page.server';
 import {issueQuoteToken} from '../services/quote-draft-token.server';
 import {fetchLabelImage} from '../services/demand-product.server';
@@ -29,7 +30,7 @@ export async function loader(args:LoaderFunctionArgs){
   if(!customerId)return new Response('로그인 후 다시 열어 주세요.',{status:401,headers});
   try{prefill=await demandPrefill(new URL(request.url).searchParams.get('shop')||'',customerId,demandId);}catch{return new Response('수요조사에 접근할 수 없거나 이미 공구 초안이 생성되었습니다.',{status:403,headers});}
  }
- return new Response(renderQuotePreview(Boolean(customerId),prefill,calculatorOnly),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
+ return new Response((calculatorOnly?renderQuotePreview(Boolean(customerId),prefill,true):renderGroupRegistration(Boolean(customerId),prefill)),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 async function boundedForm(request:Request){
  const limit=11*1024*1024;
