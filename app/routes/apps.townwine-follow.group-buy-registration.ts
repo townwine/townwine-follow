@@ -1,3 +1,4 @@
+import {loader as demandLoader} from './apps.townwine-follow.demand-surveys';
 import type {LoaderFunctionArgs, ActionFunctionArgs} from 'react-router';
 import {authenticate} from '../shopify.server';
 import {calculateDemandQuote} from '../services/demand-quote';
@@ -7,9 +8,13 @@ import {issueQuoteToken} from '../services/quote-draft-token.server';
 import {fetchLabelImage} from '../services/demand-product.server';
 import {imageFileType} from '../services/quote-draft.server';
 import {registerQuoteDraft} from '../services/quote-draft.server';
+import {demandPrefill} from '../services/demand-survey.server';
 const headers={'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow'};
 let active=0;
-export async function loader({request}:LoaderFunctionArgs){
+export async function loader(args:LoaderFunctionArgs){
+ const {request}=args;
+ const entryParams=new URL(request.url).searchParams;
+ if(entryParams.get('step')!=='register'&&!entryParams.get('demandId'))return demandLoader(args);
  let customerId='';
  try{
   await authenticate.public.appProxy(request);
@@ -17,7 +22,13 @@ export async function loader({request}:LoaderFunctionArgs){
  }catch{
   console.error('[group-buy-registration] storefront proxy authentication failed');
  }
- return new Response(renderQuotePreview(Boolean(customerId)),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
+ const demandId=new URL(request.url).searchParams.get('demandId');
+ let prefill;
+ if(demandId){
+  if(!customerId)return new Response('로그인 후 다시 열어 주세요.',{status:401,headers});
+  try{prefill=await demandPrefill(new URL(request.url).searchParams.get('shop')||'',customerId,demandId);}catch{return new Response('수요조사에 접근할 수 없거나 이미 공구 초안이 생성되었습니다.',{status:403,headers});}
+ }
+ return new Response(renderQuotePreview(Boolean(customerId),prefill),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 async function boundedForm(request:Request){
  const limit=11*1024*1024;

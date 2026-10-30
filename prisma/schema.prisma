@@ -138,3 +138,37 @@ model QuoteDraftRequest {
   updatedAt DateTime @updatedAt
   @@index([shop, customerId, createdAt])
 }
+
+model DemandSurvey {
+  id String @id @default(cuid())
+  shop String
+  ownerId String
+  ownerName String
+  title String
+  description String
+  imageUrl String
+  imageData Bytes?
+  imageMime String?
+  sourceUrl String
+  expectedPrice Int?
+  targetQuantity Int?
+  closesAt DateTime
+  status String @default("OPEN")
+  productId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  entries DemandEntry[]
+  @@index([shop, createdAt])
+  @@index([shop, ownerId])
+}
+model DemandEntry {
+  id String @id @default(cuid())
+  surveyId String
+  survey DemandSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  customerId String
+  displayName String
+  quantity Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([surveyId, customerId])
+}

@@ -1,3 +1,4 @@
+import {ownedDemand,demandSubmissionKey} from './demand-survey.server';
 import {findCollectorProfileByCustomerId} from './collector-profiles.server';
 import {createHash} from 'node:crypto';
 import {prisma} from '../db.server';
@@ -28,7 +29,9 @@ async function uploadImage(admin:DraftAdmin,bytes:Uint8Array){
 const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId:string,form:FormData){
  if(!/^\d+$/.test(customerId))throw new Error('로그인이 필요합니다.');
- const key=String(form.get('submissionKey')||'');if(!/^[a-z0-9-]{20,80}$/i.test(key))throw new Error('페이지를 다시 열어 주세요.');
+ const demandId=String(form.get('demandId')||'');
+ if(demandId){const survey=await ownedDemand(shop,customerId,demandId);if(survey.productId)return {requestId:demandId.slice(0,12),productId:survey.productId,status:'DRAFT',duplicate:true,sheetStatus:'PENDING'};}
+ const key=demandId?demandSubmissionKey(shop,demandId):String(form.get('submissionKey')||'');if(!/^[a-z0-9-]{20,80}$/i.test(key))throw new Error('페이지를 다시 열어 주세요.');
  const input=parseRegistrationInput(form);const signed=readQuoteToken(String(form.get('quoteToken')||''),shop,customerId,input,process.env.SHOPIFY_API_SECRET||'');
  if(form.get('confirmed')!=='on')throw new Error('상품 정보와 예상 판매가를 확인해 주세요.');
  const title=String(form.get('title')||'').trim(),note=String(form.get('shippingNote')||'').trim();
@@ -45,7 +48,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
  if(row&&row.payloadHash!==payloadHash)throw new Error('앞선 등록 요청과 내용이 다릅니다. 새 요청으로 다시 등록해 주세요.');
  if(!row){try{row=await prisma.quoteDraftRequest.create({data:{id,shop,customerId,payloadHash,handle,quoteJson:JSON.stringify(signed.quote)}});}catch{row=await prisma.quoteDraftRequest.findUnique({where:{id}});if(!row)throw new Error('등록 요청 저장에 실패했습니다.');}}
  if(row.payloadHash!==payloadHash)throw new Error('동일한 요청으로 다시 시도해 주세요.');
- if(row.productId){try{await notifyQuoteRequestRegistered(id);}catch{console.error('[quote-request-email] notification pending',{requestId:id});}return {requestId:id.slice(0,12),productId:row.productId,status:'DRAFT',duplicate:true,sheetStatus:await syncQuoteSheet(id)};}
+ if(row.productId){if(demandId)await prisma.demandSurvey.update({where:{id:demandId},data:{productId:row.productId,status:'CONVERTED'}});try{await notifyQuoteRequestRegistered(id);}catch{console.error('[quote-request-email] notification pending',{requestId:id});}return {requestId:id.slice(0,12),productId:row.productId,status:'DRAFT',duplicate:true,sheetStatus:await syncQuoteSheet(id)};}
  const claim=await prisma.quoteDraftRequest.updateMany({where:{id,OR:[{status:{in:['PENDING','RETRY']}},{status:'PROCESSING',updatedAt:{lt:new Date(Date.now()-300000)}}]},data:{status:'PROCESSING',error:null}});
  if(!claim.count)throw new Error('초안 등록 처리 중입니다. 잠시 후 다시 확인해 주세요.');
  try{
@@ -74,7 +77,10 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    if(!product?.id)throw new Error('초안 상품 생성 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
    if(product.status!=='DRAFT')throw new Error('초안 상태를 확인하지 못했습니다. 운영자에게 문의해 주세요.');
   }
-  await prisma.quoteDraftRequest.update({where:{id},data:{status:'CREATED',productId:product.id}});
+  await prisma.$transaction(async tx=>{
+   await tx.quoteDraftRequest.update({where:{id},data:{status:'CREATED',productId:product.id}});
+   if(demandId)await tx.demandSurvey.update({where:{id:demandId},data:{productId:product.id,status:'CONVERTED'}});
+  });
   try{await notifyQuoteRequestRegistered(id);}catch{console.error('[quote-request-email] notification pending',{requestId:id});}
   return {requestId:id.slice(0,12),productId:product.id,status:product.status,duplicate:false,sheetStatus:await syncQuoteSheet(id)};
  }catch(e){await prisma.quoteDraftRequest.update({where:{id},data:{status:'RETRY',error:e instanceof Error?e.message:'등록 실패'}});throw e;}
