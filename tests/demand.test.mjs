@@ -4,7 +4,7 @@ import {calculateDemandQuote} from '../app/services/demand-quote.ts';
 import {allowedProductAddress,productUrl,parseDemandProduct} from '../app/services/demand-product.server.ts';
 const rates={date:'2026-10-09',EUR:1,KRW:1600,USD:1.1,HKD:8.6,GBP:.85,JPY:170};
 const input={country:'HK',bottlePrice:700,bottles:6,localShipping:120,origin:'OTHER',ftaConfirmed:false,germanyVatRefund:false,ukLocalTax:2.67};
-test('HK quote matches workbook arithmetic including local shipping split and fees',()=>{const q=calculateDemandQuote(input,rates);const goods=700*1600/8.6;const base=goods+Math.min(13*1600/1.1,22000);const liquor=Math.round(base*.3);const education=Math.round(liquor*.1);const sum=goods+20*1600/8.6+liquor+education+23900+8000;assert.equal(q.duty,0);assert.equal(q.vat,0);assert.equal(q.unitKrw,sum+Math.round(sum*.04+2.35*1600/8.6));});
+test('HK quote matches workbook arithmetic including local shipping split and fees',()=>{const q=calculateDemandQuote(input,rates);const goods=700*1600/8.6;const base=goods+Math.min(13*1600/1.1,22000);const liquor=Math.round(base*.3);const education=Math.round(liquor*.1);const sum=goods+20*1600/8.6+liquor+education+22000+8000;assert.equal(q.duty,0);assert.equal(q.vat,0);assert.equal(q.unitKrw,Math.ceil((sum+Math.round(sum*.04+2.35*1600/8.6))/100)*100);});
 test('FTA cannot silently apply to US wine without confirmation',()=>{const x={...input,country:'US',bottlePrice:200,origin:'US'};assert.ok(calculateDemandQuote(x,rates).duty>0);assert.equal(calculateDemandQuote({...x,ftaConfirmed:true},rates).duty,0);});
 test('invalid money and quantities rejected',()=>{for(const v of [0,-1,NaN,Infinity])assert.throws(()=>calculateDemandQuote({...input,bottlePrice:v},rates));assert.throws(()=>calculateDemandQuote({...input,bottles:0},rates));});
 test('private and metadata destinations rejected',()=>{for(const ip of ['127.0.0.1','10.0.0.1','169.254.169.254','172.16.0.1','192.168.1.1','100.64.0.1','::1'])assert.equal(allowedProductAddress(ip),false);assert.equal(allowedProductAddress('8.8.8.8'),true);assert.throws(()=>productUrl('http://example.com'));assert.throws(()=>productUrl('https://user:password@example.com'));});
@@ -16,4 +16,11 @@ test('matches current official US and France workbook rows 2–4 read on 2026-10
  for(const [country,bottlePrice,bottles,localShipping,origin,expected] of [['US',200,1,30,'US',503400],['US',250,12,45,'US',573200],['US',200,4,45,'OTHER',542700],['FR',115,3,19.9,'EU',271100],['FR',129,3,0,'EU',287000],['FR',130,1,0,'EU',288800]]){
   assert.equal(calculateDemandQuote({...input,country,bottlePrice,bottles,localShipping,origin,ftaConfirmed:true},fx).unitKrw,expected);
  }
+});
+
+test('new countries match 2026-10-31 workbook reference rows',()=>{
+const fx={date:'2026-10-31',KRW:1,USD:1/1333.88,EUR:1/1488.25,HKD:1/170.9051,GBP:1/1787.066,JPY:1/8.465586};
+for(const [country,bottlePrice,bottles,localShipping,origin,expected] of [['HK',712.7,6,117,'OTHER',212100],['DE',59,9,0,'EU',146400],['GB',81.88,6,30,'OTHER',243800],['JP',2420,1,1295,'OTHER',71100]]){
+const q=calculateDemandQuote({...input,country,bottlePrice,bottles,localShipping,origin,ftaConfirmed:country==='DE',germanyVatRefund:true,ukLocalTax:2.76,hkViaUk:true},fx);assert.equal(q.unitKrw,expected,country);
+}
 });
