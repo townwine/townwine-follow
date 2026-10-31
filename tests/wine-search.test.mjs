@@ -1,3 +1,4 @@
+import * as market from '../app/services/market-handoff.ts';
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
@@ -16,9 +17,10 @@ vm.runInNewContext(
   ).outputText,
   {
     exports: pageModule.exports,
-    require: (path) => (path.includes("wine-crawl") ? crawl : wine),
+    require: (path) => path.endsWith("market-handoff")?market:(path.includes("wine-crawl") ? crawl : wine),
     Intl,
     Date,
+    URLSearchParams,
   },
 );
 const { renderWineSearchPage } = pageModule.exports;
@@ -367,4 +369,8 @@ test('country selection filters results after global search and keeps original p
  assert.ok(html.includes('130,000'));assert.ok(html.includes('EUR'));
  assert.ok(html.indexOf('id="result-country"')>html.indexOf('aria-label="검색 결과"'));
  const initial=renderWineSearchPage({available:true});assert.ok(!initial.includes('name="location"'));
+});
+test('each offer leads to survey or registration with wine identity and no copied sale price',()=>{
+ const result={state:'ready',fetchedAt:new Date().toISOString(),offers:[{merchant:'Test',title:'Wine 2020',price:100,currency:'GBP',country:'UK',vintage:'2020',bottleSize:'6 × 75cl',url:'https://example.com/products/wine',description:''}]};
+ const html=renderWineSearchPage({available:true,query:{...query,location:'ALL'},result});assert.match(html,/이 와인으로 수요조사하기/);assert.match(html,/공구 등록하기/);assert.match(html,/country=GB/);assert.doesNotMatch(html,/expectedPrice=|bottlePrice=/);
 });

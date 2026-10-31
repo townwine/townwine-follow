@@ -1,3 +1,4 @@
+import * as market from '../app/services/market-handoff.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -9,6 +10,7 @@ function load({proxyError}={}){
  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const calls=[];
  const deps={
+  '../services/market-handoff':market,
   './apps.townwine-follow.demand-surveys':{loader:async()=>new Response('survey-page')},
   '../services/demand-survey.server':{demandPrefill:async()=>({id:'survey'})},
   '../shopify.server':{authenticate:{public:{appProxy:async()=>{calls.push('auth');if(proxyError)throw Error('proxy failed');return {admin:{}};}}}},

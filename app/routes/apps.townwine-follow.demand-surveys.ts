@@ -1,3 +1,4 @@
+import {readMarketHandoff} from '../services/market-handoff';
 import type {LoaderFunctionArgs,ActionFunctionArgs} from 'react-router';
 import {authenticate} from '../shopify.server';
 import {prisma} from '../db.server';
@@ -18,7 +19,7 @@ export async function loader({request}:LoaderFunctionArgs){
  let productUrl='';
  if(id&&surveys[0]?.productId&&admin){try{const response=await admin.graphql('query($id:ID!){product(id:$id){status onlineStoreUrl}}',{variables:{id:surveys[0].productId}});const data=await response.json();const product=data.data?.product;if(product?.status==='ACTIVE'&&product.onlineStoreUrl){const u=new URL(product.onlineStoreUrl);if(u.protocol==='https:')productUrl=u.href;}}catch{console.error('[demand-survey] linked product unavailable');}}
  const token=customerId?demandToken(shop,customerId,process.env.SHOPIFY_API_SECRET||''):'';
- const html=renderDemandPage({surveys,customerId,token,view,id,productUrl,notice:url.searchParams.get('notice')||''});
+ const html=renderDemandPage({surveys,customerId,token,view,id,productUrl,market:readMarketHandoff(url.searchParams),notice:url.searchParams.get('notice')||''});
  return new Response(html,{status:id&&!surveys.length?404:200,headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 export async function action({request}:ActionFunctionArgs){

@@ -355,3 +355,26 @@ test("Shopify theme variants require explicit currency, availability, and the re
     0,
   );
 });
+const expansionFixture=n=>fs.readFileSync(new URL('./fixtures/merchant-expansion/'+n+'.html',import.meta.url),'utf8');
+test('new merchant structured prices retain pack sizes and distinguish in-bond variants',()=>{
+ const merchant=registry.find(m=>m.name==='Goedhuis Waddesdon');const offers=parseMerchantProduct(expansionFixture(0),merchant.exampleUrl,merchant,{name:'Caro Mendoza',vintage:'2022',location:'UK'});
+ assert.equal(offers.length,3);assert.equal(offers[0].price,210);assert.equal(offers[0].bottleSize,'6 × 75cl');assert.equal(offers[0].availability,'보세 상품');assert.equal(offers[1].price,275.98);assert.notEqual(offers[1].availability,'보세 상품');
+});
+test('Remfly and Wine Buff use current product price and stock, not old sale prices or related products',()=>{
+ for(const [n,name,query,price] of [[1,'Remfly','Renwood Old Vine Zinfandel',80],[3,'Wine Buff','Gros Richebourg',6480]]){
+ const m=registry.find(x=>x.name===name),q={name:query,vintage:n===1?'2014':'2020',location:'Hong Kong'};
+ assert.equal(parseMerchantProduct(expansionFixture(n),m.exampleUrl,m,q)[0].price,price);
+ const sold=expansionFixture(n).replace(/name="p_detail_sell_quantity_233" value="79"/,'name="p_detail_sell_quantity_233" value="0"').replace(/stock in-stock/g,'stock out-of-stock');
+ assert.equal(parseMerchantProduct(sold,m.exampleUrl,m,q).length,0);
+ }
+});
+test('Shopline and Prime Cellar return explicit HKD prices',()=>{
+ for(const [n,name,query,price]of [[5,'RNG Wine','Mortlach Neverbound',845],[7,'Find Somm Wine','Thomas Perseval Art Terre',698],[8,'Prime Cellar HK','ToyMaker Cabernet Sauvignon',2980]]){
+ const m=registry.find(x=>x.name===name),offers=parseMerchantProduct(expansionFixture(n),m.exampleUrl,m,{name:query,vintage:'2',location:'Hong Kong'});assert.equal(offers[0].price,price);assert.equal(offers[0].currency,'HKD');
+ }
+});
+test('Wine Vault rejects unknown stock, presales and incomplete cases, and labels bottle price',()=>{
+ const data=JSON.parse(fs.readFileSync(new URL('./fixtures/merchant-expansion/vault.json',import.meta.url))),q={name:'Carruades Lafite',vintage:'2010',location:'Hong Kong'};
+ const offers=mod.exports.parseWineVault(data,q);assert.ok(offers.length);assert.equal(offers[0].price,2470);assert.match(offers[0].tax,/병당 금액/);
+ for(const change of [{available:0},{available:1,unitstype:'Case (6 Bottles)',bottlepercase:6},{ispresell:'Y'},{btprices:-1}])assert.equal(mod.exports.parseWineVault({itemMap:{x:{...Object.values(data.itemMap)[0],...change}}},q).length,0);
+});

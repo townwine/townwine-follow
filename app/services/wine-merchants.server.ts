@@ -125,8 +125,8 @@ export function parseMerchantProduct(
           continue;
         const variantTitle = `${decode(node.size)} ${title} ${decode(offer.name)}`;
         const conditions = `${title} ${decode(node.description)} ${decode(offer.name)} ${decode(offer.description)} ${merchant.adapter === "woocommerce-html" ? $(".summary").text() : ""}`;
-        const availability = /in[ -]bond/i.test(
-          `${title} ${decode(offer.name)}`,
+        const availability = /in[ -]?bond.*(?:excvat|$)|in[ -]bond/i.test(
+          `${title} ${decode(offer.name)} ${decode(offer.sku)}`,
         )
           ? "보세 상품"
           : /PreOrder|BackOrder/.test(offer.availability) ||
@@ -189,6 +189,25 @@ export function parseMerchantProduct(
       /* Unknown theme markup is not a price. */
     }
   });
+  if (!found.length && merchant.adapter === "winebuff-html") {
+    const root = $(".summary").first();
+    const title = `${root.find(".product_meta .posted_in").first().text()} ${root.find("h1.product_title").text()}`.trim();
+    if (root.find(".stock.in-stock").length && !root.find(".stock.out-of-stock").length && root.find(".single_add_to_cart_button:not([disabled])").length) walk({
+      "@type":"Product", name:title,
+      offers:{price: $('meta[property="product:price:amount"]').attr("content"),priceCurrency:$('meta[property="product:price:currency"]').attr("content"),availability:"https://schema.org/InStock",url:pageUrl}
+    });
+  }
+  if (!found.length && merchant.adapter === "remfly-html") {
+    const button=$("#detail-addcart:not([disabled])"), id=button.attr("data-itemid");
+    if(id && /^\d+$/.test(id)) {
+      const val=(key:string)=>$(`input[name="p_detail_${key}_${id}"]`).attr("value")||"";
+      if(Number(val("sell_quantity"))>0 && val("type")==="hk") walk({"@type":"Product",name:val("name"),offers:{price:val("sale_price"),priceCurrency:"HKD",availability:"https://schema.org/InStock",url:pageUrl}});
+    }
+  }
+  if (!found.length && merchant.adapter === "ord-html") {
+    const root=$(".section-main"), raw=root.find(".product-price .price").text().trim(), match=raw.match(/^HKD\s+([\d,]+(?:\.\d{1,2})?)$/);
+    if(match && root.find("#btn-add-to-cart:not([disabled])").length) walk({"@type":"Product",name:$("h1.page-title").text(),size:root.find(".product-info-left .list").text().match(/Size:\s*(\d+(?:\.\d+)?\s*(?:ml|cl|l))/i)?.[1]||"",offers:{price:match[1].replace(/,/g,""),priceCurrency:"HKD",availability:"https://schema.org/InStock",url:pageUrl}});
+  }
   // Older Shopify themes expose variant data instead of Product JSON-LD.
   // Read only product records and an explicit currency, never infer from "$".
   if (!found.length && merchant.adapter === "shopify-html") {
@@ -249,7 +268,7 @@ export function parseMerchantProduct(
   }
   // WineFetch and several legacy stores publish schema.org microdata rather
   // than JSON-LD. Read values within each Product/Offer scope, never site-wide.
-  $('[itemscope][itemtype$="/Product"]').each((_i, el) => {
+  if (!found.length) $('[itemscope][itemtype$="/Product"]').each((_i, el) => {
     const root = $(el);
     const value = (scope: ReturnType<typeof $>, prop: string) => {
       const field = scope
@@ -278,7 +297,7 @@ export function parseMerchantProduct(
   });
   return [...new Map(found.map((o) => [o.url, o])).values()];
 }
-async function readShop(url: URL, signal: AbortSignal, fetcher: typeof fetch) {
+async function readShop(url: URL, signal: AbortSignal, fetcher: typeof fetch, contentType = "text/html", redirects = 0): Promise<string> {
   const r = await fetcher(url, {
     signal,
     redirect: "manual",
@@ -287,7 +306,13 @@ async function readShop(url: URL, signal: AbortSignal, fetcher: typeof fetch) {
       Accept: "text/html",
     },
   });
-  if (!r.ok || !r.headers.get("content-type")?.includes("text/html")) {
+  if ([301,302,303,307,308].includes(r.status) && redirects < 2) {
+    const next=sameShop(r.headers.get("location")||"",url.origin);
+    await r.body?.cancel();
+    if(!next)throw new Error("merchant redirect rejected");
+    return readShop(next,signal,fetcher,contentType,redirects+1);
+  }
+  if (!r.ok || (contentType && !r.headers.get("content-type")?.includes(contentType))) {
     await r.body?.cancel();
     throw new Error("merchant unavailable");
   }
@@ -355,7 +380,13 @@ function merchantSearch(merchant: Merchant, query: WineQuery) {
   if (query.vintage !== "2" && !terms.includes(query.vintage.toLowerCase()))
     terms.push(query.vintage);
   const search = new URL("/search", merchant.origin!);
-  if (merchant.adapter === "woocommerce-html") {
+  if (merchant.adapter === "shopline-html") {
+    search.pathname="/products";search.searchParams.set("query",terms.join(" "));
+  } else if (merchant.adapter === "remfly-html") {
+    search.pathname="/en/product/popular_search/p";search.searchParams.set("search",terms.find(w=>/[a-z]/i.test(w))||terms.join(" "));
+  } else if (merchant.adapter === "ord-html") {
+    search.pathname="/en/search/main/"+encodeURIComponent(terms.join(" "))+"/";
+  } else if (["woocommerce-html","winebuff-html"].includes(merchant.adapter||"")) {
     search.pathname = "/";
     search.searchParams.set("s", terms.join(" "));
     search.searchParams.set("post_type", "product");
@@ -392,6 +423,7 @@ async function searchMerchant(
   query: WineQuery,
   fetcher: typeof fetch,
 ) {
+  if(merchant.adapter === "winevault-json")return searchWineVault(merchant,query,fetcher);
   const origin = merchant.origin!;
   const signal = AbortSignal.timeout(9000);
   const candidates = new Set<string>();
@@ -431,11 +463,13 @@ async function searchMerchant(
     )
       throw new Error("unrecognized search page");
     const selector =
-      merchant.adapter === "millesima-html"
+      ["remfly-html","ord-html"].includes(merchant.adapter||"")
+        ? "a[href*='/product/']"
+        : merchant.adapter === "millesima-html"
         ? "a[href*='.html']"
         : merchant.adapter === "y18-html"
           ? ".product-layout a[href]"
-          : merchant.adapter === "woocommerce-html"
+          : ["woocommerce-html","winebuff-html"].includes(merchant.adapter||"")
             ? "a[href*='/product/'],a[href*='/wine/']"
             : merchant.adapter === "winefetch-html"
               ? "a[href*='/wines/'],a[href*='/spirits/']"
@@ -475,6 +509,27 @@ async function searchMerchant(
       candidates.size > 6 ||
       results.some((r) => r.status === "rejected"),
   };
+}
+export function parseWineVault(data: unknown, query: WineQuery): WineOffer[] {
+  const records=(data as {itemMap?:Record<string,any>})?.itemMap;
+  if(!records || typeof records!=="object")throw new Error("invalid Wine Vault response");
+  return Object.values(records).flatMap((item:any)=>{
+    const title=`${item.wine||""} ${item.vintage||""}`.trim(),price=Number(item.btprices),available=Number(item.available);
+    if(!matchesProduct(title,query)||!Number.isFinite(price)||price<=0||!Number.isFinite(available)||available<=0||item.ispresell!=="N"||!/^\d+$/.test(String(item.internalid)))return [];
+    const caseOnly=item.unitstype!=="Bottle",perCase=Number(item.bottlepercase);
+    if(caseOnly&&(!Number.isInteger(perCase)||perCase<1||available<perCase))return [];
+    return [{merchant:"Hong Kong Wine Vault",country:"Hong Kong",title,price,currency:"HKD",url:`https://www.winevault.com.hk/wine-list?internalid=${item.internalid}`,vintage:String(item.vintage||""),bottleSize:String(item.volume||""),availability:"재고 있음",description:"재고 있음",tax:[caseOnly?`병당 금액 · ${perCase}병 박스 주문`:"병당 금액",item.condition?`상태: ${String(item.condition).slice(0,160)}`:""].filter(Boolean).join(" · "),fetchedAt:new Date().toISOString()}];
+  });
+}
+async function searchWineVault(merchant: Merchant,query:WineQuery,fetcher:typeof fetch){
+ const signal=AbortSignal.timeout(9000);
+ const script=await readShop(new URL("/site/js/winelist-library.js",merchant.origin!),signal,fetcher,"");
+ const raw=script.match(/https:\/\/3403527\.extforms\.netsuite\.com\/app\/site\/hosting\/scriptlet\.nl\?script=242[^'"\s]+/)?.[0];
+ if(!raw)throw new Error("Wine Vault search endpoint unavailable");
+ const endpoint=new URL(raw);endpoint.searchParams.set("itemName",productWords(query.name).filter(w=>/[a-z]/i.test(w)).sort((a,b)=>b.length-a.length)[0]||query.name);if(query.vintage!=="2")endpoint.searchParams.set("itemVintage",query.vintage);
+ endpoint.searchParams.set("pageSize","100");endpoint.searchParams.set("paged","true");endpoint.searchParams.set("pageNumber","1");endpoint.searchParams.set("serverSort","N");
+ const body=await readShop(endpoint,signal,fetcher,"");const data=JSON.parse(body.replace(/<!--[^]*?-->/g,""));
+ return {offers:parseWineVault(data,query),incomplete:Number(data.totalPage)>1};
 }
 type FxRates = { date: string; rates: Record<string, number> };
 let fxCache: { at: number; value: FxRates } | undefined;

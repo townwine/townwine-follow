@@ -1,3 +1,4 @@
+import * as market from '../app/services/market-handoff.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -6,7 +7,7 @@ import ts from 'typescript';
 import {createRequire} from 'node:module';
 import {demandToken,verifyDemandToken,demandInput,demandInteger,surveyOpen,escapeDemand} from '../app/services/demand-survey.ts';
 const require=createRequire(import.meta.url);
-function load(file,deps={}){const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const exports={};vm.runInNewContext(code,{exports,require:n=>deps[n]||require(n),console,Response,Request,URL,URLSearchParams,FormData,Buffer,Date,process,File});return exports;}
+function load(file,deps={}){const code=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const exports={};vm.runInNewContext(code,{exports,require:n=>n.endsWith('market-handoff')?market:deps[n]||require(n),console,Response,Request,URL,URLSearchParams,FormData,Buffer,Date,process,File});return exports;}
 const helpers=await import('../app/services/demand-survey.ts');
 const page=load('../app/services/demand-survey-page.server.ts',{'./demand-survey':helpers});
 const survey={id:'s1',ownerId:'1',ownerName:'Host',title:'Wine <script>',description:'{% bad %}',imageUrl:'',sourceUrl:'',expectedPrice:null,targetQuantity:12,closesAt:new Date(Date.now()+86400000),status:'OPEN',productId:null,entries:[{customerId:'2',displayName:'Private participant',quantity:3,createdAt:new Date()}]};
@@ -31,3 +32,8 @@ test('image retrieval failure preserves product title and requests manual thumbn
  test('owner deletion is scoped to shop and owner and redirects to list',async()=>{const {api,calls}=route({customerId:'1'});const r=await api.action({request:request('delete',{},'1')});assert.equal(r.status,303);assert.equal(calls.length,1);assert.equal(calls[0].where.shop,'shop');assert.equal(calls[0].where.ownerId,'1');assert.equal(calls[0].data.status,'DELETED');assert.ok(!new URL(r.headers.get('Location'),'https://town.wine').searchParams.has('id'));});
  test('another customer and invalid CSRF cannot delete a survey',async()=>{const {api,calls}=route();await api.action({request:request('delete')});assert.equal(calls.length,0);const owner=route({customerId:'1'});assert.equal((await owner.api.action({request:request('delete',{token:'bad'},'1')})).status,403);assert.equal(owner.calls.length,0);});
  test('deleted surveys reject participation',async()=>{const {api,calls}=route({status:'DELETED'});await api.action({request:request('join')});assert.equal(calls.length,0);});
+test('market handoff fills identity only and survives survey login',()=>{
+ const args={surveys:[],token:'x',view:'new',id:'',notice:'',market:{title:'Wine <2020>',url:'https://example.com/products/wine?variant=1',country:'GB'}};
+ const html=page.renderDemandPage({...args,customerId:'1'});assert.match(html,/value="Wine &lt;2020&gt;"/);assert.match(html,/value="https:\/\/example.com\/products\/wine\?variant=1"/);assert.doesNotMatch(html,/name="expectedPrice"[^>]*value=/);
+ const anonymous=page.renderDemandPage({...args,customerId:''});assert.match(anonymous,/로그인하고 수요조사 만들기/);assert.match(decodeURIComponent(anonymous.match(/return_url=([^"]+)/)[1]),/view=new.*from=market/);
+});

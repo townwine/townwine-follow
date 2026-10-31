@@ -1,3 +1,4 @@
+import {readMarketHandoff} from '../services/market-handoff';
 import {loader as demandLoader} from './apps.townwine-follow.demand-surveys';
 import type {LoaderFunctionArgs, ActionFunctionArgs} from 'react-router';
 import {authenticate} from '../shopify.server';
@@ -30,7 +31,7 @@ export async function loader(args:LoaderFunctionArgs){
   if(!customerId)return new Response('로그인 후 다시 열어 주세요.',{status:401,headers});
   try{prefill=await demandPrefill(new URL(request.url).searchParams.get('shop')||'',customerId,demandId);}catch{return new Response('수요조사에 접근할 수 없거나 이미 공구 초안이 생성되었습니다.',{status:403,headers});}
  }
- return new Response((calculatorOnly?renderQuotePreview(Boolean(customerId),prefill,true):renderGroupRegistration(Boolean(customerId),prefill)),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
+ return new Response((calculatorOnly?renderQuotePreview(Boolean(customerId),prefill,true):renderGroupRegistration(Boolean(customerId),prefill,readMarketHandoff(entryParams))),{headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 async function boundedForm(request:Request){
  const limit=11*1024*1024;
