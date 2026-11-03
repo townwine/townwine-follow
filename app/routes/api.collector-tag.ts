@@ -11,26 +11,15 @@ function jsonError(message: string, status: number) {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { admin, cors, session } = await authenticate.admin(request);
+  const { admin, cors } = await authenticate.admin(request);
 
   try {
-    try {
-      await registerWebhooks({ session });
-    } catch (error) {
-      console.error("[webhooks] failed to refresh webhooks during collector-tag load", {
-        shop: session.shop,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-
     const url = new URL(request.url);
     const productId = String(url.searchParams.get("productId") || "").trim();
 
     if (!productId) {
       return cors(jsonError("PRODUCT_ID_REQUIRED", 422));
     }
-
-    await ensureProductMetafieldDefinitions(admin);
 
     const state = await getProductCollectorAdminState(admin, productId);
 

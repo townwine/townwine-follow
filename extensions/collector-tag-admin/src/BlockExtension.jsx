@@ -1,7 +1,7 @@
 /** @jsxImportSource preact */
 import "@shopify/ui-extensions/preact";
 import {render} from "preact";
-import {useEffect, useMemo, useState} from "preact/hooks";
+import {useEffect, useState} from "preact/hooks";
 
 export default function extension() { render(<CollectorTagBlock />, document.body); }
 
@@ -138,31 +138,10 @@ function CollectorTagBlock() {
 
     loadState();
 
-    const interval = setInterval(() => {
-      if (saving || dirty) {
-        return;
-      }
-
-      loadState({ background: true });
-    }, 15000);
-
     return () => {
       active = false;
-      clearInterval(interval);
     };
-  }, [productId, saving, dirty]);
-
-  const collapsedSummary = useMemo(() => {
-    if (state?.hostName) {
-      return `${state.hostName} 연결됨`;
-    }
-
-    if (savedCollectorTag) {
-      return savedCollectorTag;
-    }
-
-    return "컬렉터 미설정";
-  }, [savedCollectorTag, state]);
+  }, [productId]);
 
   async function handleSave() {
     if (!productId || saving) {
@@ -214,7 +193,7 @@ function CollectorTagBlock() {
   }
 
   return (
-    <s-admin-block heading="컬렉터 태그" collapsedSummary={collapsedSummary}>
+    <s-admin-block heading="컬렉터 태그">
       <s-stack direction="block" gap="base">
         <s-text>
           상품 저장 화면 상단에서 컬렉터를 바로 연결하는 입력칸입니다.
