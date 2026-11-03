@@ -9,6 +9,7 @@ import {parseRegistrationInput} from './quote-preview.server';
 import {readQuoteToken} from './quote-draft-token.server';
 import {syncQuoteSheet, type SheetPayload} from './quote-sheet.server';
 import {notifyQuoteRequestRegistered} from './quote-request-email.server';
+import {publishQuoteToOnlineStore} from './quote-publication.server';
 export type DraftAdmin={graphql:(query:string,options?:{variables?:Record<string,unknown>})=>Promise<Response>};
 async function query(admin:DraftAdmin,q:string,variables:Record<string,unknown>={}){
  const r=await admin.graphql(q,{variables});const j=await r.json();if(!r.ok||j.errors?.length)throw new Error(j.errors?.map((e:{message:string})=>e.message).join(', ')||'Shopify 연결에 실패했습니다.');
@@ -107,6 +108,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    if(!product?.id)throw new Error('초안 상품 생성 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
    if(product.status!=='DRAFT')throw new Error('초안 상태를 확인하지 못했습니다. 운영자에게 문의해 주세요.');
   }
+  await publishQuoteToOnlineStore(admin,product.id);
   await prisma.$transaction(async tx=>{
    await tx.quoteDraftRequest.update({where:{id},data:{status:'CREATED',productId:product.id}});
    if(demandId)await tx.demandSurvey.update({where:{id:demandId},data:{productId:product.id,status:'CONVERTED'}});

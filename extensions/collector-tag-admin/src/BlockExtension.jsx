@@ -1,19 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  AdminBlock,
-  BlockStack,
-  Button,
-  InlineStack,
-  ProgressIndicator,
-  Text,
-  TextField,
-  reactExtension,
-  useApi,
-} from "@shopify/ui-extensions-react/admin";
+/** @jsxImportSource preact */
+import "@shopify/ui-extensions/preact";
+import {render} from "preact";
+import {useEffect, useMemo, useState} from "preact/hooks";
 
-const TARGET = "admin.product-details.block.render";
-
-export default reactExtension(TARGET, () => <CollectorTagBlock />);
+export default function extension() { render(<CollectorTagBlock />, document.body); }
 
 function buildResolutionSummary(state) {
   if (!state) {
@@ -74,8 +64,7 @@ function buildEnsureMessage(result) {
 }
 
 function CollectorTagBlock() {
-  const { data } = useApi(TARGET);
-  const productId = data.selected?.[0]?.id;
+  const productId = shopify.data.selected?.[0]?.id;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -225,57 +214,56 @@ function CollectorTagBlock() {
   }
 
   return (
-    <AdminBlock title="컬렉터 태그" collapsedSummary={collapsedSummary}>
-      <BlockStack>
-        <Text>
+    <s-admin-block heading="컬렉터 태그" collapsedSummary={collapsedSummary}>
+      <s-stack direction="block" gap="base">
+        <s-text>
           상품 저장 화면 상단에서 컬렉터를 바로 연결하는 입력칸입니다.
           닉네임보다는 공개 핸들을 넣는 것이 가장 정확합니다.
-        </Text>
+        </s-text>
 
         {loading ? (
-          <InlineStack blockAlignment="center">
-            <ProgressIndicator size="small-100" />
-            <Text>컬렉터 연결 정보를 불러오는 중입니다.</Text>
-          </InlineStack>
+          <s-stack direction="inline" gap="base" alignItems="center">
+            <s-spinner accessibilityLabel="불러오는 중" />
+            <s-text>컬렉터 연결 정보를 불러오는 중입니다.</s-text>
+          </s-stack>
         ) : (
-          <BlockStack>
-            <TextField
+          <s-stack direction="block" gap="base">
+            <s-text-field
               key={inputKey}
               label="컬렉터 닉네임 또는 공개 핸들"
               placeholder="예: naeun 또는 @naeun"
-              defaultValue={savedCollectorTag}
-              onInput={setDraftCollectorTag}
-              onChange={setDraftCollectorTag}
+              value={draftCollectorTag}
+              onInput={(event) => setDraftCollectorTag(event.currentTarget.value)}
             />
 
-            <Text>{buildResolutionSummary(state)}</Text>
+            <s-text>{buildResolutionSummary(state)}</s-text>
 
             {state?.productStatus ? (
-              <Text>현재 상품 상태: {state.productStatus}</Text>
+              <s-text>현재 상품 상태: {state.productStatus}</s-text>
             ) : null}
 
-            {statusMessage ? <Text>{statusMessage}</Text> : null}
-            {errorMessage ? <Text>{errorMessage}</Text> : null}
+            {statusMessage ? <s-text>{statusMessage}</s-text> : null}
+            {errorMessage ? <s-text>{errorMessage}</s-text> : null}
 
-            <InlineStack>
-              <Button
+            <s-stack direction="inline" gap="base">
+              <s-button
                 variant="primary"
                 disabled={!productId || saving || !dirty}
-                onPress={handleSave}
+                onClick={handleSave}
               >
                 {saving ? "저장 중..." : "컬렉터 저장"}
-              </Button>
-              <Button
+              </s-button>
+              <s-button
                 variant="secondary"
                 disabled={saving || !dirty}
-                onPress={handleReset}
+                onClick={handleReset}
               >
                 되돌리기
-              </Button>
-            </InlineStack>
-          </BlockStack>
+              </s-button>
+            </s-stack>
+          </s-stack>
         )}
-      </BlockStack>
-    </AdminBlock>
+      </s-stack>
+    </s-admin-block>
   );
 }

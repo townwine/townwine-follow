@@ -6,7 +6,6 @@ application_url = "https://townwine-follow.onrender.com"
 embedded = true
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
 
 [webhooks]
@@ -25,19 +24,11 @@ api_version = "2026-04"
   topics = [ "products/update" ]
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/metafields/create"
-  topics = [ "metafields/create" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/metafields/update"
-  topics = [ "metafields/update" ]
-
-  [[webhooks.subscriptions]]
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
 
 [access_scopes]
-scopes = "read_content,read_customers,read_metaobject_definitions,read_metaobjects,read_orders,read_products,write_app_proxy,write_content,write_metaobject_definitions,write_metaobjects,write_products"
+scopes = "read_content,read_customers,read_metaobject_definitions,read_metaobjects,read_orders,read_products,read_publications,write_app_proxy,write_content,write_metaobject_definitions,write_metaobjects,write_products,write_publications"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
