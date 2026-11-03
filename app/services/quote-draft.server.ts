@@ -90,7 +90,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    imageUrl=items[0].imageUrl;
    const collectorFields=quoteCollectorFields(collector);
    // This store currently has one active inventory location. Other stores must configure theirs explicitly.
-   const locationId=process.env.QUOTE_INVENTORY_LOCATION_ID || (shop==='town-wine.myshopify.com'?'gid://shopify/Location/82876596514':'');
+   const locationId=process.env.QUOTE_INVENTORY_LOCATION_ID || (shop==='c106e6.myshopify.com'?'gid://shopify/Location/82876596514':'');
    if(!/^gid:\/\/shopify\/Location\/\d+$/.test(locationId))throw new Error('공구 재고 위치가 설정되지 않았습니다. 운영자에게 문의해 주세요.');
    const country=registrationCountries[input.country];
    const countries=[...new Set(items.map(item=>item.input.country))];
