@@ -89,6 +89,9 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    for(const item of items)if(item.bytes)item.imageUrl=await uploadImage(admin,item.bytes);
    imageUrl=items[0].imageUrl;
    const collectorFields=quoteCollectorFields(collector);
+   // This store currently has one active inventory location. Other stores must configure theirs explicitly.
+   const locationId=process.env.QUOTE_INVENTORY_LOCATION_ID || (shop==='town-wine.myshopify.com'?'gid://shopify/Location/82876596514':'');
+   if(!/^gid:\/\/shopify\/Location\/\d+$/.test(locationId))throw new Error('공구 재고 위치가 설정되지 않았습니다. 운영자에게 문의해 주세요.');
    const country=registrationCountries[input.country];
    const countries=[...new Set(items.map(item=>item.input.country))];
    const displayTitle=groupBuyTitle(title,collector.fields.displayName,schedule.openDate);
@@ -97,7 +100,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    const data=await query(admin,'mutation($input:ProductSetInput!){productSet(input:$input,synchronous:true){product{id status handle} userErrors{message}}}',{input:{
     title:displayTitle,handle,status:'DRAFT',productType:'Wine',vendor:countries.map(c=>groupBuySuppliers[c]).join(' / '),tags:['공구등록요청','승인대기',country,'customer-'+customerId],
     descriptionHtml:'<h2>'+escape(title)+'</h2>'+items.map(item=>'<h3>'+escape(item.title)+'</h3><p>750ml · 모집 수량 '+item.input.bottles+'병 · 배송센터: '+escape(registrationCountries[item.input.country])+'</p>').join('')+(note?'<p>'+escape(note)+'</p>':''),
-    productOptions:[{name:extras.length?'상품':'Title',values:items.map((item,index)=>({name:extras.length?(index+1)+'. '+item.title:'Default Title'}))}],variants:items.map((item,index)=>({optionValues:[{optionName:extras.length?'상품':'Title',name:extras.length?(index+1)+'. '+item.title:'Default Title'}],price:itemPrices[index],inventoryPolicy:'DENY',...(item.imageUrl?{file:{originalSource:item.imageUrl,contentType:'IMAGE',alt:item.title}}:{})})),
+    productOptions:[{name:extras.length?'상품':'Title',values:items.map((item,index)=>({name:extras.length?(index+1)+'. '+item.title:'Default Title'}))}],variants:items.map((item,index)=>({optionValues:[{optionName:extras.length?'상품':'Title',name:extras.length?(index+1)+'. '+item.title:'Default Title'}],price:itemPrices[index],inventoryPolicy:'DENY',inventoryItem:{tracked:true},inventoryQuantities:[{locationId,name:'available',quantity:item.input.bottles}],...(item.imageUrl?{file:{originalSource:item.imageUrl,contentType:'IMAGE',alt:item.title}}:{})})),
     metafields:[...collectorFields,{namespace:'custom',key:'policy_shipping',type:'multi_line_text_field',value:shippingPolicy(countries)},{namespace:'custom',key:'policy_refund',type:'multi_line_text_field',value:refundPolicy(schedule.purchaseAtKst)},{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)},...(sourceUrl?[{namespace:'custom',key:'quote_source_url',type:'url',value:sourceUrl}]:[])],
     files:Array.from(new Map(items.filter(item=>item.imageUrl).map(item=>[item.imageUrl,{originalSource:item.imageUrl,contentType:'IMAGE',alt:item.title}])).values())
    }});product=data.productSet.product;
