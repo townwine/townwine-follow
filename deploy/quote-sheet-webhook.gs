@@ -6,7 +6,7 @@ var body=JSON.parse(e.postData.contents),secret=PropertiesService.getScriptPrope
 if(!secret||!body.payload||!/^\d+$/.test(body.timestamp)||Math.abs(Date.now()-Number(body.timestamp))>300000)throw Error('Unauthorized');
 var expected=Utilities.computeHmacSha256Signature(body.timestamp+'.'+body.payload,secret,Utilities.Charset.UTF_8).map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join('');
 if(body.signature!==expected)throw Error('Unauthorized');
-var data=JSON.parse(body.payload);if(data.action==='rates')return reply_({ok:true,rates:workbookRates_(data.country)});if(!/^[a-f0-9]{64}$/.test(data.requestId)||!COUNTRY_TABS[data.country]||data.input.country!==data.country||!/^gid:\/\/shopify\/Product\/\d+$/.test(data.productId))throw Error('Invalid request');
+var data=JSON.parse(body.payload);if(data.action==='demand-participant'){lock.waitLock(20000);return reply_(syncDemandParticipant_(data));}if(data.action==='rates')return reply_({ok:true,rates:workbookRates_(data.country)});if(!/^[a-f0-9]{64}$/.test(data.requestId)||!COUNTRY_TABS[data.country]||data.input.country!==data.country||!/^gid:\/\/shopify\/Product\/\d+$/.test(data.productId))throw Error('Invalid request');
 lock.waitLock(20000);var sheet=SpreadsheetApp.openById(WORKBOOK_ID).getSheetByName(COUNTRY_TABS[data.country]);if(!sheet)throw Error('Missing country tab');
 var key='TW-'+data.requestId,last=sheet.getLastRow();
 var headers=sheet.getRange(1,1,1,sheet.getLastColumn()).getDisplayValues()[0];assertQuoteHeaders_(headers);
@@ -67,3 +67,20 @@ function fillCountryRow_(row,data){
 
 // Read-only deployment check; does not create test quotes or change sheet data.
 function verifyQuoteNumberSetup(){var book=SpreadsheetApp.openById(WORKBOOK_ID);Object.keys(COUNTRY_TABS).forEach(function(country){var sheet=book.getSheetByName(COUNTRY_TABS[country]);if(!sheet)throw Error('Missing country tab');assertQuoteHeaders_(sheet.getRange(1,1,1,sheet.getLastColumn()).getDisplayValues()[0]);var last=sheet.getLastRow(),rows=last>1?sheet.getRange(2,1,last-1,2).getValues():[];var missing=rows.filter(function(row){return String(row[1]||'').trim()&&!quoteNumber_(row[0]);}).length;console.log(JSON.stringify({country:country,nextNumber:nextQuoteNumber_(rows,country),quotesWithoutNumber:missing}));});}
+
+function syncDemandParticipant_(data){
+ if(!/^[a-f0-9]{64}$/.test(data.requestId)||!data.surveyId||!Number.isSafeInteger(data.version)||!Number.isInteger(data.quantity)||data.quantity<0||data.quantity>120||['참여','취소'].indexOf(data.status)<0)throw Error('Invalid participant');
+ var sheet=SpreadsheetApp.openById(WORKBOOK_ID).getSheetByName('수요조사 참여 고객 리스트');if(!sheet)throw Error('Missing participant tab');
+ var headers=['닉네임','이메일주소','전화번호','수요조사 상품명','참여 수량 (병)','상태','최초 참여일','수정일','수요조사 ID','참여 기록 ID','기록 버전'];
+ var last=sheet.getLastRow();
+ if(!last){sheet.getRange(1,1,1,headers.length).setValues([headers]);sheet.setFrozenRows(1);sheet.getRange(1,1,1,headers.length).setFontWeight('bold').setBackground('#e9dfd4');sheet.setColumnWidths(1,3,180);sheet.setColumnWidth(4,360);sheet.hideColumns(10,2);last=1;}
+ var actual=sheet.getRange(1,1,1,headers.length).getValues()[0];if(headers.some(function(h,i){return h!==actual[i];}))throw Error('Unexpected participant headers');
+ var existing=last>1?sheet.getRange(2,10,last-1,1).createTextFinder(data.requestId).matchEntireCell(true).useRegularExpression(false).findNext():null;
+ var row=existing?existing.getRow():last+1;
+ if(existing&&Number(sheet.getRange(row,11).getValue())>data.version)return {ok:true,requestId:data.requestId};
+ if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),1);
+ function text(v){v=String(v||'');return /^[=+@-]/.test(v)?"'"+v:v;}
+ var values=[text(data.nickname),text(data.email||'미등록'),text(data.phone||'미등록'),text(data.title),data.quantity,data.status,Utilities.formatDate(new Date(data.createdAt),'Asia/Seoul','yyyy-MM-dd HH:mm:ss'),Utilities.formatDate(new Date(data.updatedAt),'Asia/Seoul','yyyy-MM-dd HH:mm:ss'),text(data.surveyId),data.requestId,data.version];
+ sheet.getRange(row,3).setNumberFormat('@');sheet.getRange(row,1,1,values.length).setValues([values]);SpreadsheetApp.flush();
+ return {ok:true,requestId:data.requestId};
+}

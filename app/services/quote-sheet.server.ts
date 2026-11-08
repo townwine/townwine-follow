@@ -1,3 +1,4 @@
+import {retryDemandSheets} from './demand-sheet.server';
 import {retryDemandPaymentEmails} from "./demand-payment-email.server";
 import {createHmac} from 'node:crypto';
 import {prisma} from '../db.server';
@@ -73,6 +74,6 @@ export async function retryQuoteSheets() {
 export function startQuoteSheetWorker() {
   const state=globalThis as typeof globalThis & {quoteSheetTimer?:ReturnType<typeof setInterval>};
   if(state.quoteSheetTimer)return;
-  const run=()=>{void retryDemandPaymentEmails().catch(()=>console.error('[demand-payment] retry worker failed'));void retryQuoteSheets().catch(()=>console.error('[quote-sheet] retry worker failed'));void retryQuoteApprovals().catch(()=>console.error('[quote-approval] retry worker failed'));void retryQuoteRequestEmails().catch(()=>console.error('[quote-request-email] retry worker failed'));};
+  const run=()=>{void retryDemandSheets().catch(()=>console.error('[demand-sheet] retry worker failed'));void retryDemandPaymentEmails().catch(()=>console.error('[demand-payment] retry worker failed'));void retryQuoteSheets().catch(()=>console.error('[quote-sheet] retry worker failed'));void retryQuoteApprovals().catch(()=>console.error('[quote-approval] retry worker failed'));void retryQuoteRequestEmails().catch(()=>console.error('[quote-request-email] retry worker failed'));};
   state.quoteSheetTimer=setInterval(run,60000);state.quoteSheetTimer.unref();run();
 }

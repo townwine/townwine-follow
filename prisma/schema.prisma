@@ -193,3 +193,16 @@ model DemandPaymentEmail {
   @@unique([shop, productId, customerId])
   @@index([shop, productId, status])
 }
+
+model DemandSheetSync {
+ id String @id @default(cuid())
+ surveyId String
+ customerId String
+ displayName String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ syncedAt DateTime?
+ nextAttemptAt DateTime @default(now())
+ @@unique([surveyId, customerId])
+ @@index([syncedAt, nextAttemptAt])
+}

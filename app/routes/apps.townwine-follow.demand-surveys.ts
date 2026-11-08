@@ -81,9 +81,14 @@ export async function action({request}:ActionFunctionArgs){
    const displayName=String(form.get('displayName')||'참여자').trim();if(displayName.length>40)throw Error('닉네임은 40자 이내로 입력해 주세요.');
    await prisma.$transaction(async tx=>{
     const survey=await tx.demandSurvey.findFirst({where:{id,shop}});if(!survey||survey.status==='DELETED')throw Error('수요조사를 찾을 수 없습니다.');
-    if(intent==='cancel'){await tx.demandEntry.deleteMany({where:{surveyId:id,customerId}});return;}
+    if(intent==='cancel'){
+     const entry=await tx.demandEntry.findUnique({where:{surveyId_customerId:{surveyId:id,customerId}}});
+     if(entry)await tx.demandSheetSync.upsert({where:{surveyId_customerId:{surveyId:id,customerId}},create:{surveyId:id,customerId,displayName:entry.displayName},update:{displayName:entry.displayName,syncedAt:null,nextAttemptAt:new Date()}});
+     await tx.demandEntry.deleteMany({where:{surveyId:id,customerId}});return;
+    }
     if(!surveyOpen(survey))throw Error('참여가 마감된 수요조사입니다.');if(survey.ownerId===customerId)throw Error('본인의 수요조사에는 참여할 수 없습니다.');
     await tx.demandEntry.upsert({where:{surveyId_customerId:{surveyId:id,customerId}},create:{surveyId:id,customerId,displayName:displayName||'참여자',quantity},update:{quantity,displayName:displayName||'참여자'}});
+    await tx.demandSheetSync.upsert({where:{surveyId_customerId:{surveyId:id,customerId}},create:{surveyId:id,customerId,displayName:displayName||'참여자'},update:{displayName:displayName||'참여자',syncedAt:null,nextAttemptAt:new Date()}});
    });notice=intent==='join'?'참여 내용을 저장했습니다. 구매 신청이나 결제는 이루어지지 않습니다.':'수요조사 참여를 취소했습니다.';
   }else throw Error('지원하지 않는 요청입니다.');
  }catch(error){console.error('[demand-survey] action failed',error instanceof Error?error.message:'unknown');notice=error instanceof Error?error.message:'저장에 실패했습니다. 다시 시도해 주세요.';if(request.headers.get('Accept')==='application/json')return Response.json({error:notice},{status:400,headers});}
