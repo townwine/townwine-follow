@@ -5,10 +5,17 @@ import vm from 'node:vm';
 import {createHmac} from 'node:crypto';
 
 const source=readFileSync(new URL('../deploy/quote-sheet-webhook.gs',import.meta.url),'utf8');
-function harness(){
- const rows=[],headers=['No','견적번호','상태','이메일','닉네임','입력날짜','상품명','구매병수','견적종류','구매링크','최종 판매가 \n(KRW)','최종 판매가 \n(HKD)','등록요청ID'];
+function harness({header='No',initialRows=[],dropNumber=false}={}){
+ const rows=initialRows.map(r=>[...r]),headers=[header,'견적번호','상태','이메일','닉네임','입력날짜','상품명','구매병수','견적종류','구매링크','최종 판매가 \n(KRW)','최종 판매가 \n(HKD)','등록요청ID'];
  let tab,locked=false;
- const context={console:{error(){}},Utilities:{Charset:{UTF_8:'utf8'},computeHmacSha256Signature:(message,key)=>[...createHmac('sha256',key).update(message).digest()],formatDate:()=> '2026-10-14'},PropertiesService:{getScriptProperties:()=>({getProperty:()=> 'test-secret'})},LockService:{getScriptLock:()=>({waitLock(){locked=true;},hasLock:()=>locked,releaseLock(){locked=false;}})},ContentService:{MimeType:{JSON:'json'},createTextOutput:text=>({setMimeType:()=>JSON.parse(text)})},SpreadsheetApp:{flush(){},openById(id){assert.equal(id,'1sJnPCGz_jFKIf0XY5ytme5aqjNf7dh1LVSIwxpQxgsE');return {getSheetByName(name){tab=name;return {getLastRow:()=>rows.length+1,getLastColumn:()=>headers.length,getMaxRows:()=>1000,hideColumns(){},getRange(){return {getValues:()=>rows.map(r=>[r[0]]),getDisplayValues:()=>[headers],setValues(values){assert(locked);rows.push(...values);},createTextFinder(key){return {matchEntireCell(){return this;},useRegularExpression(){return this;},findNext:()=>rows.find(r=>r.includes(key))}}};}}}}}}};
+ const sheet={getLastRow:()=>rows.length+1,getLastColumn:()=>headers.length,getMaxRows:()=>1000,hideColumns(){},
+ getRange(row,col,height=1,width=1){return {
+ getValues:()=>Array.from({length:height},(_,i)=>Array.from({length:width},(_,j)=>row+i===1?headers[col+j-1]:(rows[row+i-2]?.[col+j-1]??''))),
+ getValue:()=>rows[row-2]?.[col-1]??'',getDisplayValues:()=>[headers],
+ setValue(value){assert(locked);rows[row-2][col-1]=value;},
+ setValues(values){assert(locked);values.forEach((values,i)=>{rows[row+i-2]=[...values];if(dropNumber)rows[row+i-2][0]='';});},
+ createTextFinder(key){return {matchEntireCell(){return this;},useRegularExpression(){return this;},findNext(){for(let i=row-2;i<row-2+height;i++){if(rows[i]?.[col-1]===key)return {getRow:()=>i+2};}return null;}};}};}};
+ const context={console:{error(){}},Utilities:{Charset:{UTF_8:'utf8'},computeHmacSha256Signature:(message,key)=>[...createHmac('sha256',key).update(message).digest()],formatDate:()=> '2026-10-14'},PropertiesService:{getScriptProperties:()=>({getProperty:()=> 'test-secret'})},LockService:{getScriptLock:()=>({waitLock(){locked=true;},hasLock:()=>locked,releaseLock(){locked=false;}})},ContentService:{MimeType:{JSON:'json'},createTextOutput:text=>({setMimeType:()=>JSON.parse(text)})},SpreadsheetApp:{flush(){},openById(id){assert.equal(id,'1sJnPCGz_jFKIf0XY5ytme5aqjNf7dh1LVSIwxpQxgsE');return {getSheetByName(name){tab=name;return sheet;}}}}};
  vm.createContext(context);vm.runInContext(source,context);
  return {context,rows,tab:()=>tab};
 }
@@ -30,3 +37,29 @@ test('invalid or expired signatures never write',()=>{
  const h=harness(),body={...request(),...change};assert.equal(h.context.doPost({postData:{contents:JSON.stringify(body)}}).ok,false);assert.equal(h.rows.length,0);
  }
 });
+
+function post(h,body=request('HK')){return h.context.doPost({postData:{contents:JSON.stringify(body)}});}
+test('No is always numeric and increments the last existing number',()=>{
+ const h=harness({initialRows:[[1224,'홍콩견적#1224'],[1225,'홍콩견적#1225']]});
+ assert.equal(post(h).ok,true);assert.equal(h.rows[2][0],1226);assert.equal(h.rows[2][1],'홍콩견적#1226');
+ assert.equal(post(h).duplicate,true);assert.equal(h.rows.length,3);
+});
+test('header whitespace and case cannot silently drop No',()=>{
+ for(const header of ['No',' No\n','NO','No.']){const h=harness({header});assert.equal(post(h).ok,true);assert.equal(h.rows[0][0],1);}
+ const h=harness({header:'Missing'});assert.equal(post(h).ok,false);assert.equal(h.rows.length,0);
+});
+test('existing quote labels reserve numbers even when No is blank or rows are reordered',()=>{
+ const h=harness({initialRows:[[1225,'홍콩견적#1225'],['','홍콩견적#1226'],[1223,'홍콩견적#1223']]});
+ assert.equal(post(h).number,1227);assert.equal(h.rows[3][0],1227);
+});
+test('retry repairs missing No on the same request without appending another row',()=>{
+ const row=Array(13).fill('');row[1]='홍콩견적#1226';row[12]='TW-'+'a'.repeat(64);
+ const h=harness({initialRows:[[1225,'홍콩견적#1225'],row]});
+ assert.equal(post(h).duplicate,true);assert.equal(h.rows[1][0],1226);assert.equal(h.rows.length,2);
+});
+test('repair refuses a duplicate number and failed persistence is never acknowledged',()=>{
+ const row=Array(13).fill('');row[1]='홍콩견적#1226';row[12]='TW-'+'a'.repeat(64);
+ const h=harness({initialRows:[[1226,'홍콩견적#1226'],row]});assert.equal(post(h).ok,false);assert.equal(h.rows[1][0],'');
+ assert.equal(post(harness({dropNumber:true})).ok,false);
+});
+test('sequence overflow is rejected',()=>{const h=harness({initialRows:[[Number.MAX_SAFE_INTEGER,'']]});assert.equal(post(h).ok,false);assert.equal(h.rows.length,1);});
