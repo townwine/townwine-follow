@@ -93,3 +93,9 @@ test('worker durably resumes general announcements and stops after successful ha
  assert.ok((await db.demandSurvey.findFirst({where:{shop:h.shop}})).paymentAnnouncementsReleasedAt);
  await h.service.retryDemandPaymentEmails();assert.equal(h.continuations(),2);
 });
+
+
+test('a later in-stock wine keeps multi-wine payment invitations available',async()=>{
+ const h=await harness({stock:0,multi:true});h.product.variants.nodes.push({id:'gid://shopify/ProductVariant/999',inventoryQuantity:6,inventoryPolicy:'DENY',inventoryItem:{tracked:true}});
+ assert.equal((await h.run()).ready,true);assert.equal(h.attempts.length,2);
+});

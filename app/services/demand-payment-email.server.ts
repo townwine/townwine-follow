@@ -21,7 +21,7 @@ export async function ensureDemandPaymentEmails({admin,shop,productId}:{admin:Ad
  }
  const pendingWhere={shop,productId,customerId:{in:customerIds},status:'PENDING'};
  if(!await prisma.demandPaymentEmail.count({where:pendingWhere}))return {ready:true,customerIds};
- const result=await readNotificationQuery(await admin.graphql(`query DemandPaymentProduct($id:ID!){product(id:$id){status title handle onlineStoreUrl openAt:metafield(namespace:"custom",key:"deal_open_at_kst"){value} variants(first:2){nodes{id inventoryQuantity inventoryPolicy inventoryItem{tracked}}}}}`,{variables:{id:productId}}));
+ const result=await readNotificationQuery(await admin.graphql(`query DemandPaymentProduct($id:ID!){product(id:$id){status title handle onlineStoreUrl openAt:metafield(namespace:"custom",key:"deal_open_at_kst"){value} variants(first:100){nodes{id inventoryQuantity inventoryPolicy inventoryItem{tracked}}}}}`,{variables:{id:productId}}));
  const product=result.data.product;
  const openAt=product?.openAt?.value;
  if(!product||product.status!=='ACTIVE'||!product.onlineStoreUrl||(openAt&&(!Number.isFinite(Date.parse(openAt))||Date.parse(openAt)>Date.now())))return {ready:false,customerIds};
