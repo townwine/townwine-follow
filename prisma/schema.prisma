@@ -157,6 +157,8 @@ model DemandSurvey {
   productId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  participantMailRequestedAt DateTime?
+  followerMailRequestedAt DateTime?
   paymentAnnouncementsReleasedAt DateTime?
   entries DemandEntry[]
   @@index([shop, createdAt])

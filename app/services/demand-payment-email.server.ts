@@ -9,11 +9,12 @@ const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const customerKey=(id:string)=>id.replace(/^gid:\/\/shopify\/Customer\//,'');
 
 /** A delivery barrier shared by every general announcement path. */
-export async function ensureDemandPaymentEmails({admin,shop,productId}:{admin:Admin;shop:string;productId:string}){
- const surveys=await prisma.demandSurvey.findMany({where:{shop,productId,status:'CONVERTED'},select:{entries:{select:{customerId:true,quantity:true}}}});
+export async function ensureDemandPaymentEmails({admin,shop,productId,audience='followers'}:{admin:Admin;shop:string;productId:string;audience?:'participants'|'followers'}){
+ const surveys=await prisma.demandSurvey.findMany({where:{shop,productId,status:'CONVERTED'},select:{participantMailRequestedAt:true,followerMailRequestedAt:true,entries:{select:{customerId:true,quantity:true}}}});
  const recipients=new Map<string,number>();
  for(const survey of surveys)for(const entry of survey.entries)recipients.set(customerKey(entry.customerId),Math.max(recipients.get(customerKey(entry.customerId))||0,entry.quantity));
  const customerIds=[...recipients.keys()];
+ if(surveys.some(s=>!s.participantMailRequestedAt||(audience==='followers'&&!s.followerMailRequestedAt)))return {ready:false,customerIds};
  if(!customerIds.length)return {ready:true,customerIds};
  if(getEmailDeliveryRuntimeStatus().mode!=='live')return {ready:false,customerIds};
  for(const [customerId,quantity] of recipients){
@@ -69,12 +70,12 @@ export async function retryDemandPaymentEmails(){
  if(running||getEmailDeliveryRuntimeStatus().mode!=='live')return;
  running=true;
  try{
-  const surveys=await prisma.demandSurvey.findMany({where:{status:'CONVERTED',productId:{not:null},paymentAnnouncementsReleasedAt:null},select:{shop:true,productId:true},distinct:['shop','productId']});
+  const surveys=await prisma.demandSurvey.findMany({where:{status:'CONVERTED',productId:{not:null},participantMailRequestedAt:{not:null},paymentAnnouncementsReleasedAt:null},select:{shop:true,productId:true,followerMailRequestedAt:true},distinct:['shop','productId']});
   const {unauthenticated}=await import('../shopify.server');
   for(const survey of surveys){try{
    const {admin}=await unauthenticated.admin(survey.shop);
-   const priority=await ensureDemandPaymentEmails({admin,shop:survey.shop,productId:survey.productId!});
-   if(priority.ready){
+   const priority=await ensureDemandPaymentEmails({admin,shop:survey.shop,productId:survey.productId!,audience:'participants'});
+   if(priority.ready&&survey.followerMailRequestedAt){
     // Resume after long delivery outages too, beyond the normal webhook/watchdog window.
     const {processProductWebhookEvent}=await import('./product-webhook-processing.server');
     const result=await processProductWebhookEvent({admin,shop:survey.shop,productId:survey.productId!,maxAttempts:1});

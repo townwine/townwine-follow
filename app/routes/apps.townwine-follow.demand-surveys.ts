@@ -15,11 +15,15 @@ export async function loader({request}:LoaderFunctionArgs){
  const {shop,customerId,admin}=await identity(request),url=new URL(request.url),id=url.searchParams.get('id')||'',view=url.searchParams.get('view')||'all';
  if(url.searchParams.get('image')){const image=await prisma.demandSurvey.findFirst({where:{shop,id:url.searchParams.get('image')||'',status:{not:'DELETED'}},select:{imageData:true,imageMime:true}});if(!image?.imageData)return new Response('Not found',{status:404});return new Response(Buffer.from(image.imageData),{headers:{'Content-Type':image.imageMime||'image/png','Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'}});}
  const where={shop,status:{not:'DELETED'},...(id?{id}:{}),...(view==='mine'?{ownerId:customerId||'unauthenticated'}:{})};
- const surveys=await prisma.demandSurvey.findMany({where,orderBy:{createdAt:'desc'},take:id?1:100,select:{id:true,ownerId:true,ownerName:true,title:true,description:true,imageUrl:true,sourceUrl:true,expectedPrice:true,targetQuantity:true,closesAt:true,status:true,productId:true,entries:{select:{customerId:true,displayName:true,quantity:true,createdAt:true}}}});
+ const surveys=await prisma.demandSurvey.findMany({where,orderBy:{createdAt:'desc'},take:id?1:100,select:{id:true,ownerId:true,ownerName:true,title:true,description:true,imageUrl:true,sourceUrl:true,expectedPrice:true,targetQuantity:true,closesAt:true,status:true,productId:true,participantMailRequestedAt:true,followerMailRequestedAt:true,paymentAnnouncementsReleasedAt:true,entries:{select:{customerId:true,displayName:true,quantity:true,createdAt:true}}}});
  let productUrl='';
  if(id&&surveys[0]?.productId&&admin){try{const response=await admin.graphql('query($id:ID!){product(id:$id){status onlineStoreUrl}}',{variables:{id:surveys[0].productId}});const data=await response.json();const product=data.data?.product;if(product?.status==='ACTIVE'&&product.onlineStoreUrl){const u=new URL(product.onlineStoreUrl);if(u.protocol==='https:')productUrl=u.href;}}catch{console.error('[demand-survey] linked product unavailable');}}
+ let profileNickname='';
+ if(customerId&&admin){try{profileNickname=(await findCollectorProfileByCustomerId(admin,customerId))?.fields.displayName||'';}catch{console.error('[demand-survey] profile unavailable');}}
+ let mailStatus;
+ if(id&&surveys[0]?.ownerId===customerId&&surveys[0]?.productId){const s=surveys[0];const recipients=[...new Set(s.entries.map(x=>x.customerId.replace(/^gid:\/\/shopify\/Customer\//,'')))];const completed=await prisma.demandPaymentEmail.count({where:{shop,productId:s.productId!,customerId:{in:recipients},status:{in:['SENT','SKIPPED']}}});const skipped=await prisma.demandPaymentEmail.count({where:{shop,productId:s.productId!,customerId:{in:recipients},status:'SKIPPED'}});mailStatus={participantRequested:!!s.participantMailRequestedAt,participantsComplete:!!s.participantMailRequestedAt&&completed===recipients.length,skipped,followerRequested:!!s.followerMailRequestedAt,followersComplete:!!s.paymentAnnouncementsReleasedAt};}
  const token=customerId?demandToken(shop,customerId,process.env.SHOPIFY_API_SECRET||''):'';
- const html=renderDemandPage({surveys,customerId,token,view,id,productUrl,market:readMarketHandoff(url.searchParams),calculator:readCalculatorHandoff(url.searchParams),notice:url.searchParams.get('notice')||''});
+ const html=renderDemandPage({surveys,customerId,token,view,id,productUrl,profileNickname,mailStatus,market:readMarketHandoff(url.searchParams),calculator:readCalculatorHandoff(url.searchParams),notice:url.searchParams.get('notice')||''});
  return new Response(html,{status:id&&!surveys.length?404:200,headers:{...headers,'Content-Type':'application/liquid; charset=utf-8'}});
 }
 export async function action({request}:ActionFunctionArgs){
@@ -49,6 +53,22 @@ export async function action({request}:ActionFunctionArgs){
    const key=String(form.get('key')||'');if(!/^[a-f0-9-]{36}$/.test(key))throw Error('페이지를 새로고침해 주세요.');
    const existing=await prisma.demandSurvey.findUnique({where:{id:key}});if(existing&&(existing.shop!==shop||existing.ownerId!==customerId))throw Error('다시 등록해 주세요.');
    const survey=existing||await prisma.demandSurvey.create({data:{...data,imageData,imageMime,imageUrl:demandPath+'?image='+encodeURIComponent(key),id:key,shop,ownerId:customerId,ownerName:profile.fields.displayName||'컬렉터'}});id=survey.id;notice='수요조사를 등록했습니다.';
+  }else if(intent==='mail-participants'||intent==='mail-followers'){
+   const survey=await ownedDemand(shop,customerId,id);
+   if(survey.status!=='CONVERTED'||!survey.productId)throw Error('공구 등록과 운영자 승인을 먼저 완료해 주세요.');
+   const response=await admin.graphql('query($id:ID!){product(id:$id){status onlineStoreUrl}}',{variables:{id:survey.productId}});
+   const product=(await response.json()).data?.product;
+   if(product?.status!=='ACTIVE'||!product.onlineStoreUrl)throw Error('승인되어 공개된 공구만 메일을 발송할 수 있습니다.');
+   if(intent==='mail-followers'){
+    if(!survey.participantMailRequestedAt)throw Error('수요조사 참여자 메일을 먼저 발송해 주세요.');
+    const entries=await prisma.demandEntry.findMany({where:{surveyId:id},select:{customerId:true}});
+    const recipients=[...new Set(entries.map(x=>x.customerId.replace(/^gid:\/\/shopify\/Customer\//,'')))];
+    const completed=await prisma.demandPaymentEmail.count({where:{shop,productId:survey.productId,customerId:{in:recipients},status:{in:['SENT','SKIPPED']}}});
+    if(completed!==recipients.length)throw Error('참여자 메일 처리 완료 후 팔로워 메일을 발송할 수 있습니다.');
+   }
+   const field=intent==='mail-participants'?'participantMailRequestedAt':'followerMailRequestedAt';
+   await prisma.demandSurvey.updateMany({where:{id,shop,ownerId:customerId,[field]:null},data:{[field]:new Date()}});
+   notice=intent==='mail-participants'?'참여자 메일 발송을 요청했습니다. 공구 오픈 후 순차 발송되며, 처리 상태는 새로고침해서 확인해 주세요.':'팔로워 메일 발송을 요청했습니다. 이미 발송된 메일은 중복 발송하지 않습니다.';
   }else if(intent==='delete'){
    await ownedDemand(shop,customerId,id);
    const deleted=await prisma.demandSurvey.updateMany({where:{id,shop,ownerId:customerId,status:{not:'DELETED'}},data:{status:'DELETED'}});

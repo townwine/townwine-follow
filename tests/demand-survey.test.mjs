@@ -16,7 +16,7 @@ test('quantities and dates are bounded',()=>{for(const q of ['0','-1','1.5','1e2
 test('closed and expired surveys reject new participation',()=>{assert.equal(surveyOpen(survey),true);assert.equal(surveyOpen({...survey,status:'CLOSED'}),false);assert.equal(surveyOpen({...survey,closesAt:new Date(0)}),false);});
 test('participant identities only render for owner, and HTML/Liquid content is escaped',()=>{const args={surveys:[survey],token:'token',view:'all',id:'s1',notice:''};const owner=page.renderDemandPage({...args,customerId:'1'}),visitor=page.renderDemandPage({...args,customerId:'3'});assert.match(owner,/Private participant/);assert.doesNotMatch(visitor,/Private participant/);assert.match(visitor,/Wine &lt;script&gt;/);assert.doesNotMatch(visitor,/{% bad %}/);assert.equal(escapeDemand('{{evil}}'),'&#123;&#123;evil&#125;&#125;');assert.ok(owner.indexOf('수요조사')<owner.indexOf('공구 등록'));});
 test('prefill cannot inject script or Liquid and browser code parses',()=>{const {renderQuotePreview}=load('../app/services/quote-preview-page.server.ts');const html=renderQuotePreview(true,{id:'abc',title:'</script>{% bad %}',url:'',imageUrl:'',quantity:3,shippingNote:''});const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];assert.ok(scripts.length);for(const [,script]of scripts)new vm.Script(script);assert.doesNotMatch(html,/{% bad %}/);});
-function route({customerId='2',owner='1',status='OPEN',failAuth=false,imageFailure=false}={}){const calls=[];const record={...survey,ownerId:owner,status};const db={demandSurvey:{findFirst:async()=>record,updateMany:async data=>{calls.push(data);return {count:1};}},demandEntry:{upsert:async data=>calls.push(data),deleteMany:async()=>({count:1})},$transaction:async fn=>fn(db)};return {calls,api:load('../app/routes/apps.townwine-follow.demand-surveys.ts',{'../shopify.server':{authenticate:{public:{appProxy:async()=>{if(failAuth)throw new Response('',{status:401});return {admin:{},session:{shop:'shop'}};}}}},'../db.server':{prisma:db},'../services/collector-profiles.server':{},'../services/quote-draft.server':{imageFileType:()=>({mime:'image/png'})},'../services/quote-preview.server':{previewRegistration:async()=>({title:'Wine',image:'https://example.com/image.png'})},'../services/demand-product.server':{fetchLabelImage:async()=>{if(imageFailure)throw Error('blocked');return Buffer.from('image-bytes');}},'../services/demand-survey':helpers,'../services/demand-survey.server':{ownedDemand:async()=>{if(customerId!==owner)throw Error('forbidden');return record;}},'../services/demand-survey-page.server':page})};}
+function route({customerId='2',owner='1',status='OPEN',failAuth=false,imageFailure=false,mail=false,requested=false,completed=0,published=true}={}){const calls=[];const record={...survey,ownerId:owner,status,productId:mail?'gid://shopify/Product/2':null,participantMailRequestedAt:requested?new Date():null};const db={demandSurvey:{findFirst:async()=>record,updateMany:async data=>{calls.push(data);return {count:1};}},demandPaymentEmail:{count:async()=>completed},demandEntry:{findMany:async()=>survey.entries,upsert:async data=>calls.push(data),deleteMany:async()=>({count:1})},$transaction:async fn=>fn(db)};return {calls,api:load('../app/routes/apps.townwine-follow.demand-surveys.ts',{'../shopify.server':{authenticate:{public:{appProxy:async()=>{if(failAuth)throw new Response('',{status:401});return {admin:{graphql:async()=>Response.json({data:{product:{status:published?'ACTIVE':'DRAFT',onlineStoreUrl:published?'https://town.wine/products/wine':null}}})},session:{shop:'shop'}};}}}},'../db.server':{prisma:db},'../services/collector-profiles.server':{},'../services/quote-draft.server':{imageFileType:()=>({mime:'image/png'})},'../services/quote-preview.server':{previewRegistration:async()=>({title:'Wine',image:'https://example.com/image.png'})},'../services/demand-product.server':{fetchLabelImage:async()=>{if(imageFailure)throw Error('blocked');return Buffer.from('image-bytes');}},'../services/demand-survey':helpers,'../services/demand-survey.server':{ownedDemand:async()=>{if(customerId!==owner)throw Error('forbidden');return record;}},'../services/demand-survey-page.server':page})};}
 const oldSecret=process.env.SHOPIFY_API_SECRET;process.env.SHOPIFY_API_SECRET='test-survey-secret';
 function request(intent,extra={},customer='2'){const params=new URLSearchParams({intent,id:'s1',quantity:'4',displayName:'User',token:demandToken('shop',customer,'test-survey-secret'),...extra});return new Request('https://app.example?logged_in_customer_id='+customer,{method:'POST',body:params});}
 test('participation persists identity from signed URL, not body; same customer is upserted',async()=>{const {api,calls}=route();const r=await api.action({request:request('join',{customerId:'999'})});assert.equal(r.status,303);assert.equal(calls[0].create.customerId,'2');assert.deepEqual(JSON.parse(JSON.stringify(calls[0].where)),{surveyId_customerId:{surveyId:'s1',customerId:'2'}});});
@@ -65,4 +65,34 @@ test('list participation is scoped to each survey and respects login, ownership 
  assert.match(owner,/내 수요조사 관리/);assert.doesNotMatch(owner,/name="intent" value="join"/);
  const closed=page.renderDemandPage({...args,surveys:[{...survey,status:'CLOSED'}],customerId:'3'});
  assert.match(closed,/참여 마감/);assert.doesNotMatch(closed,/name="intent" value="join"/);
+});
+
+test('profile nickname prefills detail and list without overriding existing participation',()=>{
+ const args={surveys:[survey],token:'x',view:'all',id:'s1',notice:'',profileNickname:'Profile <Nick>'};
+ for(const id of ['s1','']){
+  const html=page.renderDemandPage({...args,id,customerId:'3'});
+  assert.match(html,/value="Profile &lt;Nick&gt;"/);assert.match(html,/계정프로필 → 컬렉터 소개/);
+  assert.match(page.renderDemandPage({...args,id,customerId:'2'}),/value="Private participant"/);
+ }
+});
+test('only survey owner sees sequential mail controls',()=>{
+ const args={surveys:[{...survey,productId:'gid://shopify/Product/2'}],token:'x',view:'all',id:'s1',notice:'',productUrl:'https://town.wine/products/wine'};
+ const owner=page.renderDemandPage({...args,customerId:'1'});
+ assert.match(owner,/1\. 수요조사 참여자 메일발송/);assert.match(owner,/<button disabled>2\. 팔로워 메일발송/);
+ assert.doesNotMatch(page.renderDemandPage({...args,customerId:'3'}),/name="intent" value="mail-/);
+ const ready=page.renderDemandPage({...args,customerId:'1',mailStatus:{participantRequested:true,participantsComplete:true,followerRequested:false,followersComplete:false,skipped:0}});
+ assert.match(ready,/<button >2\. 팔로워 메일발송/);
+});
+test('mail requests require ownership, public product, and completed participant stage',async()=>{
+ for(const opts of [{customerId:'2',mail:true,status:'CONVERTED'},{customerId:'1',mail:true,status:'CONVERTED',published:false},{customerId:'1',mail:true,status:'CONVERTED',requested:false},{customerId:'1',mail:true,status:'CONVERTED',requested:true,completed:0}]){
+  const h=route(opts);await h.api.action({request:request('mail-followers',{},opts.customerId)});assert.equal(h.calls.length,0);
+ }
+ for(const intent of ['mail-participants','mail-followers']){
+  const h=route({customerId:'1',mail:true,status:'CONVERTED',requested:true,completed:1});
+  const response=await h.api.action({request:request(intent,{},'1')});assert.equal(response.status,303);assert.equal(h.calls.length,1);
+  assert.equal(h.calls[0].where.ownerId,'1');assert.equal(h.calls[0].where.shop,'shop');
+  assert.equal(h.calls[0].where[intent==='mail-participants'?'participantMailRequestedAt':'followerMailRequestedAt'],null);
+ }
+ const h=route({customerId:'1',mail:true,status:'CONVERTED'});
+ assert.equal((await h.api.action({request:request('mail-participants',{token:'bad'},'1')})).status,403);assert.equal(h.calls.length,0);
 });

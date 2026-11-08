@@ -20,7 +20,7 @@ after(async()=>{await db.$disconnect();rmSync(dir,{recursive:true,force:true});}
 function load(file,mocks){const source=readFileSync(new URL('../app/services/'+file,import.meta.url),'utf8');const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const exports={};vm.runInNewContext(code,{exports,require:n=>{assert.ok(n in mocks,n);return mocks[n];},console,Date,Response});return exports;}
 async function harness({status='ACTIVE',mode='live',published=true,future=false,stock=10,multi=false,emails=true}={}){
  const shop=randomUUID()+'.myshopify.com',productId='gid://shopify/Product/2';const attempts=[];let fail=false,hold=null,continuations=0,continuationFails=false;
- await db.demandSurvey.create({data:{shop,ownerId:'9',ownerName:'Host',title:'Wine',description:'',imageUrl:'',sourceUrl:'',closesAt:new Date(),status:'CONVERTED',productId,entries:{create:[{customerId:'1',displayName:'One',quantity:3},{customerId:'2',displayName:'Two',quantity:6}]}}});
+ await db.demandSurvey.create({data:{shop,ownerId:'9',ownerName:'Host',title:'Wine',description:'',imageUrl:'',sourceUrl:'',closesAt:new Date(),status:'CONVERTED',participantMailRequestedAt:new Date(),followerMailRequestedAt:new Date(),productId,entries:{create:[{customerId:'1',displayName:'One',quantity:3},{customerId:'2',displayName:'Two',quantity:6}]}}});
  const variant={id:'gid://shopify/ProductVariant/456',inventoryQuantity:stock,inventoryPolicy:'DENY',inventoryItem:{tracked:true}};
  const product={status,title:'<Wine>',handle:'wine',onlineStoreUrl:published?'https://town.wine/products/wine':null,openAt:future?{value:new Date(Date.now()+600000).toISOString()}:null,variants:{nodes:multi?[variant,{...variant,id:'gid://shopify/ProductVariant/789'}]:[variant]}};
  const admin={graphql:async(query,{variables})=>Response.json({data:query.includes('DemandPaymentProduct')?{product}:{customer:emails?{email:variables.id.endsWith('/1')?'one@example.invalid':'two@example.invalid'}:null}})};
@@ -98,4 +98,16 @@ test('worker durably resumes general announcements and stops after successful ha
 test('a later in-stock wine keeps multi-wine payment invitations available',async()=>{
  const h=await harness({stock:0,multi:true});h.product.variants.nodes.push({id:'gid://shopify/ProductVariant/999',inventoryQuantity:6,inventoryPolicy:'DENY',inventoryItem:{tracked:true}});
  assert.equal((await h.run()).ready,true);assert.equal(h.attempts.length,2);
+});
+
+test('manual stages block automatic mail until each owner request',async()=>{
+ await db.demandSurvey.updateMany({data:{paymentAnnouncementsReleasedAt:new Date()}});
+ const h=await harness();
+ await db.demandSurvey.updateMany({where:{shop:h.shop},data:{participantMailRequestedAt:null,followerMailRequestedAt:null}});
+ assert.equal((await h.run()).ready,false);await h.service.retryDemandPaymentEmails();assert.equal(h.attempts.length,0);
+ await db.demandSurvey.updateMany({where:{shop:h.shop},data:{participantMailRequestedAt:new Date()}});
+ await h.service.retryDemandPaymentEmails();assert.equal(h.attempts.length,2);assert.equal(h.continuations(),0);
+ assert.equal((await h.run()).ready,false);
+ await db.demandSurvey.updateMany({where:{shop:h.shop},data:{followerMailRequestedAt:new Date()}});
+ await h.service.retryDemandPaymentEmails();assert.equal(h.continuations(),1);assert.equal(h.attempts.length,2);
 });

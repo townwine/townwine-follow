@@ -18,7 +18,7 @@ export async function notifyQuoteApproval(id:string){
   if(result.errors?.length)throw new Error('Approval lookup failed');
   const product=result.data?.product;
   if(product?.status!=='ACTIVE')return;
-  if(!(await ensureDemandPaymentEmails({admin,shop:row.shop,productId:row.productId!})).ready)return;
+  if(!(await ensureDemandPaymentEmails({admin,shop:row.shop,productId:row.productId!,audience:'participants'})).ready)return;
   const to=result.data?.customer?.email;
   if(!to)throw new Error('Registrant email unavailable');
   const text='등록하신 공구가 운영자 승인을 받았습니다.\n\n'+product.title+(product.onlineStoreUrl?'\n\n공구 보기: '+product.onlineStoreUrl:'');
