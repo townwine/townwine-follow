@@ -7,7 +7,7 @@ export type QuoteCountry = 'HK' | 'US' | 'FR' | 'DE' | 'GB' | 'JP';
 export type QuoteInput = {
   country: QuoteCountry; bottlePrice: number; bottles: number; localShipping: number;
   origin: 'EU' | 'US' | 'OTHER'; ftaConfirmed: boolean;
-  germanyVatRefund: boolean; ukLocalTax: number; hkViaUk?: boolean;
+  germanyVatRefund: boolean; ukLocalTax: number; hkViaUk?: boolean; currency?: 'HKD' | 'GBP';
 };
 export type QuoteRates = { date: string; KRW: number; USD: number; HKD: number; EUR: number; GBP: number; JPY: number };
 export const quoteCurrency = { HK:'HKD', US:'USD', FR:'EUR', DE:'EUR', GB:'GBP', JP:'JPY' } as const;
@@ -17,7 +17,9 @@ export function calculateDemandQuote(i: QuoteInput, rates: QuoteRates) {
   if (!Number.isFinite(i.ukLocalTax) || i.ukLocalTax < 0) throw new Error('현지 세금을 확인해 주세요.');
   for (const k of ['KRW','USD','HKD','EUR','GBP','JPY'] as const) if (!Number.isFinite(rates[k]) || rates[k] <= 0) throw new Error('환율을 확인할 수 없습니다.');
   const fx = (c: keyof Omit<QuoteRates,'date'>) => rates.KRW/rates[c];
-  const unit = fx(quoteCurrency[i.country]), usd=fx('USD'), hkd=fx('HKD'), eur=fx('EUR'), gbp=fx('GBP'), jpy=fx('JPY');
+  if(i.currency && (i.country!=='HK'||!['HKD','GBP'].includes(i.currency)))throw new Error('지원하지 않는 입력 통화입니다.');
+  const currency=i.country==='HK'?(i.currency||'HKD'):quoteCurrency[i.country];
+  const unit = fx(currency), usd=fx('USD'), hkd=fx('HKD'), eur=fx('EUR'), gbp=fx('GBP'), jpy=fx('JPY');
   const gross=i.bottlePrice*unit, local=i.localShipping/i.bottles*unit;
   let bankFee=0;
   let goods=gross, baseGoods=gross, taxableFreight=0, shipping=0, fee=0, localCost=local, fta=false;
@@ -38,7 +40,7 @@ export function calculateDemandQuote(i: QuoteInput, rates: QuoteRates) {
   const platformFee=Math.round(subtotal*platformRate+2.35*hkd);
   const raw=subtotal+platformFee+bankFee;
   const krw=Math.ceil(raw/100)*100;
-  return {version:i.country==='FR'?'townwine-sheet-2026-11-08-fr-v4':'townwine-sheet-2026-10-31-v3',country:i.country,currency:quoteCurrency[i.country],weightKg:2,fxDate:rates.date,rates,fta,taxBase,platformRate,rawSalePrice:raw,actualPlatformFee:['DE','JP'].includes(i.country)?Math.round(krw*platformRate+2.35*hkd):krw*platformRate+2.35*hkd,bankFee,goods,localShipping:localCost,taxableFreight,duty,liquor,education,vat,internationalShipping:shipping,purchaseFee:fee,platformFee,unitKrw:krw,unitHkd:i.country==='US'?krw/hkd:Math.round(krw/hkd*100)/100,totalKrw:krw*i.bottles};
+  return {version:i.country==='FR'?'townwine-sheet-2026-11-08-fr-v4':'townwine-sheet-2026-10-31-v3',country:i.country,currency,weightKg:2,fxDate:rates.date,rates,fta,taxBase,platformRate,rawSalePrice:raw,actualPlatformFee:['DE','JP'].includes(i.country)?Math.round(krw*platformRate+2.35*hkd):krw*platformRate+2.35*hkd,bankFee,goods,localShipping:localCost,taxableFreight,duty,liquor,education,vat,internationalShipping:shipping,purchaseFee:fee,platformFee,unitKrw:krw,unitHkd:i.country==='US'?krw/hkd:Math.round(krw/hkd*100)/100,totalKrw:krw*i.bottles};
 }
 
 export const registrationCountries={HK:'홍콩',US:'미국',FR:'프랑스',DE:'독일',GB:'영국',JP:'일본'};
