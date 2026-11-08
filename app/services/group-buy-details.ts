@@ -9,9 +9,9 @@ export function parseGroupSchedule(openDate:string,purchaseAt=''){
  if(!Number.isFinite(opening.getTime())||!Number.isFinite(purchase.getTime())||local(opening).slice(0,10)!==openDate||(purchaseAt&&local(purchase)!==purchaseAt)||purchase<opening)throw Error('매입 예정 일시는 공구 오픈일 이후의 올바른 한국시간으로 입력해 주세요.');
  return {openDate,purchaseAtKst:purchaseAt?purchaseAt+':00+09:00':''};
 }
-export function groupBuyTitle(title:string,collector:string,openDate:string){
+export function groupBuyTitle(title:string,collector:string,openDate:string,multiple=false){
  const name=collector.trim();
- return `${openDate.replaceAll('-','.')} ${name.endsWith('님')?name:name+'님'} pick - ${title}`;
+ return `${openDate.replaceAll('-','.')} ${name.endsWith('님')?name:name+'님'} pick${multiple?'':' - '+title}`;
 }
 export function shippingPolicy(countries:QuoteCountry[]){
  const unique=[...new Set(countries)];

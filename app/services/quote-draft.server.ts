@@ -95,7 +95,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    if(!/^gid:\/\/shopify\/Location\/\d+$/.test(locationId))throw new Error('공구 재고 위치가 설정되지 않았습니다. 운영자에게 문의해 주세요.');
    const country=registrationCountries[input.country];
    const countries=[...new Set(items.map(item=>item.input.country))];
-   const displayTitle=groupBuyTitle(title,collector.fields.displayName,schedule.openDate);
+   const displayTitle=groupBuyTitle(items[0].title,collector.fields.displayName,schedule.openDate,items.length>1);
    if(displayTitle.length>255)throw Error('날짜와 컬렉터명을 포함한 제목은 255자 이내로 입력해 주세요.');
    const metadata={baseTitle:title,...schedule,customerId,collectorName:collector.fields.displayName,collectorHandle:collector.handle,country:input.country,sourceUrl,quantity:input.bottles,shippingNote:note,quote,requestId:id,...(extras.length?{items:itemSnapshot}: {})};
    const data=await query(admin,'mutation($input:ProductSetInput!){productSet(input:$input,synchronous:true){product{id status handle} userErrors{message}}}',{input:{
