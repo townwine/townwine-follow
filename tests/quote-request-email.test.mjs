@@ -26,3 +26,14 @@ test('non-live email mode does not send or mark sent',async()=>{
 test('failed delivery clears lease and remains retryable',async()=>{
  const h=harness({fail:true});await assert.rejects(h.service.notifyQuoteRequestRegistered('request'));assert.equal(h.row.requestEmailSentAt,null);assert.equal(h.row.requestEmailLeaseAt,null);
 });
+
+test('store product link uses town.wine for both text and HTML regardless of Shopify shop domain',async()=>{
+ for(const shop of ['town-wine.myshopify.com','c106e6.myshopify.com']){
+  const h=harness();h.row.shop=shop;await h.service.notifyQuoteRequestRegistered('request');
+  for(const body of [h.calls[0].text,h.calls[0].html]){
+   assert.ok(body.includes('https://town.wine/products/wine'));
+   assert.ok(!body.includes('https://'+shop+'/products/'));
+   assert.ok(body.includes('https://admin.shopify.com/store/'+shop.replace('.myshopify.com','')+'/products/123'));
+  }
+ }
+});
