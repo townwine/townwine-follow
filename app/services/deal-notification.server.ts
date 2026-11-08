@@ -1,3 +1,4 @@
+import {ensureDemandPaymentEmails} from "./demand-payment-email.server";
 import {
   readNotificationQuery,
   refreshingNotificationAdmin,
@@ -179,6 +180,9 @@ export async function processDealNotification(params: {
     return { ok: true, skipped: "PRODUCT_NOT_PUBLISHED" };
   }
 
+  const demandPriority = await ensureDemandPaymentEmails({admin,shop:params.shop,productId:params.productId});
+  if (!demandPriority.ready) return {ok:true,skipped:"DEMAND_PAYMENT_PENDING",failedCount:1};
+
   if (!hasCollectorTag(product.collectorTag?.value)) {
     return { ok: true, skipped: "NO_COLLECTOR_TAG" };
   }
@@ -256,6 +260,7 @@ export async function processDealNotification(params: {
   }> = [];
 
   for (const follower of followers) {
+    if(demandPriority.customerIds.includes(follower.customerId.replace(/^gid:\/\/shopify\/Customer\//,""))){skippedCount++;continue;}
     try {
       // Avoid a remote customer lookup for every previously completed delivery.
       // The atomic reservation below still arbitrates concurrent new sends.

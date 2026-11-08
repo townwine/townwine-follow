@@ -157,6 +157,7 @@ model DemandSurvey {
   productId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  paymentAnnouncementsReleasedAt DateTime?
   entries DemandEntry[]
   @@index([shop, createdAt])
   @@index([shop, ownerId])
@@ -171,4 +172,22 @@ model DemandEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([surveyId, customerId])
+}
+
+model DemandPaymentEmail {
+  id String @id @default(cuid())
+  shop String
+  productId String
+  customerId String
+  quantity Int
+  status String @default("PENDING")
+  payloadJson String?
+  leaseToken String?
+  leaseAt DateTime?
+  sentAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([shop, productId, customerId])
+  @@index([shop, productId, status])
 }

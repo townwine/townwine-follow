@@ -1,3 +1,4 @@
+import {ensureDemandPaymentEmails} from "./demand-payment-email.server";
 import { notificationEmailKey } from "./resend-delivery.server";
 import type { UpcomingDealAlertSubscription } from "@prisma/client";
 import { prisma } from "../db.server";
@@ -553,9 +554,12 @@ export async function processDueOpenAlerts(params: {
       continue;
     }
 
+    const demandPriority=await ensureDemandPaymentEmails({admin:params.admin,shop,productId});
+    if(!demandPriority.ready)continue;
     const productUrl = String(product.onlineStoreUrl || "").trim();
 
     for (const subscription of productSubscriptions) {
+      if(demandPriority.customerIds.includes(subscription.customerId.replace(/^gid:\/\/shopify\/Customer\//,""))){cleanupIds.add(subscription.id);continue;}
       try {
         let customer = customerCache.get(subscription.customerId) || null;
         if (!customerCache.has(subscription.customerId)) {

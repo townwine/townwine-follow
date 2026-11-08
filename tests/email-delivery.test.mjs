@@ -218,9 +218,11 @@ function loadModule(file, mocks) {
 }
 
 test("partial delivery retry sends only the failed recipient with the same key", async () => {
+  let priorityReady=false;let priorityIds=[];
   const reserved = new Set();
   const attempts = [];
   const mocks = {
+    "./demand-payment-email.server":{ensureDemandPaymentEmails:async()=>({ready:priorityReady,customerIds:priorityIds})},
     "./notification-query.server": {
       readNotificationQuery,
       refreshingNotificationAdmin,
@@ -299,6 +301,9 @@ test("partial delivery retry sends only the failed recipient with the same key",
         }),
     },
   };
+  const blocked = await processDealNotification(params);
+  assert.equal(blocked.skipped,"DEMAND_PAYMENT_PENDING");assert.equal(attempts.length,0);
+  priorityReady=true;
   const first = await processDealNotification(params);
   assert.equal(first.sentCount, 1);
   assert.equal(first.failedCount, 1);
@@ -308,6 +313,7 @@ test("partial delivery retry sends only the failed recipient with the same key",
   assert.equal(second.skippedCount, 1);
   assert.equal(attempts.filter((a) => a.to === "1@example.com").length, 1);
   assert.equal(attempts[1].idempotencyKey, attempts[2].idempotencyKey);
+  reserved.clear();priorityIds=["1","2"];await processDealNotification(params);assert.equal(attempts.length,3);
 });
 
 test("following saves the subscription without replaying historical product emails", async () => {
