@@ -49,3 +49,20 @@ test('calculator estimates survive login and populate editable survey fields',()
  assert.ok(login.includes(encodeURIComponent(market.calculatorHandoffUrl(calculator))));
  for(const query of ['from=market&expectedPrice=203400&quantity=6','from=calculator&expectedPrice=-1&quantity=6','from=calculator&expectedPrice=100000001&quantity=6','from=calculator&expectedPrice=203400&quantity=1.5','from=calculator&expectedPrice=203400&quantity=10001'])assert.equal(market.readCalculatorHandoff(new URLSearchParams(query)),undefined);
 });
+
+test('list participation is scoped to each survey and respects login, ownership and closing',()=>{
+ const args={surveys:[survey,{...survey,id:'s2',entries:[]}],token:'bound-token',view:'all',id:'',notice:''};
+ const html=page.renderDemandPage({...args,customerId:'2'});
+ assert.match(html,/name="id" value="s1"/);assert.match(html,/name="id" value="s2"/);
+ assert.match(html,/참여 내용 수정/);assert.match(html,/수요조사 참여하기/);
+ assert.match(html,/name="quantity"[^>]*value="3"/);
+ for(const [,script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new vm.Script(script);
+ const visitor=page.renderDemandPage({...args,customerId:'3'});
+ assert.doesNotMatch(visitor,/Private participant/);
+ const anonymous=page.renderDemandPage({...args,customerId:''});
+ assert.match(anonymous,/로그인하고 참여하기/);assert.doesNotMatch(anonymous,/name="intent" value="join"/);
+ const owner=page.renderDemandPage({...args,customerId:'1'});
+ assert.match(owner,/내 수요조사 관리/);assert.doesNotMatch(owner,/name="intent" value="join"/);
+ const closed=page.renderDemandPage({...args,surveys:[{...survey,status:'CLOSED'}],customerId:'3'});
+ assert.match(closed,/참여 마감/);assert.doesNotMatch(closed,/name="intent" value="join"/);
+});
