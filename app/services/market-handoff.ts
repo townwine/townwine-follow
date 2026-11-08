@@ -16,3 +16,16 @@ export function marketHandoffUrl(target:'survey'|'register',title:string,source:
  if(code[country])params.set('country',code[country]);
  return '/apps/townwine-follow/'+(target==='survey'?'demand-surveys':'group-buy-registration')+'?'+params;
 }
+
+/** Editable survey estimates only; never used to authorize a purchase. */
+export function readCalculatorHandoff(params:URLSearchParams){
+ if(params.get('from')!=='calculator')return undefined;
+ const price=params.get('expectedPrice')||'',quantity=params.get('quantity')||'';
+ if(!/^[1-9]\d*$/.test(price)||!/^[1-9]\d*$/.test(quantity))return undefined;
+ const expectedPrice=Number(price),targetQuantity=Number(quantity);
+ if(!Number.isSafeInteger(expectedPrice)||expectedPrice>100000000||!Number.isSafeInteger(targetQuantity)||targetQuantity>10000)return undefined;
+ return {expectedPrice,targetQuantity};
+}
+export function calculatorHandoffUrl(value:{expectedPrice:number;targetQuantity:number}){
+ return '/apps/townwine-follow/demand-surveys?'+new URLSearchParams({view:'new',from:'calculator',expectedPrice:String(value.expectedPrice),quantity:String(value.targetQuantity)});
+}

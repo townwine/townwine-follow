@@ -37,3 +37,15 @@ test('market handoff fills identity only and survives survey login',()=>{
  const html=page.renderDemandPage({...args,customerId:'1'});assert.match(html,/value="Wine &lt;2020&gt;"/);assert.match(html,/value="https:\/\/example.com\/products\/wine\?variant=1"/);assert.doesNotMatch(html,/name="expectedPrice"[^>]*value=/);
  const anonymous=page.renderDemandPage({...args,customerId:''});assert.match(anonymous,/로그인하고 수요조사 만들기/);assert.match(decodeURIComponent(anonymous.match(/return_url=([^"]+)/)[1]),/view=new.*from=market/);
 });
+
+test('calculator estimates survive login and populate editable survey fields',()=>{
+ const calculator=market.readCalculatorHandoff(new URLSearchParams('from=calculator&expectedPrice=203400&quantity=6'));
+ assert.deepEqual(calculator,{expectedPrice:203400,targetQuantity:6});
+ const args={surveys:[],token:'x',view:'new',id:'',notice:'',calculator};
+ const html=page.renderDemandPage({...args,customerId:'1'});
+ assert.match(html,/name="expectedPrice" value="203400"/);
+ assert.match(html,/name="targetQuantity" value="6"/);
+ const login=page.renderDemandPage({...args,customerId:''});
+ assert.ok(login.includes(encodeURIComponent(market.calculatorHandoffUrl(calculator))));
+ for(const query of ['from=market&expectedPrice=203400&quantity=6','from=calculator&expectedPrice=-1&quantity=6','from=calculator&expectedPrice=100000001&quantity=6','from=calculator&expectedPrice=203400&quantity=1.5','from=calculator&expectedPrice=203400&quantity=10001'])assert.equal(market.readCalculatorHandoff(new URLSearchParams(query)),undefined);
+});
