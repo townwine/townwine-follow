@@ -16,9 +16,11 @@ if(existing){var existingRow=existing.getRow(),cells=sheet.getRange(existingRow,
  if(!number){if(!fromTitle)throw Error('Missing quote number on existing request');var used=last>1?sheet.getRange(2,1,last-1,1).getValues():[];if(used.some(function(row,index){return index+2!==existingRow&&quoteNumber_(row[0])===fromTitle;}))throw Error('Quote number already used');sheet.getRange(existingRow,1).setValue(fromTitle);number=fromTitle;}
  SpreadsheetApp.flush();verifyQuoteNumber_(sheet,existingRow,number);return reply_({ok:true,requestId:data.requestId,duplicate:true,number:number});}
 var numbers=last>1?sheet.getRange(2,1,last-1,2).getValues():[],sequence=nextQuoteNumber_(numbers,data.country);
-if(last>=sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),1);
-sheet.getRange(last+1,1,1,headers.length).setValues([quoteRow_(headers,data,sequence)]);
-SpreadsheetApp.flush();verifyQuoteNumber_(sheet,last+1,sequence);return reply_({ok:true,requestId:data.requestId,number:sequence});
+var target=nextQuoteRecordRow_(sheet,last,idColumn);
+// Insert ahead of template/footer cells instead of overwriting them.
+if(target<=last)sheet.insertRowsBefore(target,1);else if(target>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),1);
+sheet.getRange(target,1,1,headers.length).setValues([quoteRow_(headers,data,sequence)]);
+SpreadsheetApp.flush();verifyQuoteNumber_(sheet,target,sequence);return reply_({ok:true,requestId:data.requestId,number:sequence});
 }catch(error){console.error('Quote sheet write failed: '+error.message);return reply_({ok:false});}finally{if(lock.hasLock())lock.releaseLock();}}
 function quoteRow_(headers,data,sequence){assertQuoteHeaders_(headers);if(!quoteNumber_(sequence))throw Error('Invalid quote number');var i=data.input,q=data.quote,r=q.rates,normalized=headers.map(function(h){return String(h||'').replace(/\s/g,'');}),row=headers.map(function(){return '';});
 function put(name,value,last){if(value==null||typeof value==='number'&&!isFinite(value))return;var target=last?normalized.lastIndexOf(name):normalized.indexOf(name);if(target>=0)row[target]=typeof value==='string'&&/^[=+@-]/.test(value)?"'"+value:value;}
@@ -84,3 +86,20 @@ function syncDemandParticipant_(data){
  sheet.getRange(row,3).setNumberFormat('@');sheet.getRange(row,1,1,values.length).setValues([values]);SpreadsheetApp.flush();
  return {ok:true,requestId:data.requestId};
 }
+
+// Quote placement must not use calculation/formula tails as customer records.
+function quoteRecordRow_(values,formulas,requestIds){
+ var last=1;
+ values.forEach(function(row,i){var f=formulas[i]||[],id=String((requestIds[i]||[])[0]||'');
+  var customer=[3,4,6,9].some(function(c){return String(row[c]==null?'':row[c]).trim()!=='';});
+  var identity=[0,1,2,5].some(function(c){return !f[c]&&String(row[c]==null?'':row[c]).trim()!=='';});
+  if(customer||identity||/^TW-[a-f0-9]{64}$/.test(id))last=i+2;
+ });return last+1;
+}
+function nextQuoteRecordRow_(sheet,last,idColumn){
+ if(last<2)return 2;
+ var range=sheet.getRange(2,1,last-1,10);
+ return quoteRecordRow_(range.getValues(),range.getFormulas(),sheet.getRange(2,idColumn,last-1,1).getValues());
+}
+// Read-only verification of the row allocator against the live workbook.
+function verifyQuotePlacement(){var sheet=SpreadsheetApp.openById(WORKBOOK_ID).getSheetByName('영국'),last=sheet.getLastRow(),headers=sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0],idColumn=headers.indexOf('등록요청ID')+1;if(!idColumn)throw Error('Missing request column');console.log(JSON.stringify({country:'GB',sheetLastRow:last,gridRows:sheet.getMaxRows(),nextQuoteRow:nextQuoteRecordRow_(sheet,last,idColumn)}));}

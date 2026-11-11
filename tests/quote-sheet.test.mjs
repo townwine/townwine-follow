@@ -8,9 +8,10 @@ const source=readFileSync(new URL('../deploy/quote-sheet-webhook.gs',import.meta
 function harness({header='No',initialRows=[],dropNumber=false}={}){
  const rows=initialRows.map(r=>[...r]),headers=[header,'견적번호','상태','이메일','닉네임','입력날짜','상품명','구매병수','견적종류','구매링크','최종 판매가 \n(KRW)','최종 판매가 \n(HKD)','등록요청ID'];
  let tab,locked=false;
- const sheet={getLastRow:()=>rows.length+1,getLastColumn:()=>headers.length,getMaxRows:()=>1000,hideColumns(){},
+ const sheet={getLastRow:()=>rows.length+1,getLastColumn:()=>headers.length,getMaxRows:()=>30000,hideColumns(){},insertRowsBefore(row,n){rows.splice(row-2,0,...Array.from({length:n},()=>[]));},
  getRange(row,col,height=1,width=1){return {
  getValues:()=>Array.from({length:height},(_,i)=>Array.from({length:width},(_,j)=>row+i===1?headers[col+j-1]:(rows[row+i-2]?.[col+j-1]??''))),
+ getFormulas:()=>Array.from({length:height},()=>Array(width).fill('')),
  getValue:()=>rows[row-2]?.[col-1]??'',getDisplayValues:()=>[headers],
  setValue(value){assert(locked);rows[row-2][col-1]=value;},
  setValues(values){assert(locked);values.forEach((values,i)=>{rows[row+i-2]=[...values];if(dropNumber)rows[row+i-2][0]='';});},
@@ -63,3 +64,15 @@ test('repair refuses a duplicate number and failed persistence is never acknowle
  assert.equal(post(harness({dropNumber:true})).ok,false);
 });
 test('sequence overflow is rejected',()=>{const h=harness({initialRows:[[Number.MAX_SAFE_INTEGER,'']]});assert.equal(post(h).ok,false);assert.equal(h.rows.length,1);});
+
+test('calculation tails do not push new multi-item quotes to row 25000',()=>{
+ const rows=Array.from({length:25114},()=>[]);rows[0]=[225,'영국견적#225','','customer','nick','','Wine'];rows[25113]=Array(13).fill('');rows[25113][10]=123;
+ const h=harness({initialRows:rows});assert.equal(post(h,request('GB')).ok,true);assert.equal(h.rows[1][0],226);assert.equal(h.rows[25114][10],123);
+ const body=request('GB');const data=JSON.parse(body.payload);data.requestId='b'.repeat(64);body.payload=JSON.stringify(data);body.signature=createHmac('sha256','test-secret').update(body.timestamp+'.'+body.payload).digest('hex');
+ assert.equal(post(h,body).ok,true);assert.equal(h.rows[2][0],227);const count=h.rows.length;assert.equal(post(h,body).duplicate,true);assert.equal(h.rows.length,count);
+});
+test('row selection ignores formula-only and default quantity rows but preserves partial customer rows',()=>{
+ const h=harness();const rows=[[225,'영국견적#225'],['','영국견적#', '', '', '', '', '',6,'공동구매'],[],['','','','','','', '', '', '', 'https://seller.test/wine']];
+ const formulas=[[],['','=formula'],[],[]];assert.equal(h.context.quoteRecordRow_(rows,formulas,[]),6);assert.equal(h.context.quoteRecordRow_(rows.slice(0,3),formulas,[]),3);
+ assert.equal(h.context.quoteRecordRow_([[],[]],[[],[]],[[],['TW-'+'a'.repeat(64)]]),4);
+});
