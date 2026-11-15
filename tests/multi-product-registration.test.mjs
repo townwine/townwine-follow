@@ -24,3 +24,26 @@ test('market registration prefill does not create survey linkage or a price toke
  const html=load('group-registration-page.server.ts',{}).renderGroupRegistration(true,undefined,{title:'</script>{%bad%}',url:'https://example.com/products/wine',country:'GB'});
  assert.equal((html.match(/<script>/g)||[]).length,1);assert.doesNotMatch(html,/{%bad%}/);new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);assert.match(html,/if\(!prefill&&market\)/);
 });
+
+test('calculator registration restores HK GBP amounts and shipping without authorizing submission',()=>{
+ const html=load('group-registration-page.server.ts',{}).renderGroupRegistration();
+ const fn=html.slice(html.indexOf('function restoreCalculatorRegistration('),html.indexOf('if(!prefill&&!market)restoreCalculatorRegistration'));
+ const controls={},area={hidden:true},item={el:{querySelector:s=>s==='.quote'?area:(controls[s]??={value:''})},quote:null,token:''};
+ const ctx={URLSearchParams,Number,Object,currencies:{US:'USD',FR:'EUR',HK:'HKD',DE:'EUR',GB:'GBP',JP:'JPY'},updateCountry:()=>{},syncShipping:i=>{controls['[name=perShipping]']={value:String(Number(controls['[name=totalShipping]'].value)/Number(controls['[name=quantity]'].value))};},money:n=>String(n),message:()=>{}};
+ vm.createContext(ctx);vm.runInContext(fn,ctx);
+ const params=new URLSearchParams('from=calculator&destination=HK&hkCurrency=GBP&price=81.6&quantity=6&localShipping=9&origin=OTHER&hkViaUk=on&expectedPrice=203400');
+ assert.equal(ctx.restoreCalculatorRegistration(params,item),true);
+ for(const [name,value] of Object.entries({destination:'HK',hkCurrency:'GBP',price:'81.6',quantity:'6',totalShipping:'9',perShipping:'1.5',hkViaUk:'on'}))assert.equal(controls['[name='+name+']'].value,value);
+ assert.equal(item.quote,null);assert.equal(item.token,'');assert.equal(area.hidden,false);assert.match(area.textContent,/203400/);
+ params.set('quantity','-1');assert.equal(ctx.restoreCalculatorRegistration(params,item),false);
+});
+
+test('calculator registration links include all calculation inputs and clear when invalidated',()=>{
+ const source=readFileSync(new URL('../app/services/quote-preview-page.server.ts',import.meta.url),'utf8');
+ const fn=source.slice(source.indexOf('function updateRegistrationLinks()'),source.indexOf('function updateSurveyLinks()'));
+ const link={href:''},values={destination:'DE',price:'80',quantity:'6',localShipping:'0',origin:'EU',hkCurrency:'HKD',hkViaUk:false,germanyVatRefund:true};
+ const ctx={URLSearchParams,quote:{unitKrw:200000},form:{elements:{namedItem:n=>({value:values[n],checked:values[n]})}},document:{querySelectorAll:()=>[link]}};
+ vm.createContext(ctx);vm.runInContext(fn+'updateRegistrationLinks();',ctx);
+ let params=new URL(link.href,'https://town.wine').searchParams;assert.equal(params.get('price'),'80');assert.equal(params.get('germanyVatRefund'),'on');assert.equal(params.get('localShipping'),'0');
+ ctx.quote=null;vm.runInContext('updateRegistrationLinks();',ctx);assert.equal(link.href,'/apps/townwine-follow/group-buy-registration?step=register');
+});
