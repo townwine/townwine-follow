@@ -100,3 +100,33 @@ test('mail requests require ownership, public product, and completed participant
 test('join and cancel enqueue sheet sync with authenticated identity',async()=>{
  for(const intent of ['join','cancel']){const h=route();const response=await h.api.action({request:request(intent,{customerId:'999'})});assert.equal(response.status,303);assert.equal(h.sheetCalls.length,1);assert.equal(h.sheetCalls[0].create.customerId,'2');assert.equal(h.sheetCalls[0].update.syncedAt,null);assert.ok(!decodeURIComponent(response.headers.get('Location')).includes('실패'));}
 });
+
+function calculatorBrowser({search='',calculator,stored,blocked=false,price='',quantity=''}={}){
+ const storage=new Map(stored?[['townwine.calculator-survey.v1',JSON.stringify(stored)]]:[]);
+ const links=[{href:'https://town.wine/apps/townwine-follow/demand-surveys?view=new'},{href:'https://town.wine/account/login?return_url=x'}];
+ const fields={'[name=expectedPrice]':{value:price},'[name=targetQuantity]':{value:quantity},'#calculatorHandoffNotice':{hidden:true}};
+ const context={URL,URLSearchParams,Date,location:{search,origin:'https://town.wine'},sessionStorage:{getItem:k=>{if(blocked)throw Error('blocked');return storage.get(k);},setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},document:{querySelector:s=>fields[s]||null,querySelectorAll:s=>s==='#tw-demand a'?links:[]}};
+ const html=page.renderDemandPage({surveys:[],customerId:'1',token:'x',view:'new',id:'',notice:'',calculator});
+ vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],context);
+ return {storage,links,fields};
+}
+test('calculator draft survives list detour, registration link, and login return',()=>{
+ const value={expectedPrice:133300,targetQuantity:6,savedAt:Date.now()};
+ const list=calculatorBrowser({stored:value});
+ assert.equal(list.links[0].href,market.calculatorHandoffUrl(value));
+ const create=calculatorBrowser({search:'?view=new',stored:value});
+ assert.equal(create.fields['[name=expectedPrice]'].value,'133300');
+ assert.equal(create.fields['[name=targetQuantity]'].value,'6');
+ assert.equal(create.fields['#calculatorHandoffNotice'].hidden,false);
+ assert.ok(create.links[1].href.includes(encodeURIComponent(market.calculatorHandoffUrl(value))));
+});
+test('calculator drafts expire, do not override market or user input, and tolerate unavailable storage',()=>{
+ const value={expectedPrice:133300,targetQuantity:6,savedAt:Date.now()};
+ for(const options of [{stored:{...value,savedAt:Date.now()-7200001}},{stored:{...value,expectedPrice:-1}},{stored:value,search:'?view=new&from=market'},{stored:value,blocked:true}]){
+  assert.equal(calculatorBrowser(options).fields['[name=expectedPrice]'].value,'');
+ }
+ const existing=calculatorBrowser({stored:value,search:'?view=new',price:'150000',quantity:'12'});
+ assert.equal(existing.fields['[name=expectedPrice]'].value,'150000');assert.equal(existing.fields['[name=targetQuantity]'].value,'12');
+ const explicit=calculatorBrowser({stored:value,search:'?view=new&from=calculator',calculator:{expectedPrice:250000,targetQuantity:3}});
+ assert.equal(explicit.fields['[name=expectedPrice]'].value,'250000');
+});

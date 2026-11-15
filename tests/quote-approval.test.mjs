@@ -1,3 +1,4 @@
+import * as marketHandoff from '../app/services/market-handoff.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -31,7 +32,7 @@ test('server forces FTA N for other origins',()=>{
  }
 });
 test('rendered page contains approval step and valid inline script',()=>{
- const html=module('quote-preview-page.server.ts').renderQuotePreview();assert(html.includes('4. 운영자 승인'));assert(html.includes('공구 등록</h1>'));assert(html.includes('와인 원산지'));assert(!html.includes('id="breakdown"'));new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
+ const html=module('quote-preview-page.server.ts',{'./market-handoff':marketHandoff}).renderQuotePreview();assert(html.includes('4. 운영자 승인'));assert(html.includes('공구 등록</h1>'));assert(html.includes('와인 원산지'));assert(!html.includes('id="breakdown"'));new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
 });
 
 test('registrant approval waits for participant priority delivery',async()=>{const h=harness({priorityReady:false});await h.service.notifyQuoteApproval('test');assert.equal(h.calls(),0);assert.equal(h.row.approvalEmailSentAt,null);});

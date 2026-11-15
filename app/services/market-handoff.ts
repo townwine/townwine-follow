@@ -29,3 +29,12 @@ export function readCalculatorHandoff(params:URLSearchParams){
 export function calculatorHandoffUrl(value:{expectedPrice:number;targetQuantity:number}){
  return '/apps/townwine-follow/demand-surveys?'+new URLSearchParams({view:'new',from:'calculator',expectedPrice:String(value.expectedPrice),quantity:String(value.targetQuantity)});
 }
+
+/** Same-tab draft only; failures (e.g. private storage restrictions) retain URL handoff. */
+export const calculatorDraftScript = `
+const calculatorDraftKey='townwine.calculator-survey.v1';
+function validCalculatorDraft(value){return value&&Number.isSafeInteger(value.expectedPrice)&&value.expectedPrice>0&&value.expectedPrice<=100000000&&Number.isSafeInteger(value.targetQuantity)&&value.targetQuantity>0&&value.targetQuantity<=10000;}
+function saveCalculatorDraft(value){try{if(validCalculatorDraft(value))sessionStorage.setItem(calculatorDraftKey,JSON.stringify({...value,savedAt:Date.now()}));else sessionStorage.removeItem(calculatorDraftKey);}catch{}}
+function loadCalculatorDraft(){try{const value=JSON.parse(sessionStorage.getItem(calculatorDraftKey)||'null');if(validCalculatorDraft(value)&&Number.isFinite(value.savedAt)&&Date.now()-value.savedAt>=0&&Date.now()-value.savedAt<2*60*60*1000)return value;sessionStorage.removeItem(calculatorDraftKey);}catch{}return null;}
+function calculatorDraftUrl(value){return '/apps/townwine-follow/demand-surveys?'+new URLSearchParams({view:'new',from:'calculator',expectedPrice:String(value.expectedPrice),quantity:String(value.targetQuantity)});}
+`;
