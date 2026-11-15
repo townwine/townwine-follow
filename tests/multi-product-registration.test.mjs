@@ -47,3 +47,6 @@ test('calculator registration links include all calculation inputs and clear whe
  let params=new URL(link.href,'https://town.wine').searchParams;assert.equal(params.get('price'),'80');assert.equal(params.get('germanyVatRefund'),'on');assert.equal(params.get('localShipping'),'0');
  ctx.quote=null;vm.runInContext('updateRegistrationLinks();',ctx);assert.equal(link.href,'/apps/townwine-follow/group-buy-registration?step=register');
 });
+
+test('multi-product choices use wine names without leading numbers',async()=>{const h=harness();await h.service.registerQuoteDraft(h.admin,'test.myshopify.com','123',form());assert.deepEqual(Array.from(h.product().productOptions[0].values,x=>x.name),['Wine A','Wine B']);assert.deepEqual(Array.from(h.product().variants,x=>x.optionValues[0].name),['Wine A','Wine B']);});
+test('identical wine names remain distinct options without numbered prefixes',async()=>{const h=harness(),f=form();f.set('additionalItems',JSON.stringify([item('Wine A','per_bottle','2')]));await h.service.registerQuoteDraft(h.admin,'test.myshopify.com','123',f);assert.deepEqual(Array.from(h.product().variants,x=>x.optionValues[0].name),['Wine A','Wine A (동일 상품 2)']);});
