@@ -4,8 +4,7 @@ import {refreshingNotificationAdmin} from './notification-query.server';
 import {isSoldOut, queryProcurement, refreshPaidQuantities, registeredTotal, type OrderLedger, type Registration, type StockProduct} from './quote-procurement-data.server';
 
 export const PROCUREMENT_RECIPIENTS=['ted1990@gmail.com','info@town.wine'] as const;
-// GB and HK stay disabled until their procurement workflow is opened.
-export const PROCUREMENT_COUNTRIES:readonly string[]=['US'];
+export const PROCUREMENT_COUNTRIES:readonly string[]=['US','FR','DE','GB','HK','JP'];
 type Notice = {registration:Registration; paidQuantity:number; productUrl:string; detectedAt:string};
 type State = OrderLedger & {notice?:Notice; sentTo?:string[]};
 const escapeHtml=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));

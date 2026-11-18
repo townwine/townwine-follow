@@ -8,7 +8,7 @@ function load(name,deps={}){
   const source=readFileSync(new URL('../app/services/'+name,import.meta.url),'utf8');
   const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   const exports={};
-  vm.runInNewContext(code,{exports,require:name=>{if(!(name in deps))throw Error(name);return deps[name];},console,Date,URL,encodeURIComponent,setInterval});
+  vm.runInNewContext(code,{exports,require:name=>{if(!(name in deps))throw Error(name);return deps[name];},console,Date,URL,encodeURIComponent,setInterval,setTimeout:(fn)=>setTimeout(fn,0)});
   return exports;
 }
 const data=load('quote-procurement-data.server.ts',{'./notification-query.server':{readNotificationQuery:async r=>{const result=await r.json();if(!r.ok||result.errors||!result.data)throw Error('query failed');return result;}}});
@@ -73,8 +73,8 @@ test('one recipient failure retries only that recipient with a stable key and bo
   const h=harness({failRecipient:'info@town.wine'});await assert.rejects(h.service.processQuoteProcurement('request'));assert.equal(h.row.procurementSentAt,null);assert.equal(h.row.procurementLeaseAt,null);
   h.allowDelivery();await h.service.processQuoteProcurement('request');assert.deepEqual(h.calls.map(x=>x.to),['ted1990@gmail.com','info@town.wine','info@town.wine']);assert.equal(h.calls[1].idempotencyKey,h.calls[2].idempotencyKey);assert.equal(h.calls[1].text,h.calls[2].text);assert(h.row.procurementSentAt);
 });
-test('non-US and unknown countries never send, including previously prepared notices',async()=>{
-  for(const country of ['GB','HK','FR','DE','JP','',null]){
+test('unknown countries never send, including previously prepared notices',async()=>{
+  for(const country of ['',null,'UNKNOWN']){
     const h=harness({country});
     await h.service.processQuoteProcurement('request');
     h.row.procurementState=JSON.stringify({orders:{},notice:{registration,paidQuantity:6,productUrl:'https://test.myshopify.com/products/wine',detectedAt:new Date().toISOString()},sentTo:[]});
@@ -92,4 +92,26 @@ test('unpaid target, untracked inventory, draft and log-only mode never send mai
   for(const options of [{paid:5},{stock:{...product,status:'DRAFT'}},{stock:{...product,variants:page([{...product.variants.nodes[0],inventoryItem:{tracked:false}}])}},{mode:'log-only'}]){
     const h=harness(options);try{await h.service.processQuoteProcurement('request');}catch{}assert.equal(h.calls.length,0);assert.equal(h.row.procurementSentAt,null);
   }
+});
+
+test('every supported country sends both recipients on full payment and sellout',async()=>{
+  for(const country of ['US','FR','DE','GB','HK','JP']){
+    const h=harness({country});await h.service.processQuoteProcurement('request');
+    assert.equal(h.calls.length,2,country);assert(h.row.procurementSentAt);
+  }
+});
+test('throttled queries retry without losing order pages and use bounded nested queries',async()=>{
+  let calls=0;
+  const admin={graphql:async(q)=>{
+    assert(q.includes('orders(first:10,'));assert(q.includes('lineItems(first:20)'));
+    if(++calls<3)throw Error('Throttled');
+    return {ok:true,json:async()=>({data:{orders:page([order('paid',[line(6)])])}})};
+  }};
+  const ledger=await data.refreshPaidQuantities(admin,'product',{checkpoint:new Date().toISOString(),orders:{}});
+  assert.equal(calls,3);assert.equal(ledger.orders.paid,6);
+});
+test('persistent throttling stops after bounded retries',async()=>{
+  let calls=0;
+  await assert.rejects(data.queryProcurement({graphql:async()=>{calls++;throw Error('Throttled');}},'query',{}),/Throttled/);
+  assert.equal(calls,5);
 });

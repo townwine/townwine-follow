@@ -12,8 +12,16 @@ export type StockProduct = {
 };
 
 export async function queryProcurement<T>(admin:DraftAdmin,query:string,variables:Record<string,unknown>):Promise<T>{
-  const result=await readNotificationQuery(await admin.graphql(query,{variables}));
-  return result.data as T;
+  for(let attempt=0;;attempt++){
+    try{
+      const result=await readNotificationQuery(await admin.graphql(query,{variables}));
+      return result.data as T;
+    }catch(error){
+      // Keep the checkpoint unchanged until every page has been read successfully.
+      if(attempt>=4 || !/throttl|429/i.test(String(error)))throw error;
+      await new Promise(resolve=>setTimeout(resolve,1000*2**attempt));
+    }
+  }
 }
 
 export function isSoldOut(product:StockProduct|null):boolean {
@@ -50,8 +58,8 @@ export async function refreshPaidQuantities(admin:DraftAdmin,productId:string,le
   const seen=new Set<string>();
   do{
     const data: {orders:Page<Order>}=await queryProcurement(admin,`query ProcurementOrders($search:String!,$after:String){
-      orders(first:50,after:$after,sortKey:UPDATED_AT,query:$search){
-        nodes{id test cancelledAt displayFinancialStatus lineItems(first:100){nodes{currentQuantity product{id}} pageInfo{hasNextPage endCursor}}}
+      orders(first:10,after:$after,sortKey:UPDATED_AT,query:$search){
+        nodes{id test cancelledAt displayFinancialStatus lineItems(first:20){nodes{currentQuantity product{id}} pageInfo{hasNextPage endCursor}}}
         pageInfo{hasNextPage endCursor}
       }
     }`,{search,after});
