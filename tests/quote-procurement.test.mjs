@@ -48,7 +48,7 @@ test('API failure and missing historical coverage fail closed',async()=>{
 });
 
 function harness({stock=product,paid=6,failRecipient='',mode='live',country='US'}={}){
-  const row={id:'request',productId:'product',shop:'test.myshopify.com',quoteJson:JSON.stringify({country}),createdAt:new Date(),procurementRegistration:JSON.stringify(registration),procurementState:null,procurementLeaseAt:null,procurementSentAt:null};
+  const row={id:'request',productId:'product',shop:'test.myshopify.com',quoteJson:JSON.stringify({country}),sheetPayload:JSON.stringify({nickname:'와인친구'}),createdAt:new Date(),procurementRegistration:JSON.stringify(registration),procurementState:null,procurementLeaseAt:null,procurementSentAt:null};
   const calls=[];let failure=failRecipient;
   const db={findUniqueOrThrow:async()=>({...row}),update:async({data})=>Object.assign(row,data),updateMany:async({where,data})=>{
     if(where.OR){if(row.procurementLeaseAt||row.procurementSentAt)return {count:0};}
@@ -114,4 +114,14 @@ test('persistent throttling stops after bounded retries',async()=>{
   let calls=0;
   await assert.rejects(data.queryProcurement({graphql:async()=>{calls++;throw Error('Throttled');}},'query',{}),/Throttled/);
   assert.equal(calls,5);
+});
+
+test('procurement email identifies quote destination and registering customer safely',async()=>{
+  const h=harness({country:'GB'});await h.service.processQuoteProcurement('request');
+  assert(h.calls[0].text.includes('견적 국가: 영국'));
+  assert(h.calls[0].text.includes('공구 등록 고객 닉네임: 와인친구'));
+  const message=h.service.procurementEmail({registration,paidQuantity:6,productUrl:'https://town.wine',detectedAt:'now',country:'HK',nickname:'<고객>'});
+  assert(message.text.includes('견적 국가: 홍콩'));assert(message.html.includes('&lt;고객&gt;'));
+  const legacy=h.service.procurementEmail({registration,paidQuantity:6,productUrl:'https://town.wine',detectedAt:'now'});
+  assert(legacy.text.includes('공구 등록 고객 닉네임: 미등록'));
 });

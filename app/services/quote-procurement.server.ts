@@ -5,15 +5,20 @@ import {isSoldOut, queryProcurement, refreshPaidQuantities, registeredTotal, typ
 
 export const PROCUREMENT_RECIPIENTS=['ted1990@gmail.com','info@town.wine'] as const;
 export const PROCUREMENT_COUNTRIES:readonly string[]=['US','FR','DE','GB','HK','JP'];
-type Notice = {registration:Registration; paidQuantity:number; productUrl:string; detectedAt:string};
+type Notice = {registration:Registration; paidQuantity:number; productUrl:string; detectedAt:string; country?:string; nickname?:string};
 type State = OrderLedger & {notice?:Notice; sentTo?:string[]};
 const escapeHtml=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 
 export function procurementEmail(notice:Notice){
   const r=notice.registration;
+  const countries:Record<string,string>={US:'미국',FR:'프랑스',DE:'독일',GB:'영국',HK:'홍콩',JP:'일본'};
+  const country=countries[notice.country||'']||notice.country||'미등록';
+  const nickname=notice.nickname?.trim()||'미등록';
   const lines=[
     '공구 등록 수량이 품절되었습니다. 아래 와인 상품을 발주해 주세요.',
     '',
+    '견적 국가: '+country,
+    '공구 등록 고객 닉네임: '+nickname,
     '와인명: '+r.title,
     '와인 상품 URL: '+(r.sourceUrl||'미입력 - 발주 전 원본 판매처 확인 필요'),
     '발주 수량: '+r.quantity+'병',
@@ -82,7 +87,8 @@ export async function processQuoteProcurement(id:string){
       await persist();
     }
     if(getEmailDeliveryRuntimeStatus().mode!=='live')throw new Error('메일 실발송 설정 확인 필요');
-    const message=procurementEmail(state.notice);
+    const sheet=JSON.parse(row.sheetPayload||'null');
+    const message=procurementEmail({...state.notice,country:savedQuote.country,nickname:sheet?.nickname});
     for(const to of PROCUREMENT_RECIPIENTS){
       if(state.sentTo?.some(sent=>sent.toLowerCase()===to.toLowerCase()))continue;
       await persist();
