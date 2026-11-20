@@ -37,7 +37,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
  const input=parseRegistrationInput(form);const signed=readQuoteToken(String(form.get('quoteToken')||''),shop,customerId,input,process.env.SHOPIFY_API_SECRET||'');
  if(form.get('confirmed')!=='on')throw new Error('상품 정보와 예상 판매가를 확인해 주세요.');
  const title=String(form.get('title')||'').trim(),note=String(form.get('shippingNote')||'').trim();
- if(!title||title.length>240||note.length>1000)throw new Error('와인명과 배송 안내를 확인해 주세요.');
+ if(!title||title.length>240||note.length>1000)throw new Error('와인명과 운영자에게 전할 내용을 확인해 주세요.');
  const schedule=parseGroupSchedule(String(form.get('openDate')||''),String(form.get('purchaseAt')||''));
  const source=String(form.get('url')||'').trim();let sourceUrl='';try{if(source)sourceUrl=productUrl(source).href;}catch{/* Manual quotes do not require a source URL. */}
  const file=form.get('imageFile');const bytes=file instanceof File&&file.size?new Uint8Array(await file.arrayBuffer()):null;
@@ -75,7 +75,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
  try{
   const collector=await findCollectorProfileByCustomerId(admin,customerId);if(!collector)throw new Error('마이페이지에서 컬렉터 프로필을 등록한 후 승인 요청을 보내주세요.');
   const customerData=await query(admin,'query($id:ID!){customer(id:$id){email}}',{id:'gid://shopify/Customer/'+customerId});
-  const sheetPayload:SheetPayload={requestId:id,country:input.country,customerId,email:customerData.customer?.email||collector.fields.customerEmail,nickname:collector.fields.displayName,title:items[0].title,sourceUrl,createdAt:row.createdAt.toISOString(),input,quote:JSON.parse(row.quoteJson)};
+  const sheetPayload:SheetPayload={requestId:id,country:input.country,customerId,email:customerData.customer?.email||collector.fields.customerEmail,nickname:collector.fields.displayName,shippingNote:note,title:items[0].title,sourceUrl,createdAt:row.createdAt.toISOString(),input,quote:JSON.parse(row.quoteJson)};
   if(extras.length)sheetPayload.items=items.map((item,index)=>({...sheetPayload,requestId:createHash('sha256').update(id+':item:'+index).digest('hex'),title:item.title,sourceUrl:item.sourceUrl,country:item.input.country,input:item.input,quote:item.quote}));
   await prisma.quoteDraftRequest.update({where:{id},data:{sheetPayload:JSON.stringify(sheetPayload)}});
   const found=await query(admin,'query($handle:String!){productByHandle(handle:$handle){id status} shop{currencyCode}}',{handle});
@@ -102,7 +102,7 @@ export async function registerQuoteDraft(admin:DraftAdmin,shop:string,customerId
    const optionNames=items.map(item=>{const base=extras.length?item.title:'Default Title';let name=base,suffix=2;while(usedOptionNames.has(name))name=base+' (동일 상품 '+(suffix++)+')';usedOptionNames.add(name);return name;});
    const data=await query(admin,'mutation($input:ProductSetInput!){productSet(input:$input,synchronous:true){product{id status handle} userErrors{message}}}',{input:{
     title:displayTitle,handle,status:'DRAFT',productType:'Wine',vendor:countries.map(c=>groupBuySuppliers[c]).join(' / '),tags:['공구등록요청','승인대기',country,'customer-'+customerId],
-    descriptionHtml:'<h2>'+escape(title)+'</h2>'+items.map(item=>'<h3>'+escape(item.title)+'</h3><p>750ml · 모집 수량 '+item.input.bottles+'병 · 배송센터: '+escape(registrationCountries[item.input.country])+'</p>').join('')+(note?'<p>'+escape(note)+'</p>':''),
+    descriptionHtml:'<h2>'+escape(title)+'</h2>'+items.map(item=>'<h3>'+escape(item.title)+'</h3><p>750ml · 모집 수량 '+item.input.bottles+'병 · 배송센터: '+escape(registrationCountries[item.input.country])+'</p>').join('')+(note?'<h3>운영자에게 전하고 싶은 내용</h3><p>'+escape(note).replace(/\r?\n/g,'<br>')+'</p>':''),
     productOptions:[{name:extras.length?'상품':'Title',values:items.map((item,index)=>({name:optionNames[index]}))}],variants:items.map((item,index)=>({optionValues:[{optionName:extras.length?'상품':'Title',name:optionNames[index]}],price:itemPrices[index],inventoryPolicy:'DENY',inventoryItem:{tracked:true},inventoryQuantities:[{locationId,name:'available',quantity:item.input.bottles}],...(item.imageUrl?{file:{originalSource:item.imageUrl,contentType:'IMAGE',alt:item.title}}:{})})),
     metafields:[...collectorFields,{namespace:'custom',key:'policy_shipping',type:'multi_line_text_field',value:shippingPolicy(countries)},{namespace:'custom',key:'policy_refund',type:'multi_line_text_field',value:refundPolicy(schedule.purchaseAtKst)},{namespace:'townwine',key:'registration_request',type:'json',value:JSON.stringify(metadata)},...(sourceUrl?[{namespace:'custom',key:'quote_source_url',type:'url',value:sourceUrl}]:[])],
     files:Array.from(new Map(items.filter(item=>item.imageUrl).map(item=>[item.imageUrl,{originalSource:item.imageUrl,contentType:'IMAGE',alt:item.title}])).values())

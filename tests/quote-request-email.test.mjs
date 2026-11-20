@@ -37,3 +37,20 @@ test('store product link uses town.wine for both text and HTML regardless of Sho
   }
  }
 });
+
+test('operator message is included in text and escaped multiline HTML for single and multiple products',async()=>{
+ for(const items of [undefined,[{title:'Second wine',sourceUrl:'https://example.invalid/wine',input:{country:'FR',bottles:2}}]]){
+  const h=harness();const saved=JSON.parse(h.row.sheetPayload);
+  h.row.sheetPayload=JSON.stringify({...saved,items,shippingNote:'비공개 링크 요청\n1인당 2병 <제한> & 확인'});
+  await h.service.notifyQuoteRequestRegistered('request');
+  assert.ok(h.calls[0].text.includes('운영자에게 전하고 싶은 내용: 비공개 링크 요청\n1인당 2병 <제한> & 확인'));
+  assert.ok(h.calls[0].html.includes('비공개 링크 요청<br>1인당 2병 &lt;제한&gt; &amp; 확인'));
+ }
+});
+test('empty and legacy requests omit the operator message section',async()=>{
+ for(const shippingNote of [undefined,'','  ']){
+  const h=harness();h.row.sheetPayload=JSON.stringify({...JSON.parse(h.row.sheetPayload),shippingNote});
+  await h.service.notifyQuoteRequestRegistered('request');
+  assert.ok(!h.calls[0].text.includes('운영자에게 전하고 싶은 내용:'));
+ }
+});

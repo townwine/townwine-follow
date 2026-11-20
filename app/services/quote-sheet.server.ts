@@ -10,6 +10,7 @@ import {retryQuoteRequestEmails} from './quote-request-email.server';
 export type SheetPayload = {
   requestId:string; country:QuoteInput['country']; customerId:string;
   email:string; nickname:string; title:string; sourceUrl:string; createdAt:string;
+  shippingNote?:string;
   input:QuoteInput; quote:ReturnType<typeof calculateDemandQuote>; items?:SheetPayload[];
 };
 
